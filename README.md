@@ -42,13 +42,6 @@ A minimal, distraction-free note-taking application built with Electron.js, insp
 - **Auto-Close Sidebar**: Sidebar closes automatically when selecting notes
 - **Live Time Display**: Current system time updated every second
 
-## 🚀 Installation
-
-### Prerequisites
-- **Node.js** (v16 or higher)
-- **npm** (comes with Node.js)
-- **Windows 10/11** (primary target platform)
-
 ### Quick Start
 
 1. **Clone the repository**
@@ -66,13 +59,6 @@ A minimal, distraction-free note-taking application built with Electron.js, insp
    ```bash
    npm start
    ```
-
-### Building for Distribution
-
-Create a Windows installer:
-```bash
-npm run build
-```
 
 The installer will be generated in the `dist/` folder.
 
@@ -136,97 +122,6 @@ notes-app/
     └── utils/           # (Prepared for expansion)
 ```
 
-### Technology Stack
-- **Electron**: v36.5.0 (Latest stable)
-- **electron-store**: v8.1.0 (Persistent data storage)
-- **electron-builder**: v24.9.1 (Application packaging)
-- **Pure JavaScript**: No external UI frameworks
-- **CSS3**: Modern styling with animations and themes
-- **HTML5**: Semantic structure with accessibility support
-
-### Security Features
-- ✅ **Context Isolation**: Enabled
-- ✅ **Node Integration**: Disabled in renderer
-- ✅ **Preload Script**: Secure IPC communication
-- ✅ **Content Security**: Sanitized user input
-- ✅ **File System**: Controlled access via main process
-
-### Data Storage
-- **Format**: JSON files via electron-store
-- **Location**: OS-specific app data directory
-- **Structure**: Array of note objects with metadata
-- **Backup**: Automatic atomic writes prevent corruption
-- **Schema**: 
-  ```json
-  {
-    "id": "timestamp-string",
-    "title": "Note Title",
-    "content": "HTML content",
-    "createdAt": "ISO-date",
-    "updatedAt": "ISO-date",
-    "tags": ["array"]
-  }
-  ```
-
-## ⚙️ Configuration
-
-### Application Settings
-Settings are automatically saved and include:
-- `fontSize`: 12-24px (default: 16)
-- `fontFamily`: Font selection (default: Inter)
-- `theme`: "dark" or "light" (default: dark)
-- `autoSave`: Always enabled (3-second interval)
-- `wordWrap`: Always enabled
-
-### Build Configuration
-The app is configured for Windows distribution with:
-- **Target**: NSIS installer
-- **App ID**: com.notesapp.app
-- **Auto-updater**: Ready for implementation
-- **Icon**: Configurable (assets/icon.ico)
-
-## 🔧 Development
-
-### Running in Development
-```bash
-npm start
-```
-
-### Debugging
-```bash
-# Enable DevTools and logging
-npm start -- --enable-logging
-```
-
-### Code Style
-- **ES6+**: Modern JavaScript features
-- **Modular Design**: Separated concerns and responsibilities
-- **Event-Driven**: Clean event handling and IPC
-- **Responsive**: Mobile-friendly CSS (media queries)
-
-## 🚨 Troubleshooting
-
-### Common Issues
-
-| Problem | Solution |
-|---------|----------|
-| App won't start | Check Node.js version (≥16) |
-| Notes not saving | Verify app data directory permissions |
-| Formatting buttons inactive | Ensure editor has focus |
-| Sidebar animation glitchy | Update to latest version |
-| Theme not persisting | Check electron-store permissions |
-
-### Debug Mode
-Open DevTools in development:
-```javascript
-// In main.js, add:
-mainWindow.webContents.openDevTools();
-```
-
-### Data Recovery
-Notes are stored in:
-- **Windows**: `%APPDATA%/notes-app/config.json`
-
 ## 🤝 Contributing
 
 1. **Fork** the repository
@@ -235,11 +130,6 @@ Notes are stored in:
 4. **Push** to the branch (`git push origin feature/amazing-feature`)
 5. **Open** a Pull Request
 
-### Development Guidelines
-- Follow existing code style and structure
-- Test all formatting and theme functionality
-- Ensure cross-platform compatibility
-- Update documentation for new features
 
 ## 📄 License
 
@@ -269,4 +159,4 @@ Notes are stored in:
 
 ---
 
-**Built with ❤️ for focused writing and productivity** 
+**Built because windows needs it** 
