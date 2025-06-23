@@ -1,0 +1,167 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# === GENERAL RULES ===
+- Use JavaScript (ES6+) across the codebase. Prefer TypeScript only if the full project will support it with type safety.
+- All code must follow modular design. No inline JS in HTML. Separate logic into reusable functions and components.
+- Avoid any unused code, variables, or dead comments.
+- Favor readability over cleverness. Descriptive naming is required.
+- Always group DOM elements and logic meaningfully (e.g., editor, toolbar, sidebar).
+
+# === ELECTRON BEST PRACTICES ===
+- Separate responsibilities cleanly:
+  - `main.js`: for Electron app lifecycle and IPC wiring only.
+  - `preload.js`: only expose safe APIs using `contextBridge`.
+  - `renderer/`: for all UI, local storage, and frontend logic.
+
+- Use `contextIsolation: true`, `nodeIntegration: false`, `enableRemoteModule: false` in `BrowserWindow` config.
+- Use IPC (inter-process communication) for all file system access via the `main` process — never allow renderer direct FS access.
+- Prevent multiple windows by using `app.requestSingleInstanceLock()`.
+- Validate all IPC messages in main process before processing.
+- Use specific IPC channel names, avoid wildcards or generic handlers.
+- Sanitize all file paths and user input before file system operations.
+
+# === UI STRUCTURE ===
+- Main layout must be clean and minimal. Background should be dark with light text (like in Freewrite).
+- UI Layout must consist of:
+  - A full-screen, distraction-free text editor.
+  - A bottom bar with:
+    - History button (toggles sidebar)
+    - Current system time (updated every second)
+    - Font selector (dropdown with fallback fonts)
+    - Font size control (dropdown or stepper)
+  - A collapsible left sidebar (for date-wise history).
+- Use Tailwind CSS (preferred) or scoped CSS for styling. No global class names.
+
+# === EDITOR BEHAVIOR ===
+- Editor must use `<div contenteditable="true">` with `plaintext-only` attribute or equivalent HTML stripping.
+- Implement proper cursor position management for all formatting operations.
+- Alternative: Consider textarea with formatting overlay for complex scenarios.
+- Implement the following formatting options:
+  - Bold, Italic, Underline, Strikethrough
+  - Use `execCommand` or custom commands if Markdown isn't being used.
+- Prevent uncontrolled HTML injection in contenteditable areas.
+- Always sanitize pasted content to plain text.
+- To-do list format:
+  - Detect checkboxes or list syntax and render accordingly.
+  - Allow toggling to-dos (checked/unchecked).
+  - Include a "Convert to Note" button next to each completed task.
+
+# === HISTORY AND DATA PERSISTENCE ===
+- Use a local storage solution (`lowdb` or a custom JSON file via IPC) to store notes.
+- Notes must be grouped and accessed date-wise.
+- History view should allow:
+  - Listing previous notes by date
+  - Clicking a note loads it into the editor (non-destructive)
+  - Virtual scrolling for large history lists
+  - Lazy loading of historical note content
+- Autosave editor content every 30 seconds and on blur (debounced).
+
+# === STORAGE RULES ===
+- Store all note data in a JSON file (e.g., `storage/notes.json`).
+- Store font preferences and settings in separate config file (e.g., `storage/config.json`).
+- File structure must support:
+  - `{ "2025-06-23": [{ "id": ..., "content": ..., "type": "note"|"todo", "createdAt": ..., "updatedAt": ... }] }`
+- Never overwrite the entire file without checking diff (merge notes per day if needed).
+- Implement atomic writes (write to temp file, then rename to prevent corruption).
+- Add comprehensive data validation before saving any content.
+- Handle concurrent access gracefully with file locking or queuing.
+- Implement data migration strategy for schema changes.
+- All file reads/writes must be handled in the main process with IPC.
+- Create automatic backup file (`notes.bak.json`) before major operations.
+
+# === PERFORMANCE ===
+- Debounce autosave operations to avoid excessive file writes.
+- Implement virtual scrolling for large history lists to maintain performance.
+- Use lazy loading for historical notes content - load only when viewed.
+- Use `requestIdleCallback` for non-critical operations like cleanup.
+- Avoid blocking the main thread with synchronous IO operations.
+- Implement efficient diff algorithms for note comparison.
+
+# === STATE & REACTIVITY ===
+- Maintain app state in the renderer using a global store or event-based system.
+- Avoid inline event listeners. Use `addEventListener` via JS modules.
+- The font size and font family settings should persist across sessions.
+- Implement global error handling for uncaught exceptions.
+- Add user-friendly error messages for file operations and edge cases.
+- Implement graceful degradation when storage operations fail.
+- Validate font availability before applying, provide cross-platform fallbacks.
+
+# === COMPONENT STRUCTURE (IN RENDERER) ===
+- Separate components with single responsibility:
+  - `Editor.js` - Main text editing functionality
+  - `Toolbar.js` - Formatting controls and buttons
+  - `Sidebar.js` - History navigation and management
+  - `HistoryItem.js` - Individual note display in history
+  - `Settings.js` - User preferences and configuration
+  - `ErrorHandler.js` - Global error management
+- Each component must be independently testable and modular.
+- Components should communicate via events or shared state, not direct coupling.
+
+# === KEYBOARD SHORTCUTS ===
+- Implement essential shortcuts:
+  - `Ctrl+B/I/U/S` for Bold/Italic/Underline/Strikethrough
+  - `Ctrl+Enter` to mark a to-do complete
+  - `Ctrl+N` for new note
+  - `Ctrl+S` for manual save
+  - `Ctrl+H` or `Ctrl+/` to toggle sidebar
+  - `Esc` to exit fullscreen or return focus to editor
+- All shortcuts must be cross-platform compatible (Cmd on macOS).
+- Provide visual indicators for available shortcuts.
+
+# === ACCESSIBILITY & UX ===
+- Cursor should always stay visible and properly positioned.
+- Editor should autofocus on app open and maintain focus appropriately.
+- Toolbar buttons must have tooltips and proper ARIA labels.
+- Sidebar must be togglable via keyboard and mouse.
+- Implement proper focus management throughout the application.
+- Ensure sufficient color contrast in dark theme.
+- Support screen readers with semantic HTML and ARIA attributes.
+
+# === ERROR HANDLING & RESILIENCE ===
+- Implement comprehensive error boundaries for all major operations.
+- Add retry logic for failed file operations with exponential backoff.
+- Gracefully handle corrupted data files with recovery options.
+- Provide clear user feedback for all error states.
+- Log errors appropriately without exposing sensitive information.
+- Implement data integrity checks on startup.
+- Handle edge cases like disk full, permission denied, network drive issues.
+
+# === TESTING STRATEGY ===
+- Write unit tests for each renderer component using a testing framework.
+- Implement IPC communication tests to verify message passing.
+- Add storage integrity tests to ensure data consistency.
+- Use Spectron or similar framework for end-to-end testing.
+- Test keyboard shortcuts and accessibility features.
+- Validate error handling and recovery scenarios.
+- Test cross-platform compatibility and font rendering.
+
+# === SECURITY CONSIDERATIONS ===
+- Never trust user input - validate and sanitize all content.
+- Implement Content Security Policy (CSP) headers.
+- Use secure defaults for all Electron security features.
+- Regularly audit dependencies for security vulnerabilities.
+- Implement proper session management and data encryption if needed.
+- Validate file paths to prevent directory traversal attacks.
+
+# === DO NOT ===
+- Do not use jQuery or any DOM-heavy libraries.
+- Do not allow file system writes from the renderer process.
+- Do not use unscoped styles or unsemantic HTML.
+- Do not block the main thread with synchronous IO operations.
+- Do not allow uncontrolled HTML injection in contenteditable areas.
+- Do not ignore error conditions or fail silently.
+- Do not store sensitive data in plain text without encryption.
+- Do not use deprecated Electron APIs or insecure practices.
+- Do not implement custom protocol handlers without proper validation.
+
+# === DEPLOYMENT & MAINTENANCE ===
+- Use electron-builder or similar for consistent packaging.
+- Implement automatic update mechanism with proper signature verification.
+- Provide clear installation and setup instructions.
+- Include logging for debugging production issues.
+- Document all configuration options and their effects.
+
+- Plan for data migration and backward compatibility.

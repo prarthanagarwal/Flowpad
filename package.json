@@ -1,0 +1,46 @@
+{
+  "name": "notes-app",
+  "version": "1.0.0",
+  "description": "A minimal note-taking app with Electron.js",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "dist": "electron-builder --publish=never"
+  },
+  "keywords": [
+    "electron",
+    "notes",
+    "productivity",
+    "writing"
+  ],
+  "author": "Notes App",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^36.5.0",
+    "electron-builder": "^24.9.1"
+  },
+  "dependencies": {
+    "electron-store": "^8.1.0"
+  },
+  "build": {
+    "appId": "com.notesapp.app",
+    "productName": "Notes App",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!node_modules/**/*",
+      "node_modules/electron-store/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+} 

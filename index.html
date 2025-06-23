@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notes App</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Title Bar Replacement -->
+        <div class="title-bar">
+            <div class="title-bar-content">
+                <div class="app-title">Notes App</div>
+                <div class="current-note-title" id="currentNoteTitle">New Note</div>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Sidebar Overlay -->
+            <div class="sidebar-overlay" id="sidebarOverlay"></div>
+            
+            <!-- Sidebar for History -->
+            <div class="sidebar" id="sidebar">
+                <div class="sidebar-header">
+                    <h3>Notes History</h3>
+                    <button class="close-sidebar" id="closeSidebar">&times;</button>
+                </div>
+                <div class="search-container">
+                    <input type="text" id="searchNotes" placeholder="Search notes..." class="search-input">
+                </div>
+                <div class="notes-list" id="notesList">
+                    <!-- Notes will be dynamically populated here -->
+                </div>
+            </div>
+
+            <!-- Editor Area -->
+            <div class="editor-container">
+                <div class="editor-header">
+                    <input type="text" id="noteTitle" placeholder="Note title..." class="note-title-input">
+                </div>
+                
+
+
+                <!-- Main Editor -->
+                <div class="editor-wrapper">
+                    <div id="editor" class="editor" contenteditable="true" spellcheck="true"></div>
+                    <div class="editor-placeholder" id="editorPlaceholder">Start writing your note...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Toolbar -->
+        <div class="bottom-toolbar">
+            <div class="toolbar-left">
+                <div class="font-dropdown" id="fontDropdown">
+                    <button id="fontBtn" class="toolbar-btn" title="Font Settings">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="4,7 4,4 20,4 20,7"></polyline>
+                            <line x1="9" y1="20" x2="15" y2="20"></line>
+                            <line x1="12" y1="4" x2="12" y2="20"></line>
+                        </svg>
+                        <span>Font</span>
+                    </button>
+                    <div class="font-dropdown-content" id="fontDropdownContent">
+                        <div class="font-section">
+                            <label>Font Family:</label>
+                            <select id="fontFamily">
+                                <option value="Inter">Inter</option>
+                                <option value="Arial">Arial</option>
+                                <option value="Georgia">Georgia</option>
+                                <option value="Times New Roman">Times New Roman</option>
+                                <option value="Courier New">Courier New</option>
+                                <option value="Helvetica">Helvetica</option>
+                            </select>
+                        </div>
+                        <div class="font-section">
+                            <label>Font Size:</label>
+                            <select id="fontSize">
+                                <option value="12">12px</option>
+                                <option value="14">14px</option>
+                                <option value="16" selected>16px</option>
+                                <option value="18">18px</option>
+                                <option value="20">20px</option>
+                                <option value="22">22px</option>
+                                <option value="24">24px</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="formatting-dropdown" id="formattingDropdown">
+                    <button id="formatBtn" class="toolbar-btn" title="Text Formatting">
+                        <span class="format-icon">Aa</span>
+                    </button>
+                    <div class="formatting-dropdown-content" id="formattingDropdownContent">
+                        <div class="format-buttons">
+                            <button class="format-btn" data-command="bold" title="Bold (Ctrl+B)">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path>
+                                    <path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path>
+                                </svg>
+                            </button>
+                            <button class="format-btn" data-command="italic" title="Italic (Ctrl+I)">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="19" y1="4" x2="10" y2="4"></line>
+                                    <line x1="14" y1="20" x2="5" y2="20"></line>
+                                    <line x1="15" y1="4" x2="9" y2="20"></line>
+                                </svg>
+                            </button>
+                            <button class="format-btn" data-command="underline" title="Underline (Ctrl+U)">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"></path>
+                                    <line x1="4" y1="21" x2="20" y2="21"></line>
+                                </svg>
+                            </button>
+                            <button class="format-btn" data-command="strikethrough" title="Strikethrough">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M16 4H9a3 3 0 0 0-2.83 4"></path>
+                                    <path d="M14 12a4 4 0 0 1 0 8H6"></path>
+                                    <line x1="4" y1="12" x2="20" y2="12"></line>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="format-divider"></div>
+                        <div class="format-buttons">
+                            <button class="format-btn" data-command="insertUnorderedList" title="Bullet List">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="8" y1="6" x2="21" y2="6"></line>
+                                    <line x1="8" y1="12" x2="21" y2="12"></line>
+                                    <line x1="8" y1="18" x2="21" y2="18"></line>
+                                    <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                                    <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                                    <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                                </svg>
+                            </button>
+                            <button class="format-btn" data-command="insertOrderedList" title="Numbered List">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="10" y1="6" x2="21" y2="6"></line>
+                                    <line x1="10" y1="12" x2="21" y2="12"></line>
+                                    <line x1="10" y1="18" x2="21" y2="18"></line>
+                                    <path d="M4 6h1v4"></path>
+                                    <path d="M4 10h2"></path>
+                                    <path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"></path>
+                                </svg>
+                            </button>
+                            <button class="format-btn todo-btn" title="Toggle Todo Item">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="9,11 12,14 22,4"></polyline>
+                                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1 2-2h11"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <button id="themeBtn" class="toolbar-btn" title="Toggle Theme">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                    <span>Light</span>
+                </button>
+            </div>
+            
+            <div class="toolbar-center">
+                <div class="current-time" id="currentTime"></div>
+                <div class="word-count" id="wordCount">0 words</div>
+            </div>
+            
+            <div class="toolbar-right">
+                <button id="newNoteBtn" class="toolbar-btn" title="New Note">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
+                        <polyline points="14,2 14,8 20,8"></polyline>
+                        <line x1="12" y1="18" x2="12" y2="12"></line>
+                        <line x1="9" y1="15" x2="15" y2="15"></line>
+                    </svg>
+                    <span>New</span>
+                </button>
+                <button id="historyBtn" class="toolbar-btn" title="Toggle History">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12,6 12,12 16,14"></polyline>
+                    </svg>
+                    <span>History</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+
+    <script src="app.js"></script>
+</body>
+</html> 
