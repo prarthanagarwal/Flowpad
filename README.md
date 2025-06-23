@@ -1,8 +1,8 @@
 # Notes App
 
-A minimal, distraction-free note-taking application built with Electron.js, inspired by Freewrite applications. Designed for focused writing with a clean, modern interface and essential productivity features.
+<img src="notes.png" alt="Notes App Screenshot" style="max-width: 100%; height: auto; display: block; margin: 20px auto;">
 
-![Notes App Screenshot](https://via.placeholder.com/800x500/1a1a1a/e0e0e0?text=Notes+App)
+A minimal, distraction-free note-taking application built with Electron.js, inspired by Freewrite applications. Designed for focused writing with a clean, modern interface and essential productivity features.
 
 ## ✨ Features
 
