@@ -152,6 +152,8 @@ notes-app/
 - [ ] Plugin system
 - [ ] Cloud sync options
 - [ ] Collaborative editing
+- [ ] Clickable links
+- [ ] Tom Riddle Mode 
 
 ### Version History
 - **v1.0.0**: Initial release with core features
