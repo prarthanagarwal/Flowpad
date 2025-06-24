@@ -2,13 +2,21 @@
   "name": "notes-app",
   "version": "1.0.0",
   "description": "A minimal note-taking app with Electron.js",
+  "productName": "Notes App",
+  "author": {
+    "name": "Prarthan Agarwal",
+    "email": "developer@notesapp.com"
+  },
+  "copyright": "Copyright © 2025 Notes App Developer",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "build": "electron-builder",
     "dist": "electron-builder --publish=never",
     "build-win": "electron-builder --win --x64",
-    "build-portable": "electron-builder --win portable"
+    "build-portable": "electron-builder --win portable",
+    "build-win-fixed": "npm run build-win && node scripts/post-build.js",
+    "post-build": "node scripts/post-build.js"
   },
   "keywords": [
     "electron",
@@ -16,11 +24,12 @@
     "productivity",
     "writing"
   ],
-  "author": "Notes App",
   "license": "MIT",
   "devDependencies": {
+    "cross-env": "^7.0.3",
     "electron": "^36.5.0",
-    "electron-builder": "^24.9.1"
+    "electron-builder": "^24.9.1",
+    "rcedit": "^4.0.1"
   },
   "dependencies": {
     "electron-store": "^8.1.0"
@@ -33,25 +42,35 @@
     },
     "files": [
       "**/*",
-      "!node_modules/**/*",
-      "node_modules/electron-store/**/*"
+      "!dist/**/*",
+      "!.git/**/*",
+      "!RELEASE_NOTES_v1.0.0.md"
     ],
     "win": {
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
-      "icon": "assets/android-chrome-512x512.png",
-      "publisherName": "Notes App",
+      "icon": "assets/icon.ico",
+      "publisherName": "Notes App Developer",
       "verifyUpdateCodeSignature": false,
-      "signAndEditExecutable": false,
-      "signDlls": false
+      "signAndEditExecutable": true,
+      "signDlls": false,
+      "executableName": "Notes App",
+      "artifactName": "${productName}-${version}.${ext}",
+      "legalTrademarks": "Notes App",
+      "requestedExecutionLevel": "asInvoker",
+      "forceCodeSigning": false
     },
     "nsis": {
       "oneClick": false,
@@ -63,6 +82,10 @@
     },
     "portable": {
       "artifactName": "${productName}-${version}-portable.${ext}"
+    },
+    "extraMetadata": {
+      "name": "notes-app",
+      "productName": "Notes App"
     }
   }
-} 
+}

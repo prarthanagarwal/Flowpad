@@ -42,6 +42,11 @@ function createWindow() {
 
 // App event listeners
 app.whenReady().then(() => {
+  // Set Application User Model ID for Windows taskbar grouping and identification
+  if (process.platform === 'win32') {
+    app.setAppUserModelId('com.notesapp.app');
+  }
+  
   createWindow();
   
   // Create application menu
