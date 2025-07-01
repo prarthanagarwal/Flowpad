@@ -7,6 +7,21 @@ const store = new Store();
 
 let mainWindow;
 
+// Prevent multiple instances
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
+    // Someone tried to run a second instance, focus our window instead
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
+
 function createWindow() {
   // Create the browser window
   mainWindow = new BrowserWindow({
@@ -38,6 +53,12 @@ function createWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+
+  // Ensure app quits when window is closed on Windows/Linux
+  mainWindow.on('close', (event) => {
+    // Allow normal close behavior
+    mainWindow = null;
+  });
 }
 
 // App event listeners
@@ -60,8 +81,14 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
+  // Always quit when all windows are closed (including macOS)
+  app.quit();
+});
+
+app.on('before-quit', () => {
+  // Clean up any remaining processes
+  if (mainWindow) {
+    mainWindow.removeAllListeners('close');
   }
 });
 
