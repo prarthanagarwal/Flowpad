@@ -1,8 +1,10 @@
-# Notes App
+# Flowpad
 
-<img src="notes.png" alt="Notes App Screenshot" style="max-width: 100%; height: auto; display: block; margin: 20px auto;">
+<img src="assets\notes.png" alt="Flowpad Screenshot" style="max-width: 100%; height: auto; display: block; margin: 20px auto;">
 
-A minimal, distraction-free note-taking application built with Electron.js, inspired by Freewrite applications. Designed for focused writing with a clean, modern interface and essential productivity features.
+A minimal, distraction-free note-taking application built with Electron.js, inspired by Freewrite applications. Designed for focused writing with a clean, modern interface, beautiful typography, and essential productivity features.
+
+> **✨ NEW**: Now featuring custom fonts, Phosphor icons, categorized note history, and surprise font functionality!
 
 ## ✨ Features
 
@@ -21,33 +23,38 @@ A minimal, distraction-free note-taking application built with Electron.js, insp
 - **Toolbar Controls**: Accessible formatting toolbar with dropdown menus
 
 ### 📚 **Note Management**
-- **Smart History**: Right-side collapsible sidebar with all notes
-- **Auto-Save**: Automatic saving every 3 seconds
+- **Categorized History**: Intelligent sidebar with time-based categories (Today, Yesterday, Last 7 days, Last 30 days, Older)
+- **Auto-Save**: Automatic saving every 3 seconds with visual feedback
 - **Search Functionality**: Live search through note titles and content
-- **Date Organization**: Notes displayed with creation/modification dates
-- **Quick Actions**: Easy note deletion and navigation
+- **Smart Date Display**: Shows time for recent notes, dates for older ones
+- **Clean Organization**: Minimal design without individual note backgrounds
+- **Quick Actions**: Easy note deletion and navigation with hover effects
 - **Export Support**: Export notes as .txt or .md files
 
 ### 🎛️ **Customization**
-- **Dual Themes**: Dark mode (default) and warm light mode
-- **Font Control**: Multiple font families (Inter, Arial, Georgia, Times New Roman, Courier New, Helvetica)
-- **Font Sizing**: Adjustable font sizes from 12px to 24px
+- **Dual Themes**: Dark mode (default) and warm light mode with seamless switching
+- **Custom Typography**: Beautiful fonts including Aeonik, Baskervville, Instrument Serif, Neue Regrade, Patrick Hand, and Courier New
+- **Font Sizing**: Adjustable font sizes from 16px to 28px with live preview
+- **Surprise Font**: ✨ Random font selection with visual feedback
+- **Phosphor Icons**: Modern, consistent iconography throughout the interface
 - **Persistent Settings**: All preferences saved across app sessions
-- **Dynamic UI**: Theme-aware title bar and interface elements
+- **Dynamic UI**: Theme-aware title bar with app icon and interface elements
 
 ### ⚡ **Performance & UX**
 - **Instant Launch**: Fast startup with no loading screens
-- **Smooth Animations**: Optimized CSS animations with GPU acceleration
-- **Responsive Design**: Adapts to different window sizes
+- **Smooth Animations**: Optimized CSS animations with GPU acceleration and hover effects
+- **Responsive Design**: Adapts to different window sizes with mobile considerations
 - **Auto-Close Sidebar**: Sidebar closes automatically when selecting notes
 - **Live Time Display**: Current system time updated every second
+- **Local Font Loading**: Self-contained custom fonts for offline reliability
+- **Clean Interface**: Minimal design with focused interaction patterns
 
 ### Quick Start
 
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd notes-app
+   cd flowpad
    ```
 
 2. **Install dependencies**
@@ -58,6 +65,13 @@ A minimal, distraction-free note-taking application built with Electron.js, insp
 3. **Launch the application**
    ```bash
    npm start
+   # For development with auto-reload:
+   npm run dev
+   ```
+
+4. **Build for production**
+   ```bash
+   npm run build
    ```
 
 The installer will be generated in the `dist/` folder.
@@ -73,6 +87,9 @@ The installer will be generated in the `dist/` folder.
 | Toggle History | Click "History" button | `Ctrl+H` |
 | Search Notes | Type in search box | - |
 | Switch Theme | Click theme button | - |
+| Surprise Font | Click "Surprise" button | - |
+| Change Font | Font dropdown menu | - |
+| Adjust Size | Font size dropdown | - |
 
 ### Text Formatting
 
@@ -82,34 +99,13 @@ The installer will be generated in the `dist/` folder.
 | *Italic* | `Ctrl+I` | *I* |
 | <u>Underline</u> | `Ctrl+U` | U |
 | ~~Strikethrough~~ | - | ~~S~~ |
-| • Bullet List | - | ⚫ |
-| 1. Numbered List | - | 1. |
-| ☑ Todo Item | - | ✓ |
 
-### Advanced Features
-
-#### Theme Switching
-- **Dark Mode**: Default theme optimized for low-light writing
-- **Light Mode**: Warm white theme (#fefae0) for daytime use
-- **Dynamic Title Bar**: Title bar colors change with theme
-
-#### Todo Management
-1. Select text or place cursor
-2. Click the todo button (✓) in formatting toolbar
-3. Click checkboxes to toggle completion status
-4. Completed items are visually crossed out
-
-#### Font Customization
-- Access via Font dropdown in bottom-left toolbar
-- Choose from 6 different font families
-- Adjust size from 12px to 24px
-- Changes apply instantly and persist
 
 ## 🏗️ Technical Architecture
 
 ### Project Structure
 ```
-notes-app/
+flowpad/
 ├── main.js              # Electron main process
 ├── preload.js           # IPC bridge (context isolation)
 ├── index.html           # Application UI structure
@@ -138,8 +134,10 @@ notes-app/
 ## 🙏 Acknowledgments
 
 - **Freewrite**: Inspiration for distraction-free writing
-- **Inter Font**: Primary typography choice
+- **Custom Fonts**: Aeonik, Baskervville, Instrument Serif, Neue Regrade, Patrick Hand
+- **Phosphor Icons**: Beautiful, consistent iconography
 - **Electron**: Cross-platform desktop framework
+- **electronmon**: Development workflow enhancement
 - **Community**: Contributors and users
 
 ## 🔮 Roadmap
@@ -157,7 +155,8 @@ notes-app/
 
 ### Version History
 - **v1.0.0**: Initial release with core features
-- Current: Stable release with themes and formatting
+- **v1.0.1**: Icon fix and improvements
+- **Current**: Enhanced with custom fonts, Phosphor icons, categorized history, and surprise features
 
 ---
 

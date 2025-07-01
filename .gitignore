@@ -4,6 +4,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+#Markdown files
+*.md
+
 # Runtime data
 pids
 *.pid

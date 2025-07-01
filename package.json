@@ -1,16 +1,17 @@
 {
-  "name": "notes-app",
+  "name": "flowpad",
   "version": "1.0.1",
   "description": "A minimal note-taking app with Electron.js",
-  "productName": "Notes App",
+  "productName": "Flowpad",
   "author": {
     "name": "Prarthan Agarwal",
-    "email": "developer@notesapp.com"
+    "email": "developer@flowpad.com"
   },
-  "copyright": "Copyright © 2025 Notes App Developer",
+  "copyright": "Copyright © 2025 Flowpad Developer",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
+    "dev": "electronmon .",
     "build": "electron-builder",
     "dist": "electron-builder --publish=never",
     "build-win": "electron-builder --win --x64",
@@ -32,11 +33,13 @@
     "rcedit": "^4.0.1"
   },
   "dependencies": {
-    "electron-store": "^8.1.0"
+    "@phosphor-icons/web": "^2.1.2",
+    "electron-store": "^8.1.0",
+    "electronmon": "^2.0.3"
   },
   "build": {
-    "appId": "com.notesapp.app",
-    "productName": "Notes App",
+    "appId": "com.flowpad.app",
+    "productName": "Flowpad",
     "directories": {
       "output": "dist"
     },
@@ -62,13 +65,13 @@
         }
       ],
       "icon": "assets/icon.ico",
-      "publisherName": "Notes App Developer",
+      "publisherName": "Flowpad Developer",
       "verifyUpdateCodeSignature": false,
       "signAndEditExecutable": true,
       "signDlls": false,
-      "executableName": "Notes App",
+      "executableName": "Flowpad",
       "artifactName": "${productName}-${version}.${ext}",
-      "legalTrademarks": "Notes App",
+      "legalTrademarks": "Flowpad",
       "requestedExecutionLevel": "asInvoker",
       "forceCodeSigning": false
     },
@@ -84,8 +87,8 @@
       "artifactName": "${productName}-${version}-portable.${ext}"
     },
     "extraMetadata": {
-      "name": "notes-app",
-      "productName": "Notes App"
+      "name": "flowpad",
+      "productName": "Flowpad"
     }
   }
 }

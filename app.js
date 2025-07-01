@@ -3,7 +3,7 @@ let currentNote = null;
 let allNotes = [];
 let settings = {
     fontSize: 16,
-    fontFamily: 'Inter',
+    fontFamily: 'Aeonik',
     theme: 'dark',
     autoSave: true,
     wordWrap: true
@@ -51,11 +51,17 @@ function setupEventListeners() {
     // Font dropdown
     document.getElementById('fontBtn').addEventListener('click', toggleFontDropdown);
     
+    // Font size dropdown
+    document.getElementById('fontsizeBtn').addEventListener('click', toggleFontSizeDropdown);
+    
     // Formatting dropdown
     document.getElementById('formatBtn').addEventListener('click', toggleFormattingDropdown);
     
     // Theme toggle
     document.getElementById('themeBtn').addEventListener('click', toggleTheme);
+    
+    // Surprise button
+    document.getElementById('surpriseBtn').addEventListener('click', surpriseFont);
     
     // Editor events
     editor.addEventListener('input', handleEditorInput);
@@ -82,14 +88,10 @@ function setupEventListeners() {
         btn.addEventListener('click', (e) => {
             e.preventDefault();
             
-            if (btn.classList.contains('todo-btn')) {
-                toggleTodoItem();
-            } else {
                 const command = btn.dataset.command;
                 if (command) {
                     executeCommand(command);
                     updateFormatButtonStates();
-                }
             }
         });
     });
@@ -99,9 +101,23 @@ function setupEventListeners() {
     editor.addEventListener('keyup', updateFormatButtonStates);
     editor.addEventListener('mouseup', updateFormatButtonStates);
     
-    // Font controls
-    document.getElementById('fontSize').addEventListener('change', updateFontSize);
-    document.getElementById('fontFamily').addEventListener('change', updateFontFamily);
+    // Font family controls
+    document.querySelectorAll('.font-option').forEach(option => {
+        option.addEventListener('click', (e) => {
+            const font = e.target.dataset.font;
+            updateFontFamily(font);
+            closeFontDropdown();
+        });
+    });
+    
+    // Font size controls
+    document.querySelectorAll('.size-option').forEach(option => {
+        option.addEventListener('click', (e) => {
+            const size = e.target.dataset.size;
+            updateFontSize(size);
+            closeFontSizeDropdown();
+        });
+    });
     
     // Menu event listeners
     window.electronAPI.onNewNote(() => createNewNote());
@@ -110,8 +126,11 @@ function setupEventListeners() {
     
     // Close dropdowns when clicking outside
     document.addEventListener('click', (e) => {
-        if (!e.target.closest('.font-dropdown')) {
+        if (!e.target.closest('.font-family-dropdown')) {
             closeFontDropdown();
+        }
+        if (!e.target.closest('.font-size-dropdown')) {
+            closeFontSizeDropdown();
         }
         if (!e.target.closest('.formatting-dropdown')) {
             closeFormattingDropdown();
@@ -138,8 +157,23 @@ function applySettings() {
     editor.style.fontFamily = settings.fontFamily;
     
     // Update font controls
-    document.getElementById('fontSize').value = settings.fontSize;
-    document.getElementById('fontFamily').value = settings.fontFamily;
+    document.getElementById('fontsizeDisplay').textContent = `${settings.fontSize}px`;
+    
+    // Update active font family button
+    document.querySelectorAll('.font-option').forEach(option => {
+        option.classList.remove('active');
+        if (option.dataset.font === settings.fontFamily) {
+            option.classList.add('active');
+        }
+    });
+    
+    // Update active font size button
+    document.querySelectorAll('.size-option').forEach(option => {
+        option.classList.remove('active');
+        if (option.dataset.size == settings.fontSize) {
+            option.classList.add('active');
+        }
+    });
     
     // Apply theme
     document.body.className = settings.theme === 'light' ? 'light-mode' : '';
@@ -182,14 +216,115 @@ function renderNotesList(notesToRender = allNotes) {
     notesList.innerHTML = '';
     
     if (notesToRender.length === 0) {
-        notesList.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">No notes found</div>';
+        notesList.innerHTML = '<div class="no-notes-message">No notes found</div>';
         return;
     }
     
-    notesToRender.forEach(note => {
-        const noteElement = createNoteListItem(note);
-        notesList.appendChild(noteElement);
+    // Categorize notes by time periods
+    const categories = categorizeNotesByTime(notesToRender);
+    
+    // Render each category
+    Object.entries(categories).forEach(([categoryName, notes]) => {
+        if (notes.length > 0) {
+            const categorySection = createCategorySection(categoryName, notes);
+            notesList.appendChild(categorySection);
+        }
     });
+}
+
+// Categorize notes by time periods
+function categorizeNotesByTime(notes) {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const categories = {
+        'Today': [],
+        'Yesterday': [],
+        'Last 7 days': [],
+        'Last 30 days': [],
+        'Older': []
+    };
+    
+    notes.forEach(note => {
+        const noteDate = new Date(note.updatedAt);
+        const noteDateOnly = new Date(noteDate.getFullYear(), noteDate.getMonth(), noteDate.getDate());
+        
+        if (noteDateOnly.getTime() === today.getTime()) {
+            categories['Today'].push(note);
+        } else if (noteDateOnly.getTime() === yesterday.getTime()) {
+            categories['Yesterday'].push(note);
+        } else if (noteDate >= sevenDaysAgo) {
+            categories['Last 7 days'].push(note);
+        } else if (noteDate >= thirtyDaysAgo) {
+            categories['Last 30 days'].push(note);
+        } else {
+            categories['Older'].push(note);
+        }
+    });
+    
+    // Sort notes within each category by update time (newest first)
+    Object.keys(categories).forEach(key => {
+        categories[key].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+    });
+    
+    return categories;
+}
+
+// Create category section
+function createCategorySection(categoryName, notes) {
+    const section = document.createElement('div');
+    section.className = 'category-section';
+    
+    // Create category header
+    const header = document.createElement('div');
+    header.className = 'category-header';
+    header.textContent = categoryName;
+    section.appendChild(header);
+    
+    // Create notes container
+    const notesContainer = document.createElement('div');
+    notesContainer.className = 'category-notes';
+    
+    notes.forEach(note => {
+        const noteElement = createNoteListItem(note);
+        notesContainer.appendChild(noteElement);
+    });
+    
+    section.appendChild(notesContainer);
+    return section;
+}
+
+// Get appropriate display text for note (time for recent, date for older)
+function getDisplayTextForNote(note) {
+    const noteDate = new Date(note.updatedAt);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const noteDateOnly = new Date(noteDate.getFullYear(), noteDate.getMonth(), noteDate.getDate());
+    
+    // Show time for today and yesterday
+    if (noteDateOnly.getTime() === today.getTime() || noteDateOnly.getTime() === yesterday.getTime()) {
+        return noteDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    
+    // Show date for older entries
+    const currentYear = now.getFullYear();
+    const noteYear = noteDate.getFullYear();
+    
+    // If it's the same year, show month and day
+    if (noteYear === currentYear) {
+        return noteDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
+    
+    // If it's a different year, show month, day, and year
+    return noteDate.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 // Create note list item
@@ -202,19 +337,17 @@ function createNoteListItem(note) {
         div.classList.add('active');
     }
     
-    const date = new Date(note.updatedAt).toLocaleDateString();
+    const date = new Date(note.updatedAt);
+    const displayText = getDisplayTextForNote(note);
     
     div.innerHTML = `
         <div class="note-item-content">
-            <div class="note-item-title">${note.title}</div>
-            <div class="note-item-date">${date}</div>
+            <div class="note-item-title">${note.title || 'Untitled Note'}</div>
+            <div class="note-item-time">${displayText}</div>
         </div>
         <div class="note-item-actions">
             <button class="note-action-btn delete-note" data-note-id="${note.id}" title="Delete">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="3,6 5,6 21,6"></polyline>
-                    <path d="M19,6v14a2,2 0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2v2"></path>
-                </svg>
+                <i class="ph ph-trash" style="font-size: 12px;"></i>
             </button>
         </div>
     `;
@@ -372,14 +505,39 @@ function closeSidebar() {
 }
 
 // Editor functionality
-function handleEditorInput() {
+function handleEditorInput(e) {
     updatePlaceholder();
     updateWordCount();
-    maintainTodoEvents();
+    
+    // Check for dash list auto-activation when space is typed
+    if (e && e.inputType === 'insertText' && e.data === ' ') {
+        checkForDashListActivation();
+    }
     
     if (currentNote) {
         currentNote.content = editor.innerHTML;
     }
+}
+
+function checkForDashListActivation() {
+    const selection = window.getSelection();
+    if (selection.rangeCount === 0) return;
+    
+    const range = selection.getRangeAt(0);
+    const currentLineText = getCurrentLineText();
+    
+    // Check if the current line is exactly "- " (dash followed by space)
+    if (currentLineText === '- ') {
+        isDashListMode = true;
+    }
+}
+
+function getTextBeforeCursor(range) {
+    const textNode = range.startContainer;
+    if (textNode.nodeType === Node.TEXT_NODE) {
+        return textNode.textContent.substring(0, range.startOffset);
+    }
+    return '';
 }
 
 function updatePlaceholder() {
@@ -423,45 +581,28 @@ function updateTime() {
 
 // Keyboard shortcuts
 function handleKeyDown(e) {
-    // Handle Enter key for todo continuation
+    // Handle Enter key for dash list continuation
     if (e.key === 'Enter') {
+        if (isDashListMode) {
+            e.preventDefault();
+            
+            // Get current line content
         const selection = window.getSelection();
-        if (selection.rangeCount > 0) {
             const range = selection.getRangeAt(0);
-            let element = range.startContainer;
             
-            // If we're in a text node, get the parent
-            if (element.nodeType === Node.TEXT_NODE) {
-                element = element.parentElement;
+            // Check if current line has content after the dash
+            const currentLineText = getCurrentLineText();
+            
+            if (currentLineText.trim() === '-' || currentLineText.trim() === '') {
+                // Empty line or just dash - exit dash list mode with double enter
+                isDashListMode = false;
+                document.execCommand('insertHTML', false, '<br>');
+            } else {
+                // Continue dash list
+                document.execCommand('insertHTML', false, '<br>- ');
             }
-            
-            // Check if we're inside a todo-text element
-            const todoText = element.closest('.todo-text');
-            if (todoText) {
-                e.preventDefault();
-                
-                // Create a new todo item
-                const newTodoHTML = `<br><span class="todo-item" contenteditable="false"><span class="todo-checkbox"></span><span class="todo-text" contenteditable="true">Todo item</span></span>`;
-                
-                // Insert the new todo and position cursor
-                document.execCommand('insertHTML', false, newTodoHTML);
-                
-                // Find the newly created todo text and focus it
-                setTimeout(() => {
-                    const newTodoText = editor.querySelector('.todo-text:last-of-type');
-                    if (newTodoText) {
-                        newTodoText.focus();
-                        // Select all text in the new todo
-                        const newRange = document.createRange();
-                        newRange.selectNodeContents(newTodoText);
-                        selection.removeAllRanges();
-                        selection.addRange(newRange);
-                    }
-                    attachTodoEvents();
-                }, 10);
                 
                 return;
-            }
         }
     }
     
@@ -542,31 +683,41 @@ function updateFormatButtonStates() {
     });
 }
 
-// Todo functionality
-function toggleTodoItem() {
+// Dash list functionality
+let isDashListMode = false;
+
+function insertDashList() {
     const selection = window.getSelection();
-    let currentText = '';
+    const range = selection.getRangeAt(0);
     
-    // Get the current line text
-    if (selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0);
-        currentText = range.toString() || getSelectedLineText();
-    }
-    
-    if (!currentText) {
-        currentText = 'Todo item';
-    }
-    
-    // Create simple todo HTML structure
-    const todoHTML = `<span class="todo-item" contenteditable="false"><span class="todo-checkbox"></span><span class="todo-text" contenteditable="true">${currentText}</span></span>`;
-    
-    // Insert the todo item
-    document.execCommand('insertHTML', false, todoHTML);
-    
-    // Add click event to the newly created checkbox
-    attachTodoEvents();
+    // Insert dash and space
+    document.execCommand('insertText', false, '- ');
+    isDashListMode = true;
     
     editor.focus();
+}
+
+function getCurrentLineText() {
+    const selection = window.getSelection();
+    if (selection.rangeCount === 0) return '';
+    
+    const range = selection.getRangeAt(0);
+    let currentNode = range.startContainer;
+    
+    // If we're in a text node, get its content up to the cursor
+    if (currentNode.nodeType === Node.TEXT_NODE) {
+        const textContent = currentNode.textContent;
+        const cursorPosition = range.startOffset;
+        
+        // Find the last newline before cursor, or start of text
+        const lastNewline = textContent.lastIndexOf('\n', cursorPosition - 1);
+        const lineStart = lastNewline === -1 ? 0 : lastNewline + 1;
+        
+        return textContent.substring(lineStart, cursorPosition);
+    }
+    
+    // For element nodes, try to get text content
+    return currentNode.textContent ? currentNode.textContent.trim() : '';
 }
 
 function getSelectedLineText() {
@@ -586,35 +737,7 @@ function getSelectedLineText() {
     return text.trim() || '';
 }
 
-function attachTodoEvents() {
-    // Remove old event listeners and add new ones
-    const checkboxes = editor.querySelectorAll('.todo-checkbox');
-    checkboxes.forEach(checkbox => {
-        // Remove any existing listeners by cloning the element
-        const newCheckbox = checkbox.cloneNode(true);
-        checkbox.parentNode.replaceChild(newCheckbox, checkbox);
-        
-        // Add fresh event listener
-        newCheckbox.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            toggleTodoCheck(this);
-        });
-    });
-}
 
-function toggleTodoCheck(checkbox) {
-    checkbox.classList.toggle('checked');
-    const todoText = checkbox.nextElementSibling;
-    if (todoText) {
-        todoText.classList.toggle('completed');
-    }
-}
-
-// Call this on editor input to maintain todo functionality
-function maintainTodoEvents() {
-    attachTodoEvents();
-}
 
 // Paste handling
 function handlePaste(e) {
@@ -627,7 +750,8 @@ function handlePaste(e) {
 function toggleFontDropdown() {
     const dropdown = document.getElementById('fontDropdownContent');
     dropdown.classList.toggle('show');
-    // Close formatting dropdown if open
+    // Close other dropdowns if open
+    closeFontSizeDropdown();
     closeFormattingDropdown();
 }
 
@@ -636,12 +760,26 @@ function closeFontDropdown() {
     dropdown.classList.remove('show');
 }
 
+function toggleFontSizeDropdown() {
+    const dropdown = document.getElementById('fontsizeDropdownContent');
+    dropdown.classList.toggle('show');
+    // Close other dropdowns if open
+    closeFontDropdown();
+    closeFormattingDropdown();
+}
+
+function closeFontSizeDropdown() {
+    const dropdown = document.getElementById('fontsizeDropdownContent');
+    dropdown.classList.remove('show');
+}
+
 // Formatting dropdown management
 function toggleFormattingDropdown() {
     const dropdown = document.getElementById('formattingDropdownContent');
     dropdown.classList.toggle('show');
-    // Close font dropdown if open
+    // Close other dropdowns if open
     closeFontDropdown();
+    closeFontSizeDropdown();
 }
 
 function closeFormattingDropdown() {
@@ -649,17 +787,34 @@ function closeFormattingDropdown() {
     dropdown.classList.remove('show');
 }
 
-function updateFontSize() {
-    const size = document.getElementById('fontSize').value;
+function updateFontSize(size) {
     settings.fontSize = parseInt(size);
     editor.style.fontSize = `${size}px`;
+    document.getElementById('fontsizeDisplay').textContent = `${size}px`;
+    
+    // Update active button
+    document.querySelectorAll('.size-option').forEach(option => {
+        option.classList.remove('active');
+        if (option.dataset.size == size) {
+            option.classList.add('active');
+        }
+    });
+    
     saveSettings();
 }
 
-function updateFontFamily() {
-    const family = document.getElementById('fontFamily').value;
+function updateFontFamily(family) {
     settings.fontFamily = family;
     editor.style.fontFamily = family;
+    
+    // Update active button
+    document.querySelectorAll('.font-option').forEach(option => {
+        option.classList.remove('active');
+        if (option.dataset.font === family) {
+            option.classList.add('active');
+        }
+    });
+    
     saveSettings();
 }
 
@@ -677,13 +832,44 @@ function toggleTheme() {
 function updateThemeButton() {
     const themeBtn = document.getElementById('themeBtn');
     const span = themeBtn.querySelector('span');
+    const icon = themeBtn.querySelector('i');
     if (settings.theme === 'light') {
-        span.textContent = 'Dark';
+        span.textContent = 'Dark Mode';
         themeBtn.setAttribute('title', 'Switch to Dark Mode');
+        icon.className = 'ph ph-moon';
     } else {
-        span.textContent = 'Light';
+        span.textContent = 'Light Mode';
         themeBtn.setAttribute('title', 'Switch to Light Mode');
+        icon.className = 'ph ph-sun';
     }
+}
+
+// Surprise font functionality
+function surpriseFont() {
+    const availableFonts = ['Aeonik', 'Baskervville', 'Instrument Serif', 'Neue Regrade', 'Patrick Hand', 'Courier New'];
+    
+    // Get current font to avoid selecting the same one
+    const currentFont = settings.fontFamily;
+    
+    // Filter out current font to ensure we get a different one
+    const otherFonts = availableFonts.filter(font => font !== currentFont);
+    
+    // Select random font from remaining options
+    const randomIndex = Math.floor(Math.random() * otherFonts.length);
+    const randomFont = otherFonts[randomIndex];
+    
+    // Update to the new random font
+    updateFontFamily(randomFont);
+    
+    // Add a brief visual feedback effect
+    const surpriseBtn = document.getElementById('surpriseBtn');
+    surpriseBtn.style.transform = 'scale(0.95)';
+    surpriseBtn.style.transition = 'transform 0.1s ease';
+    
+    setTimeout(() => {
+        surpriseBtn.style.transform = 'scale(1)';
+        surpriseBtn.style.transition = 'transform 0.2s ease';
+    }, 100);
 }
 
 // Reset formatting when Enter is pressed
