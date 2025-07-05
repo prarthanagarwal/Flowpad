@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onNewNote: (callback) => ipcRenderer.on('new-note', callback),
   onSaveNote: (callback) => ipcRenderer.on('save-note', callback),
   onToggleHistory: (callback) => ipcRenderer.on('toggle-history', callback),
+  onToggleFullscreen: (callback) => ipcRenderer.on('toggle-fullscreen', callback),
   
   // Remove listeners
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel)

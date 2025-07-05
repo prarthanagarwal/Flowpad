@@ -9,13 +9,23 @@ let settings = {
     wordWrap: true
 };
 
+// Friendly placeholder texts
+const placeholderTexts = [
+    "Start writing your note...",
+    "Let your thoughts flow here...",
+    "Capture your ideas...",
+    "Write freely, edit later...",
+    "Begin your journey here...",
+    "What's on your mind today?",
+    "Create something wonderful..."
+];
+
 // DOM elements
 const sidebar = document.getElementById('sidebar');
 const sidebarOverlay = document.getElementById('sidebarOverlay');
 const notesList = document.getElementById('notesList');
 const editor = document.getElementById('editor');
 const editorPlaceholder = document.getElementById('editorPlaceholder');
-const noteTitle = document.getElementById('noteTitle');
 const currentNoteTitle = document.getElementById('currentNoteTitle');
 const wordCount = document.getElementById('wordCount');
 const currentTime = document.getElementById('currentTime');
@@ -23,6 +33,10 @@ const searchNotes = document.getElementById('searchNotes');
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', async () => {
+    // Set random placeholder text on startup
+    const randomIndex = Math.floor(Math.random() * placeholderTexts.length);
+    editorPlaceholder.textContent = placeholderTexts[randomIndex];
+    
     await loadSettings();
     await loadNotes();
     setupEventListeners();
@@ -60,6 +74,9 @@ function setupEventListeners() {
     // Theme toggle
     document.getElementById('themeBtn').addEventListener('click', toggleTheme);
     
+    // Fullscreen toggle
+    document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
+    
     // Surprise button
     document.getElementById('surpriseBtn').addEventListener('click', surpriseFont);
     
@@ -70,15 +87,6 @@ function setupEventListeners() {
     
     // Reset formatting on Enter key
     editor.addEventListener('keydown', handleFormattingReset);
-    
-    // Note title events
-    noteTitle.addEventListener('input', updateNoteTitle);
-    noteTitle.addEventListener('focus', hideTitlePlaceholder);
-    noteTitle.addEventListener('blur', showTitlePlaceholder);
-    noteTitle.addEventListener('input', () => {
-        // Auto-save when title changes
-        setTimeout(autoSave, 500);
-    });
     
     // Search functionality
     searchNotes.addEventListener('input', handleSearch);
@@ -123,6 +131,7 @@ function setupEventListeners() {
     window.electronAPI.onNewNote(() => createNewNote());
     window.electronAPI.onSaveNote(() => saveCurrentNote());
     window.electronAPI.onToggleHistory(() => toggleSidebar());
+    window.electronAPI.onToggleFullscreen(() => toggleFullscreen());
     
     // Close dropdowns when clicking outside
     document.addEventListener('click', (e) => {
@@ -155,6 +164,9 @@ async function loadSettings() {
 function applySettings() {
     editor.style.fontSize = `${settings.fontSize}px`;
     editor.style.fontFamily = settings.fontFamily;
+    
+    // Apply font to placeholder as well
+    document.getElementById('editorPlaceholder').style.fontFamily = settings.fontFamily;
     
     // Update font controls
     document.getElementById('fontsizeDisplay').textContent = `${settings.fontSize}px`;
@@ -340,9 +352,19 @@ function createNoteListItem(note) {
     const date = new Date(note.updatedAt);
     const displayText = getDisplayTextForNote(note);
     
+    // Extract title from first line of content for consistency
+    let title = note.title || 'Untitled Note';
+    if (note.content) {
+        const contentText = new DOMParser().parseFromString(note.content, 'text/html').body.textContent;
+        const firstLine = contentText.split('\n')[0].trim();
+        if (firstLine) {
+            title = firstLine.length > 25 ? firstLine.substring(0, 22) + '...' : firstLine;
+        }
+    }
+    
     div.innerHTML = `
         <div class="note-item-content">
-            <div class="note-item-title">${note.title || 'Untitled Note'}</div>
+            <div class="note-item-title">${title}</div>
             <div class="note-item-time">${displayText}</div>
         </div>
         <div class="note-item-actions">
@@ -372,10 +394,14 @@ function createNoteListItem(note) {
 // Load a specific note
 function loadNote(note) {
     currentNote = note;
-    noteTitle.value = note.title;
-    noteTitle.placeholder = note.title ? '' : 'Note title...';
     editor.innerHTML = note.content;
-    currentNoteTitle.textContent = note.title || 'Untitled Note';
+    
+    // Store original content for change detection
+    currentNote.originalContent = note.content;
+    
+    // Update title from content
+    updateTitleFromContent();
+    
     updatePlaceholder();
     updateWordCount();
     
@@ -390,17 +416,26 @@ function loadNote(note) {
 function createNewNote() {
     currentNote = {
         id: Date.now().toString(),
-        title: '',
+        title: 'Untitled Note',
         content: '',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         tags: []
     };
     
-    noteTitle.value = '';
-    noteTitle.placeholder = 'Note title...';
     editor.innerHTML = '';
-    currentNoteTitle.textContent = 'New Note';
+    
+    // Apply title character limit for display
+    let displayTitle = 'Untitled Note';
+    if (displayTitle.length > 15) {
+        displayTitle = displayTitle.substring(0, 12) + '...';
+    }
+    currentNoteTitle.textContent = displayTitle;
+    
+    // Set random placeholder text
+    const randomIndex = Math.floor(Math.random() * placeholderTexts.length);
+    editorPlaceholder.textContent = placeholderTexts[randomIndex];
+    
     editor.focus();
     updatePlaceholder();
     updateWordCount();
@@ -416,18 +451,33 @@ async function saveCurrentNote() {
     if (!currentNote) return;
     
     try {
+        // Check if content has actually changed before updating timestamp
+        const contentChanged = currentNote.originalContent !== editor.innerHTML;
+        
         const noteData = {
             ...currentNote,
-            title: noteTitle.value || 'Untitled Note',
             content: editor.innerHTML,
-            updatedAt: new Date().toISOString()
+            // Only update timestamp if content changed
+            updatedAt: contentChanged ? new Date().toISOString() : currentNote.updatedAt
         };
         
         const result = await window.electronAPI.saveNote(noteData);
         if (result.success) {
             currentNote = result.note;
-            currentNoteTitle.textContent = currentNote.title;
-            await loadNotes(); // Refresh the list
+            // Store original content for future comparison
+            currentNote.originalContent = currentNote.content;
+            
+            // Apply title character limit for display
+            let displayTitle = currentNote.title;
+            if (displayTitle.length > 15) {
+                displayTitle = displayTitle.substring(0, 12) + '...';
+            }
+            currentNoteTitle.textContent = displayTitle;
+            
+            // Only refresh list if content changed (which may affect title)
+            if (contentChanged) {
+                await loadNotes();
+            }
         }
     } catch (error) {
         console.error('Error saving note:', error);
@@ -436,7 +486,7 @@ async function saveCurrentNote() {
 
 // Auto-save functionality
 async function autoSave() {
-    if (currentNote && (editor.innerHTML.trim() || noteTitle.value.trim())) {
+    if (currentNote && editor.innerHTML.trim()) {
         await saveCurrentNote();
     }
 }
@@ -447,7 +497,7 @@ async function exportCurrentNote() {
     
     try {
         const noteToExport = {
-            title: noteTitle.value || 'Untitled Note',
+            title: currentNote.title || 'Untitled Note',
             content: editor.textContent || editor.innerText
         };
         
@@ -485,10 +535,11 @@ function handleSearch(e) {
         return;
     }
     
-    const filteredNotes = allNotes.filter(note => 
-        note.title.toLowerCase().includes(query) ||
-        note.content.toLowerCase().includes(query)
-    );
+    const filteredNotes = allNotes.filter(note => {
+        // Convert HTML content to plain text for searching
+        const contentText = new DOMParser().parseFromString(note.content, 'text/html').body.textContent.toLowerCase();
+        return contentText.includes(query);
+    });
     
     renderNotesList(filteredNotes);
 }
@@ -516,6 +567,9 @@ function handleEditorInput(e) {
     
     if (currentNote) {
         currentNote.content = editor.innerHTML;
+        
+        // Update title based on first line of content
+        updateTitleFromContent();
     }
 }
 
@@ -554,22 +608,30 @@ function updateWordCount() {
     wordCount.textContent = `${words} word${words !== 1 ? 's' : ''}`;
 }
 
-function updateNoteTitle() {
-    if (currentNote) {
-        const newTitle = noteTitle.value.trim() || 'Untitled Note';
+// Title functions removed as we no longer have a separate title input
+
+// Extract title from first line of content
+function updateTitleFromContent() {
+    if (!currentNote || !editor.textContent) return;
+    
+    // Get the first line of text
+    let firstLine = editor.textContent.split('\n')[0].trim();
+    
+    // Use the first line as title, or 'Untitled Note' if empty
+    const newTitle = firstLine || 'Untitled Note';
+    
+    // Update note's full title
+    if (currentNote.title !== newTitle) {
         currentNote.title = newTitle;
-        currentNoteTitle.textContent = newTitle;
-    }
-}
-
-// Title placeholder management
-function hideTitlePlaceholder() {
-    noteTitle.placeholder = '';
-}
-
-function showTitlePlaceholder() {
-    if (noteTitle.value.trim() === '') {
-        noteTitle.placeholder = 'Note title...';
+        
+        // Limit title bar display to 15 characters max
+        let displayTitle = newTitle;
+        if (displayTitle.length > 15) {
+            displayTitle = displayTitle.substring(0, 12) + '...';
+        }
+        
+        // Update the title bar with shortened title
+        currentNoteTitle.textContent = displayTitle;
     }
 }
 
@@ -807,6 +869,9 @@ function updateFontFamily(family) {
     settings.fontFamily = family;
     editor.style.fontFamily = family;
     
+    // Apply font to placeholder as well
+    document.getElementById('editorPlaceholder').style.fontFamily = family;
+    
     // Update active button
     document.querySelectorAll('.font-option').forEach(option => {
         option.classList.remove('active');
@@ -897,4 +962,49 @@ function handleFormattingReset(e) {
 // Focus editor on startup
 window.addEventListener('load', () => {
     editor.focus();
+});
+
+// Fullscreen functionality
+function toggleFullscreen() {
+    const appContainer = document.querySelector('.app-container');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    
+    appContainer.classList.toggle('fullscreen-mode');
+    
+    if (appContainer.classList.contains('fullscreen-mode')) {
+        // Don't add active class styling
+        fullscreenBtn.querySelector('span').textContent = 'Exit Fullscreen';
+        
+        // Request fullscreen API if available
+        if (document.documentElement.requestFullscreen) {
+            document.documentElement.requestFullscreen();
+        } else if (document.documentElement.webkitRequestFullscreen) {
+            document.documentElement.webkitRequestFullscreen();
+        } else if (document.documentElement.msRequestFullscreen) {
+            document.documentElement.msRequestFullscreen();
+        }
+    } else {
+        fullscreenBtn.querySelector('span').textContent = 'Fullscreen';
+        
+        // Exit fullscreen API if available
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+            document.msExitFullscreen();
+        }
+    }
+    
+    // Adjust editor focus
+    setTimeout(() => {
+        editor.focus();
+    }, 100);
+}
+
+// Listen for ESC key to exit fullscreen
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && document.querySelector('.app-container').classList.contains('fullscreen-mode')) {
+        toggleFullscreen();
+    }
 }); 

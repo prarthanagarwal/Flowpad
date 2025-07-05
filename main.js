@@ -260,13 +260,21 @@ function createMenu() {
           }
         },
         { type: 'separator' },
-        { role: 'reload' },
-        { role: 'forceReload' },
-        { role: 'toggleDevTools' },
+        {
+          label: 'Toggle Fullscreen',
+          accelerator: 'F11',
+          click: () => {
+            mainWindow.webContents.send('toggle-fullscreen');
+          }
+        },
         { type: 'separator' },
-        { role: 'resetZoom' },
-        { role: 'zoomIn' },
-        { role: 'zoomOut' },
+        { role: 'reload' },
+        { role: 'forcereload' },
+        { role: 'toggledevtools' },
+        { type: 'separator' },
+        { role: 'resetzoom' },
+        { role: 'zoomin' },
+        { role: 'zoomout' },
         { type: 'separator' },
         { role: 'togglefullscreen' }
       ]
