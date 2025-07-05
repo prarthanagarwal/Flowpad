@@ -4,16 +4,18 @@
 
 A minimal, distraction-free note-taking application built with Electron.js, inspired by Freewrite applications. Designed for focused writing with a clean, modern interface, beautiful typography, and essential productivity features.
 
-> **✨ NEW**: Now featuring custom fonts, Phosphor icons, categorized note history, and surprise font functionality!
+> **✨ NEW**: Now featuring fullscreen mode, first-line titles, and smart date handling!
 
 ## ✨ Features
 
 ### 📝 **Writing Experience**
 - **Clean Interface**: Distraction-free design with customizable dark/light themes
+- **Fullscreen Mode**: Toggle fullscreen for complete immersion (F11)
 - **Rich Text Editor**: Full-featured contenteditable editor with formatting support
 - **Auto-Focus**: Editor automatically focuses on startup for immediate writing
 - **Formatting Reset**: Automatic formatting reset when pressing Enter for clean new lines
 - **Live Word Count**: Real-time word count display in the bottom toolbar
+- **No Spell Check**: Clean writing experience without red underlines
 
 ### 🎨 **Formatting Tools**
 - **Text Formatting**: Bold, italic, underline, strikethrough
@@ -27,27 +29,15 @@ A minimal, distraction-free note-taking application built with Electron.js, insp
 - **Auto-Save**: Automatic saving every 3 seconds with visual feedback
 - **Search Functionality**: Live search through note titles and content
 - **Smart Date Display**: Shows time for recent notes, dates for older ones
-- **Clean Organization**: Minimal design without individual note backgrounds
-- **Quick Actions**: Easy note deletion and navigation with hover effects
-- **Export Support**: Export notes as .txt or .md files
+- **First-Line Titles**: First line of each note automatically becomes its title
+- **Smart Date Handling**: Notes only update timestamp when content actually changes
 
 ### 🎛️ **Customization**
 - **Dual Themes**: Dark mode (default) and warm light mode with seamless switching
 - **Custom Typography**: Beautiful fonts including Aeonik, Baskervville, Instrument Serif, Neue Regrade, Patrick Hand, and Courier New
 - **Font Sizing**: Adjustable font sizes from 16px to 28px with live preview
 - **Surprise Font**: ✨ Random font selection with visual feedback
-- **Phosphor Icons**: Modern, consistent iconography throughout the interface
-- **Persistent Settings**: All preferences saved across app sessions
-- **Dynamic UI**: Theme-aware title bar with app icon and interface elements
 
-### ⚡ **Performance & UX**
-- **Instant Launch**: Fast startup with no loading screens
-- **Smooth Animations**: Optimized CSS animations with GPU acceleration and hover effects
-- **Responsive Design**: Adapts to different window sizes with mobile considerations
-- **Auto-Close Sidebar**: Sidebar closes automatically when selecting notes
-- **Live Time Display**: Current system time updated every second
-- **Local Font Loading**: Self-contained custom fonts for offline reliability
-- **Clean Interface**: Minimal design with focused interaction patterns
 
 ### Quick Start
 
@@ -85,6 +75,7 @@ The installer will be generated in the `dist/` folder.
 | New Note | Click "New" button | `Ctrl+N` |
 | Save Note | Auto-saves every 3s | `Ctrl+S` (manual) |
 | Toggle History | Click "History" button | `Ctrl+H` |
+| Toggle Fullscreen | Click fullscreen button | `F11` (or `ESC` to exit) |
 | Search Notes | Type in search box | - |
 | Switch Theme | Click theme button | - |
 | Surprise Font | Click "Surprise" button | - |
@@ -156,7 +147,8 @@ flowpad/
 ### Version History
 - **v1.0.0**: Initial release with core features
 - **v1.0.1**: Icon fix and improvements
-- **Current**: Enhanced with custom fonts, Phosphor icons, categorized history, and surprise features
+- **v1.0.2**: Enhanced with custom fonts, Phosphor icons, categorized history, and surprise features
+- **v1.0.3**: Fullscreen mode, first-line titles, smart date handling, and no spell check
 
 ---
 
