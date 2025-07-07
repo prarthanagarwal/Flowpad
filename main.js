@@ -32,13 +32,11 @@ function createWindow() {
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js')
     },
-    titleBarStyle: 'hidden',
-    titleBarOverlay: {
-      color: '#1a1a1a',
-      symbolColor: '#ffffff'
-    },
+    frame: false,
+    transparent: true,
+    titleBarStyle: 'customButtonsOnHover',
     show: false,
-    backgroundColor: '#1a1a1a'
+    backgroundColor: 'rgba(0,0,0,0)'
   });
 
   // Load the app
@@ -47,6 +45,21 @@ function createWindow() {
   // Show window when ready to prevent visual flash
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
+    mainWindow.focus();
+  });
+
+  // Fallback: Show window after a timeout if ready-to-show doesn't fire
+  const showTimeout = setTimeout(() => {
+    if (mainWindow && !mainWindow.isVisible()) {
+      console.log('Fallback: Showing window after timeout');
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  }, 3000); // 3 second fallback
+
+  // Clear timeout if window shows normally
+  mainWindow.once('show', () => {
+    clearTimeout(showTimeout);
   });
 
   // Handle window closed
@@ -202,6 +215,17 @@ ipcMain.handle('update-title-bar-theme', async (event, theme) => {
 ipcMain.handle('close-app', async () => {
   try {
     app.quit();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('minimize-window', async () => {
+  try {
+    if (mainWindow) {
+      mainWindow.minimize();
+    }
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };

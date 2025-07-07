@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // App control
   closeApp: () => ipcRenderer.invoke('close-app'),
+  minimizeWindow: () => ipcRenderer.invoke('minimize-window'),
   
   // Menu event listeners
   onNewNote: (callback) => ipcRenderer.on('new-note', callback),

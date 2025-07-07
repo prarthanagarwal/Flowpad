@@ -1,6 +1,6 @@
 {
   "name": "flowpad",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A minimal note-taking app with Electron.js",
   "productName": "Flowpad",
   "author": {

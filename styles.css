@@ -53,23 +53,34 @@
     vertical-align: middle;
 }
 
+/* Global transparent background for frameless window */
 body {
     font-family: 'Aeonik', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background-color: #1a1a1a;
+    background-color: transparent;
     color: #e0e0e0;
     overflow: hidden;
     user-select: none;
     transition: background-color 0.3s ease, color 0.3s ease;
+    margin: 0; /* No margin needed without shadow */
 }
 
 /* Light Mode */
 body.light-mode {
-    background-color: #fefae0;
+    background-color: transparent;
     color: #2d2d2d;
 }
 
 body.light-mode .app-container {
     background-color: #fefae0;
+    border-radius: 12px;
+    overflow: hidden;
+    -electron-corner-smoothing: 60%;
+    
+    /* Ensure clean rendering */
+    isolation: isolate;
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
 }
 
 body.light-mode .title-bar {
@@ -92,7 +103,9 @@ body.light-mode .current-note-title {
 body.light-mode .sidebar {
     background-color: #fefae0;
     border-left: 1px solid #e0e0e0;
-    box-shadow: -8px 0 25px rgba(0, 0, 0, 0.08), -2px 0 10px rgba(0, 0, 0, 0.05);
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 12px;
 }
 
 body.light-mode .sidebar-header h3 {
@@ -277,12 +290,46 @@ body.light-mode .sidebar-overlay {
     background-color: rgba(255, 255, 255, 0.3);
 }
 
-/* App Container */
+/* Light mode scrollbar styling */
+body.light-mode .editor::-webkit-scrollbar,
+body.light-mode .notes-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+body.light-mode .editor::-webkit-scrollbar-track,
+body.light-mode .notes-list::-webkit-scrollbar-track {
+    background: #fefae0;
+}
+
+body.light-mode .editor::-webkit-scrollbar-thumb,
+body.light-mode .notes-list::-webkit-scrollbar-thumb {
+    background: #d0d0d0;
+    border-radius: 4px;
+}
+
+body.light-mode .editor::-webkit-scrollbar-thumb:hover,
+body.light-mode .notes-list::-webkit-scrollbar-thumb:hover {
+    background: #b0b0b0;
+}
+
+/* App Container - This is now the actual visual window */
 .app-container {
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    height: 100vh; /* Full height without shadow margin */
     background-color: #1a1a1a;
+    border-radius: 12px;
+    overflow: hidden;
+    -webkit-app-region: no-drag;
+    
+    /* Modern Electron corner smoothing (requires Electron 36+) */
+    -electron-corner-smoothing: 60%; /* 60% matches macOS style */
+    
+    /* Ensure clean rendering */
+    isolation: isolate;
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
 }
 
 /* Title Bar */
@@ -372,8 +419,10 @@ body.light-mode .sidebar-overlay {
     transform: translateX(300px);
     transition: transform 0.4s ease-in-out;
     z-index: 1000;
-    box-shadow: -8px 0 25px rgba(0, 0, 0, 0.15), -2px 0 10px rgba(0, 0, 0, 0.1);
     will-change: transform;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 12px;
 }
 
 .sidebar.open {
@@ -594,7 +643,7 @@ body.light-mode .sidebar-overlay {
 .editor {
     width: 100%;
     height: 100%;
-    padding: 60px 120px 60px 140px;
+    padding: 60px 120px 60px 250px;
     background-color: #1a1a1a;
     color: #e0e0e0;
     font-size: 16px;
@@ -982,7 +1031,7 @@ body.light-mode .sidebar-overlay {
     }
     
     .editor {
-        padding: 40px 30px;
+        padding: 40px 30px 40px 100px;
     }
     
     .modal-content {
@@ -1051,4 +1100,67 @@ body.light-mode .sidebar-overlay {
     height: calc(100vh - 50px);
 }
 
-/* Fullscreen button has no active state */ 
+/* Adjust sidebar positioning in fullscreen mode */
+.app-container.fullscreen-mode .sidebar {
+    top: 0;
+    bottom: 50px;
+    border-radius: 0;
+}
+
+.app-container.fullscreen-mode .sidebar-overlay {
+    top: 0;
+}
+
+/* Fullscreen button has no active state */
+
+/* Custom Window Controls */
+.window-controls {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+    -webkit-app-region: no-drag;
+}
+
+.window-control-btn {
+    width: 32px;
+    height: 24px;
+    border: none;
+    border-radius: 6px;
+    background-color: transparent;
+    color: #888;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    font-size: 14px;
+}
+
+.window-control-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.close-btn:hover {
+    background-color: #e53e3e;
+    color: #fff;
+}
+
+.close-btn:active {
+    background-color: #c53030;
+}
+
+/* Light mode window controls */
+body.light-mode .window-control-btn {
+    color: #666;
+}
+
+body.light-mode .window-control-btn:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+    color: #2d2d2d;
+}
+
+body.light-mode .close-btn:hover {
+    background-color: #e53e3e;
+    color: #fff;
+} 

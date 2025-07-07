@@ -77,13 +77,26 @@ function setupEventListeners() {
     // Fullscreen toggle
     document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
     
+    // Custom window controls
+    document.getElementById('minimizeBtn').addEventListener('click', () => {
+        window.electronAPI.minimizeWindow();
+    });
+    
+    document.getElementById('closeBtn').addEventListener('click', () => {
+        window.electronAPI.closeApp();
+    });
+    
     // Surprise button
     document.getElementById('surpriseBtn').addEventListener('click', surpriseFont);
     
     // Editor events
     editor.addEventListener('input', handleEditorInput);
-    editor.addEventListener('keydown', handleKeyDown);
+    editor.addEventListener('keyup', handleEditorInput);
     editor.addEventListener('paste', handlePaste);
+    editor.addEventListener('keydown', handleKeyDown);
+    editor.addEventListener('keyup', updateFormatButtonStates);
+    editor.addEventListener('mouseup', updateFormatButtonStates);
+    editor.addEventListener('focus', updateFormatButtonStates);
     
     // Reset formatting on Enter key
     editor.addEventListener('keydown', handleFormattingReset);
@@ -106,8 +119,6 @@ function setupEventListeners() {
     
     // Update format button states on selection change
     document.addEventListener('selectionchange', updateFormatButtonStates);
-    editor.addEventListener('keyup', updateFormatButtonStates);
-    editor.addEventListener('mouseup', updateFormatButtonStates);
     
     // Font family controls
     document.querySelectorAll('.font-option').forEach(option => {
@@ -608,17 +619,29 @@ function updateWordCount() {
     wordCount.textContent = `${words} word${words !== 1 ? 's' : ''}`;
 }
 
-// Title functions removed as we no longer have a separate title input
-
 // Extract title from first line of content
 function updateTitleFromContent() {
-    if (!currentNote || !editor.textContent) return;
+    if (!currentNote) return;
+    
+    // Get the text content and handle empty/whitespace cases properly
+    const textContent = editor.textContent || editor.innerText || '';
+    const trimmedContent = textContent.trim();
+    
+    // If content is completely empty, use 'New Note'
+    if (!trimmedContent) {
+        const newTitle = 'New Note';
+        if (currentNote.title !== newTitle) {
+            currentNote.title = newTitle;
+            currentNoteTitle.textContent = newTitle;
+        }
+        return;
+    }
     
     // Get the first line of text
-    let firstLine = editor.textContent.split('\n')[0].trim();
+    let firstLine = trimmedContent.split('\n')[0].trim();
     
-    // Use the first line as title, or 'Untitled Note' if empty
-    const newTitle = firstLine || 'Untitled Note';
+    // Use the first line as title, or 'New Note' if first line is empty
+    const newTitle = firstLine || 'New Note';
     
     // Update note's full title
     if (currentNote.title !== newTitle) {
@@ -798,8 +821,6 @@ function getSelectedLineText() {
     const text = container.textContent || container.innerText || '';
     return text.trim() || '';
 }
-
-
 
 // Paste handling
 function handlePaste(e) {
