@@ -15,8 +15,8 @@
     "build": "electron-builder",
     "dist": "electron-builder --publish=never",
     "build-win": "electron-builder --win --x64",
-    "build-mac": "electron-builder --mac --x64 --arm64",
-    "build-mac-local": "electron-builder --mac --x64 --arm64 --publish=never",
+    "build-mac": "electron-builder --mac --universal",
+    "build-mac-local": "electron-builder --mac --universal --publish=never",
     "build-win-local": "electron-builder --win --x64 --publish=never",
     "build-portable": "electron-builder --win portable",
     "build-win-fixed": "npm run build-win && node scripts/post-build.js",
@@ -91,10 +91,7 @@
       "target": [
         {
           "target": "dmg",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
+          "arch": "universal"
         }
       ],
       "icon": "assets/icon.icns",

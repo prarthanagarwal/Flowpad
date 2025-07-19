@@ -69,6 +69,8 @@ jobs:
           path: |
             dist/*.dmg
             dist/*.zip
+            dist/mac/**/*
+            dist/mac-arm64/**/*
 
   release:
     needs: build
