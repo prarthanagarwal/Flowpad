@@ -5,8 +5,7 @@
 download the latest version [here](https://flowpad.live/)
 
 
-https://github.com/user-attachments/assets/5a823cb8-6d57-435a-af49-508861a3137b
-
+https://github.com/user-attachments/assets/e3c46fd5-0869-49be-adf0-e7f481757f30
 
 - Distraction-free editor  
 - Date-organized notes  
