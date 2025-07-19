@@ -107,13 +107,13 @@
                     </button>
                     <div class="formatting-dropdown-content" id="formattingDropdownContent">
                         <div class="format-buttons">
-                            <button class="format-btn" data-command="bold" title="Bold (Ctrl+B)">
+                            <button class="format-btn" data-command="bold" title="Bold" id="boldBtn">
                                 <i class="ph ph-text-b" style="font-size: 14px;"></i>
                             </button>
-                            <button class="format-btn" data-command="italic" title="Italic (Ctrl+I)">
+                            <button class="format-btn" data-command="italic" title="Italic" id="italicBtn">
                                 <i class="ph ph-text-italic" style="font-size: 14px;"></i>
                             </button>
-                            <button class="format-btn" data-command="underline" title="Underline (Ctrl+U)">
+                            <button class="format-btn" data-command="underline" title="Underline" id="underlineBtn">
                                 <i class="ph ph-text-underline" style="font-size: 14px;"></i>
                             </button>
                             <button class="format-btn" data-command="strikethrough" title="Strikethrough">
@@ -128,6 +128,31 @@
             <div class="toolbar-center">
                 <div class="current-time" id="currentTime"></div>
                 <div class="word-count" id="wordCount">0 words</div>
+                
+                <!-- Update notification -->
+                <div class="update-notification" id="updateNotification" style="display: none;">
+                    <div class="update-content">
+                        <i class="ph ph-download-simple" style="font-size: 14px;"></i>
+                        <span class="update-text" id="updateText">Update available</span>
+                        <div class="update-progress" id="updateProgress" style="display: none;">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="progressFill"></div>
+                            </div>
+                            <span class="progress-text" id="progressText">0%</span>
+                        </div>
+                    </div>
+                    <div class="update-actions">
+                        <button class="update-btn download-btn" id="downloadBtn" title="Download Update">
+                            <i class="ph ph-arrow-circle-down" style="font-size: 12px;"></i>
+                        </button>
+                        <button class="update-btn install-btn" id="installBtn" title="Install & Restart" style="display: none;">
+                            <i class="ph ph-arrow-clockwise" style="font-size: 12px;"></i>
+                        </button>
+                        <button class="update-btn dismiss-btn" id="dismissBtn" title="Dismiss">
+                            <i class="ph ph-x" style="font-size: 12px;"></i>
+                        </button>
+                    </div>
+                </div>
             </div>
             
             <div class="toolbar-right">

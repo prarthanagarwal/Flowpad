@@ -1,11 +1,84 @@
 const { app, BrowserWindow, Menu, ipcMain, dialog } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const Store = require('electron-store');
 
-// Initialize persistent storage
-const store = new Store();
+// Initialize persistent storage with platform-specific configuration
+const store = new Store({
+  name: 'flowpad-data',
+  cwd: process.platform === 'darwin' 
+    ? path.join(require('os').homedir(), 'Library', 'Application Support', 'Flowpad')
+    : undefined // Use default for Windows/Linux
+});
 
 let mainWindow;
+
+// Configure auto-updater
+autoUpdater.setFeedURL({
+  provider: 'github',
+  owner: 'prarthana-agarwal',
+  repo: 'flowpad'
+});
+
+// Auto-updater event handlers
+autoUpdater.on('checking-for-update', () => {
+  console.log('Checking for update...');
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', { type: 'checking' });
+  }
+});
+
+autoUpdater.on('update-available', (info) => {
+  console.log('Update available:', info);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', { 
+      type: 'available', 
+      version: info.version,
+      releaseDate: info.releaseDate,
+      downloadSize: info.files?.[0]?.size || 0
+    });
+  }
+});
+
+autoUpdater.on('update-not-available', (info) => {
+  console.log('Update not available:', info);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', { type: 'not-available' });
+  }
+});
+
+autoUpdater.on('error', (err) => {
+  console.error('Auto-updater error:', err);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', { 
+      type: 'error', 
+      message: err.message 
+    });
+  }
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+  console.log('Download progress:', progressObj.percent);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', { 
+      type: 'download-progress', 
+      percent: progressObj.percent,
+      bytesPerSecond: progressObj.bytesPerSecond,
+      total: progressObj.total,
+      transferred: progressObj.transferred
+    });
+  }
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  console.log('Update downloaded:', info);
+  if (mainWindow) {
+    mainWindow.webContents.send('update-status', { 
+      type: 'downloaded', 
+      version: info.version 
+    });
+  }
+});
 
 // Prevent multiple instances
 const gotTheLock = app.requestSingleInstanceLock();
@@ -85,6 +158,11 @@ app.whenReady().then(() => {
   
   // Create application menu
   createMenu();
+  
+  // Check for updates after a delay to ensure app is fully loaded
+  setTimeout(() => {
+    autoUpdater.checkForUpdatesAndNotify();
+  }, 30000); // Check after 30 seconds
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -232,37 +310,92 @@ ipcMain.handle('minimize-window', async () => {
   }
 });
 
+// Auto-updater IPC handlers
+ipcMain.handle('check-for-updates', async () => {
+  try {
+    await autoUpdater.checkForUpdates();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('download-update', async () => {
+  try {
+    await autoUpdater.downloadUpdate();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('quit-and-install', async () => {
+  try {
+    autoUpdater.quitAndInstall(true, true);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 function createMenu() {
-  const template = [
-    {
-      label: 'File',
+  const template = [];
+  
+  // macOS app menu
+  if (process.platform === 'darwin') {
+    template.unshift({
+      label: app.getName(),
       submenu: [
+        { role: 'about' },
+        { type: 'separator' },
         {
-          label: 'New Note',
-          accelerator: 'CmdOrCtrl+N',
+          label: 'Check for Updates...',
           click: () => {
-            mainWindow.webContents.send('new-note');
-          }
-        },
-        {
-          label: 'Save',
-          accelerator: 'CmdOrCtrl+S',
-          click: () => {
-            mainWindow.webContents.send('save-note');
+            mainWindow.webContents.send('check-for-updates');
           }
         },
         { type: 'separator' },
-        {
-          label: 'Exit',
-          accelerator: process.platform === 'darwin' ? 'Cmd+Q' : 'Ctrl+Q',
-          click: () => {
-            app.quit();
-          }
-        }
+        { role: 'services', submenu: [] },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideothers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' }
       ]
-    },
-    {
-      label: 'Edit',
+    });
+  }
+  
+  template.push({
+    label: 'File',
+    submenu: [
+      {
+        label: 'New Note',
+        accelerator: 'CmdOrCtrl+N',
+        click: () => {
+          mainWindow.webContents.send('new-note');
+        }
+      },
+      {
+        label: 'Save',
+        accelerator: 'CmdOrCtrl+S',
+        click: () => {
+          mainWindow.webContents.send('save-note');
+        }
+      },
+      { type: 'separator' },
+      ...(process.platform !== 'darwin' ? [{
+        label: 'Exit',
+        accelerator: 'Ctrl+Q',
+        click: () => {
+          app.quit();
+        }
+      }] : [])
+    ]
+  });
+  
+  template.push({
+    label: 'Edit',
       submenu: [
         { role: 'undo' },
         { role: 'redo' },
@@ -272,9 +405,10 @@ function createMenu() {
         { role: 'paste' },
         { role: 'selectall' }
       ]
-    },
-    {
-      label: 'View',
+  });
+  
+  template.push({
+    label: 'View',
       submenu: [
         {
           label: 'Toggle History',
@@ -302,8 +436,7 @@ function createMenu() {
         { type: 'separator' },
         { role: 'togglefullscreen' }
       ]
-    }
-  ];
+  });
 
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);

@@ -9,6 +9,30 @@ let settings = {
     wordWrap: true
 };
 
+// Platform detection
+const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+
+// Update tooltips with platform-specific shortcuts
+function updateTooltips() {
+    const modKey = isMac ? 'Cmd' : 'Ctrl';
+    
+    // Format buttons
+    const boldBtn = document.getElementById('boldBtn');
+    const italicBtn = document.getElementById('italicBtn');
+    const underlineBtn = document.getElementById('underlineBtn');
+    
+    if (boldBtn) boldBtn.title = `Bold (${modKey}+B)`;
+    if (italicBtn) italicBtn.title = `Italic (${modKey}+I)`;
+    if (underlineBtn) underlineBtn.title = `Underline (${modKey}+U)`;
+    
+    // Other buttons with shortcuts
+    const newNoteBtn = document.getElementById('newNoteBtn');
+    const historyBtn = document.getElementById('historyBtn');
+    
+    if (newNoteBtn) newNoteBtn.title = `New Note (${modKey}+N)`;
+    if (historyBtn) historyBtn.title = `Toggle History (${modKey}+H)`;
+}
+
 // Friendly placeholder texts
 const placeholderTexts = [
     "Start writing your note...",
@@ -31,6 +55,16 @@ const wordCount = document.getElementById('wordCount');
 const currentTime = document.getElementById('currentTime');
 const searchNotes = document.getElementById('searchNotes');
 
+// Update notification elements
+const updateNotification = document.getElementById('updateNotification');
+const updateText = document.getElementById('updateText');
+const updateProgress = document.getElementById('updateProgress');
+const progressFill = document.getElementById('progressFill');
+const progressText = document.getElementById('progressText');
+const downloadBtn = document.getElementById('downloadBtn');
+const installBtn = document.getElementById('installBtn');
+const dismissBtn = document.getElementById('dismissBtn');
+
 // Initialize the application
 document.addEventListener('DOMContentLoaded', async () => {
     // Set random placeholder text on startup
@@ -40,6 +74,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadSettings();
     await loadNotes();
     setupEventListeners();
+    updateTooltips();
     updateTime();
     setInterval(updateTime, 1000);
     
@@ -143,6 +178,21 @@ function setupEventListeners() {
     window.electronAPI.onSaveNote(() => saveCurrentNote());
     window.electronAPI.onToggleHistory(() => toggleSidebar());
     window.electronAPI.onToggleFullscreen(() => toggleFullscreen());
+    
+    // Auto-update event listeners
+    window.electronAPI.onUpdateStatus((event, status) => {
+        handleUpdateStatus(status);
+    });
+    
+    // Handle manual update check from menu
+    window.electronAPI.onCheckForUpdates(() => {
+        window.electronAPI.checkForUpdates();
+    });
+    
+    // Update notification event listeners
+    downloadBtn.addEventListener('click', handleDownloadUpdate);
+    installBtn.addEventListener('click', handleInstallUpdate);
+    dismissBtn.addEventListener('click', hideUpdateNotification);
     
     // Close dropdowns when clicking outside
     document.addEventListener('click', (e) => {
@@ -692,42 +742,42 @@ function handleKeyDown(e) {
     }
     
     // Save shortcut
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 's') {
         e.preventDefault();
         saveCurrentNote();
         return;
     }
     
     // New note shortcut
-    if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+    if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'n') {
         e.preventDefault();
         createNewNote();
         return;
     }
     
     // Bold shortcut
-    if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+    if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'b') {
         e.preventDefault();
         executeCommand('bold');
         return;
     }
     
     // Italic shortcut
-    if ((e.ctrlKey || e.metaKey) && e.key === 'i') {
+    if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'i') {
         e.preventDefault();
         executeCommand('italic');
         return;
     }
     
     // Underline shortcut
-    if ((e.ctrlKey || e.metaKey) && e.key === 'u') {
+    if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'u') {
         e.preventDefault();
         executeCommand('underline');
         return;
     }
     
     // Toggle history shortcut
-    if ((e.ctrlKey || e.metaKey) && e.key === 'h') {
+    if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'h') {
         e.preventDefault();
         toggleSidebar();
         return;
@@ -1028,4 +1078,138 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape' && document.querySelector('.app-container').classList.contains('fullscreen-mode')) {
         toggleFullscreen();
     }
-}); 
+});
+
+// Auto-update functionality
+let updateState = {
+    available: false,
+    downloading: false,
+    downloaded: false,
+    error: null,
+    version: null
+};
+
+function handleUpdateStatus(status) {
+    console.log('Update status:', status);
+    
+    switch (status.type) {
+        case 'checking':
+            // Optionally show checking status, but keep it minimal
+            break;
+            
+        case 'available':
+            updateState.available = true;
+            updateState.version = status.version;
+            showUpdateNotification(`Update ${status.version} available`, 'available');
+            break;
+            
+        case 'not-available':
+            // No update available - don't show notification
+            break;
+            
+        case 'download-progress':
+            updateState.downloading = true;
+            const percent = Math.round(status.percent);
+            showUpdateProgress(percent);
+            updateText.textContent = `Downloading ${updateState.version}...`;
+            break;
+            
+        case 'downloaded':
+            updateState.downloading = false;
+            updateState.downloaded = true;
+            showUpdateNotification(`Update ready to install`, 'ready');
+            hideUpdateProgress();
+            downloadBtn.style.display = 'none';
+            installBtn.style.display = 'flex';
+            break;
+            
+        case 'error':
+            updateState.error = status.message;
+            showUpdateNotification('Update failed', 'error');
+            console.error('Update error:', status.message);
+            
+            // Auto-hide error after 5 seconds
+            setTimeout(() => {
+                hideUpdateNotification();
+            }, 5000);
+            break;
+    }
+}
+
+function showUpdateNotification(message, type = 'available') {
+    updateText.textContent = message;
+    updateNotification.style.display = 'flex';
+    
+    // Reset classes
+    updateNotification.className = 'update-notification';
+    
+    // Add appropriate class based on type
+    if (type === 'downloading') {
+        updateNotification.classList.add('downloading');
+    } else if (type === 'ready') {
+        updateNotification.classList.add('ready');
+    }
+    
+    // Show/hide appropriate buttons
+    if (type === 'available') {
+        downloadBtn.style.display = 'flex';
+        installBtn.style.display = 'none';
+    } else if (type === 'ready') {
+        downloadBtn.style.display = 'none';
+        installBtn.style.display = 'flex';
+    }
+}
+
+function showUpdateProgress(percent) {
+    updateProgress.style.display = 'flex';
+    progressFill.style.width = `${percent}%`;
+    progressText.textContent = `${percent}%`;
+    
+    updateNotification.className = 'update-notification downloading';
+}
+
+function hideUpdateProgress() {
+    updateProgress.style.display = 'none';
+}
+
+function hideUpdateNotification() {
+    updateNotification.style.display = 'none';
+    updateState = {
+        available: false,
+        downloading: false,
+        downloaded: false,
+        error: null,
+        version: null
+    };
+}
+
+async function handleDownloadUpdate() {
+    if (updateState.available && !updateState.downloading) {
+        try {
+            updateState.downloading = true;
+            showUpdateNotification(`Downloading ${updateState.version}...`, 'downloading');
+            await window.electronAPI.downloadUpdate();
+        } catch (error) {
+            console.error('Failed to download update:', error);
+            showUpdateNotification('Download failed', 'error');
+            updateState.downloading = false;
+        }
+    }
+}
+
+async function handleInstallUpdate() {
+    if (updateState.downloaded) {
+        try {
+            // Save current note before restarting
+            if (currentNote && currentNote.content !== editor.innerHTML) {
+                await saveCurrentNote();
+            }
+            
+            // Install and restart
+            await window.electronAPI.quitAndInstall();
+        } catch (error) {
+            console.error('Failed to install update:', error);
+            showUpdateNotification('Install failed', 'error');
+        }
+    }
+}

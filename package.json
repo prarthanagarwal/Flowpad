@@ -1,6 +1,6 @@
 {
   "name": "flowpad",
-  "version": "1.0.4",
+  "version": "1.5",
   "description": "A minimal note-taking app with Electron.js",
   "productName": "Flowpad",
   "author": {
@@ -15,6 +15,7 @@
     "build": "electron-builder",
     "dist": "electron-builder --publish=never",
     "build-win": "electron-builder --win --x64",
+    "build-mac": "electron-builder --mac --x64 --arm64",
     "build-portable": "electron-builder --win portable",
     "build-win-fixed": "npm run build-win && node scripts/post-build.js",
     "post-build": "node scripts/post-build.js"
@@ -30,11 +31,13 @@
     "cross-env": "^7.0.3",
     "electron": "^36.5.0",
     "electron-builder": "^24.9.1",
+    "png2icons": "^2.0.1",
     "rcedit": "^4.0.1"
   },
   "dependencies": {
     "@phosphor-icons/web": "^2.1.2",
     "electron-store": "^8.1.0",
+    "electron-updater": "^6.6.2",
     "electronmon": "^2.0.3"
   },
   "build": {
@@ -48,6 +51,13 @@
       "!dist/**/*",
       "!.git/**/*",
       "!RELEASE_NOTES_v1.0.0.md"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "prarthana-agarwal",
+        "repo": "flowpad"
+      }
     ],
     "win": {
       "target": [
@@ -74,6 +84,41 @@
       "legalTrademarks": "Flowpad",
       "requestedExecutionLevel": "asInvoker",
       "forceCodeSigning": false
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.productivity",
+      "darkModeSupport": true,
+      "gatekeeperAssess": false,
+      "hardenedRuntime": false,
+      "entitlements": null,
+      "entitlementsInherit": null
+    },
+    "dmg": {
+      "artifactName": "${productName}-${version}-mac.${ext}",
+      "iconSize": 100,
+      "contents": [
+        {
+          "x": 410,
+          "y": 150,
+          "type": "link",
+          "path": "/Applications"
+        },
+        {
+          "x": 130,
+          "y": 150,
+          "type": "file"
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,
