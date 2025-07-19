@@ -16,8 +16,8 @@ let mainWindow;
 // Configure auto-updater
 autoUpdater.setFeedURL({
   provider: 'github',
-  owner: 'prarthana-agarwal',
-  repo: 'flowpad'
+  owner: 'PrarthanAgarwal',
+  repo: 'Flowpad'
 });
 
 // Auto-updater event handlers

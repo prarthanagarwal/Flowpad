@@ -57,8 +57,8 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "prarthana-agarwal",
-        "repo": "flowpad"
+        "owner": "PrarthanAgarwal",
+        "repo": "Flowpad"
       }
     ],
     "win": {
