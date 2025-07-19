@@ -1,4 +1,4 @@
-<img src="assets/notes.png" alt="Flowpad Icon" width="64" height="64">
+<img src="assets/icon.ico" alt="Flowpad Icon" width="64" height="64">
 
 # Hello there, this is Flowpad
 
