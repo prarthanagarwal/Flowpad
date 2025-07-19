@@ -39,6 +39,9 @@ jobs:
       - name: Build for Windows
         if: matrix.platform == 'win'
         run: npm run build-win
+        env:
+          # Provide GitHub token for publishing
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build for macOS
         if: matrix.platform == 'mac'
@@ -46,6 +49,8 @@ jobs:
         env:
           # Disable code signing for now
           CSC_IDENTITY_AUTO_DISCOVERY: false
+          # Provide GitHub token for publishing
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Windows artifacts
         if: matrix.platform == 'win'
