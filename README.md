@@ -1,8 +1,8 @@
 <img src="assets/icon.ico" alt="Flowpad Icon" width="64" height="64">
 
-# Hello there, this is Flowpad
+# hello there, this is Flowpad
 
-**A notepad to channel your flow state**
+**a notepad to channel your flow state**
 
 download the latest version [here](https://flowpad.live/)
 
