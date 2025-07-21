@@ -78,9 +78,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateTime();
     setInterval(updateTime, 1000);
     
+    // Apply initial global settings (before any note is loaded)
+    applySettings();
+    
     // Create initial note if no notes exist or no current note
     if (allNotes.length === 0 || !currentNote) {
         createNewNote();
+    } else if (currentNote) {
+        // If we have a current note, apply its font settings
+        applyNoteFontSettings();
     }
     
     // Auto-save functionality - always enabled
@@ -266,6 +272,37 @@ function applySettings() {
     } else {
         editor.style.whiteSpace = 'pre';
     }
+}
+
+// Apply per-note font settings to the UI
+function applyNoteFontSettings() {
+    if (!currentNote) return;
+    
+    // Apply note's font settings to editor
+    editor.style.fontSize = `${currentNote.fontSize}px`;
+    editor.style.fontFamily = currentNote.fontFamily;
+    
+    // Apply font to placeholder as well
+    document.getElementById('editorPlaceholder').style.fontFamily = currentNote.fontFamily;
+    
+    // Update font controls to reflect current note's settings
+    document.getElementById('fontsizeDisplay').textContent = `${currentNote.fontSize}px`;
+    
+    // Update active font family button
+    document.querySelectorAll('.font-option').forEach(option => {
+        option.classList.remove('active');
+        if (option.dataset.font === currentNote.fontFamily) {
+            option.classList.add('active');
+        }
+    });
+    
+    // Update active font size button
+    document.querySelectorAll('.size-option').forEach(option => {
+        option.classList.remove('active');
+        if (option.dataset.size == currentNote.fontSize) {
+            option.classList.add('active');
+        }
+    });
 }
 
 // Save settings
@@ -461,6 +498,15 @@ function createNoteListItem(note) {
 // Load a specific note
 function loadNote(note) {
     currentNote = note;
+    
+    // Handle backward compatibility - add font settings if they don't exist
+    if (!currentNote.fontSize) {
+        currentNote.fontSize = settings.fontSize;
+    }
+    if (!currentNote.fontFamily) {
+        currentNote.fontFamily = settings.fontFamily;
+    }
+    
     editor.innerHTML = note.content;
     
     // Store original content for change detection
@@ -468,6 +514,9 @@ function loadNote(note) {
     
     // Update title from content
     updateTitleFromContent();
+    
+    // Apply the note's font settings to editor
+    applyNoteFontSettings();
     
     updatePlaceholder();
     updateWordCount();
@@ -492,7 +541,9 @@ function createNewNote() {
         content: '',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        tags: []
+        tags: [],
+        fontSize: settings.fontSize,  // Store current font size with note
+        fontFamily: settings.fontFamily  // Store current font family with note
     };
     
     editor.innerHTML = '';
@@ -507,6 +558,9 @@ function createNewNote() {
     // Set random placeholder text
     const randomIndex = Math.floor(Math.random() * placeholderTexts.length);
     editorPlaceholder.textContent = placeholderTexts[randomIndex];
+    
+    // Apply the note's font settings to editor
+    applyNoteFontSettings();
     
     focusEditor(false); // Don't position at end for new note
     updatePlaceholder();
@@ -960,7 +1014,12 @@ function closeFormattingDropdown() {
 }
 
 function updateFontSize(size) {
-    settings.fontSize = parseInt(size);
+    if (!currentNote) return;
+    
+    // Update current note's font size
+    currentNote.fontSize = parseInt(size);
+    
+    // Apply to editor
     editor.style.fontSize = `${size}px`;
     document.getElementById('fontsizeDisplay').textContent = `${size}px`;
     
@@ -972,11 +1031,17 @@ function updateFontSize(size) {
         }
     });
     
-    saveSettings();
+    // Auto-save the note with new font settings
+    saveCurrentNote();
 }
 
 function updateFontFamily(family) {
-    settings.fontFamily = family;
+    if (!currentNote) return;
+    
+    // Update current note's font family
+    currentNote.fontFamily = family;
+    
+    // Apply to editor
     editor.style.fontFamily = family;
     
     // Apply font to placeholder as well
@@ -990,7 +1055,8 @@ function updateFontFamily(family) {
         }
     });
     
-    saveSettings();
+    // Auto-save the note with new font settings
+    saveCurrentNote();
 }
 
 // Theme management
@@ -1021,10 +1087,12 @@ function updateThemeButton() {
 
 // Surprise font functionality
 function surpriseFont() {
+    if (!currentNote) return;
+    
     const availableFonts = ['Aeonik', 'Baskervville', 'Instrument Serif', 'Neue Regrade', 'Patrick Hand', 'Courier New'];
     
     // Get current font to avoid selecting the same one
-    const currentFont = settings.fontFamily;
+    const currentFont = currentNote.fontFamily;
     
     // Filter out current font to ensure we get a different one
     const otherFonts = availableFonts.filter(font => font !== currentFont);

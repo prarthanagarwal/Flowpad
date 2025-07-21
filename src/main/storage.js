@@ -48,7 +48,9 @@ async function saveNote(noteData) {
       content: noteData.content,
       createdAt: noteData.createdAt || timestamp,
       updatedAt: timestamp,
-      tags: noteData.tags || []
+      tags: noteData.tags || [],
+      fontSize: noteData.fontSize || 16,
+      fontFamily: noteData.fontFamily || 'Aeonik'
     };
     
     // Convert HTML content to Markdown for storage
@@ -115,7 +117,9 @@ async function loadNotes() {
             content: htmlContent,
             createdAt: metadata.createdAt || new Date().toISOString(),
             updatedAt: metadata.updatedAt || new Date().toISOString(),
-            tags: metadata.tags || []
+            tags: metadata.tags || [],
+            fontSize: metadata.fontSize || 16,
+            fontFamily: metadata.fontFamily || 'Aeonik'
           };
           
           notes.push(note);
@@ -176,14 +180,21 @@ async function migrateNotesToFiles() {
       
       for (const note of existingNotes) {
         try {
+          // Add default font settings for backward compatibility
+          const noteWithFonts = {
+            ...note,
+            fontSize: note.fontSize || 16,
+            fontFamily: note.fontFamily || 'Aeonik'
+          };
+          
           // Convert HTML content to Markdown
-          const markdownContent = await convertHtmlToMarkdown(note.content);
+          const markdownContent = await convertHtmlToMarkdown(noteWithFonts.content);
           
           // Create file content with frontmatter
-          const fileContent = createFrontmatter(note) + markdownContent;
+          const fileContent = createFrontmatter(noteWithFonts) + markdownContent;
           
           // Generate filename
-          const filename = generateNoteFilename(note);
+          const filename = generateNoteFilename(noteWithFonts);
           const filepath = path.join(NOTES_DIR, filename);
           
           // Write the note file

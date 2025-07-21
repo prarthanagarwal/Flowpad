@@ -75,6 +75,8 @@ title: "${sanitizedTitle.replace(/"/g, '\\"')}"
 createdAt: ${formatDateTime(note.createdAt)}
 updatedAt: ${formatDateTime(note.updatedAt)}
 tags: [${note.tags.map(tag => `"${tag}"`).join(', ')}]
+fontSize: ${note.fontSize || 16}
+fontFamily: "${note.fontFamily || 'Aeonik'}"
 ---
 
 `;
@@ -103,6 +105,8 @@ function parseFrontmatter(content) {
       // Parse different value types
       if (key === 'tags') {
         value = value.replace(/^\[|\]$/g, '').split(',').map(tag => tag.trim().replace(/^"|"$/g, ''));
+      } else if (key === 'fontSize') {
+        value = parseInt(value) || 16; // Parse as number with default
       } else if (value.startsWith('"') && value.endsWith('"')) {
         value = value.slice(1, -1).replace(/\\"/g, '"');
       }
@@ -110,6 +114,10 @@ function parseFrontmatter(content) {
       metadata[key] = value;
     }
   });
+  
+  // Add default values for backward compatibility
+  if (!metadata.fontSize) metadata.fontSize = 16;
+  if (!metadata.fontFamily) metadata.fontFamily = 'Aeonik';
   
   return {
     metadata,
