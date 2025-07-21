@@ -8,7 +8,7 @@
     "email": "developer@flowpad.com"
   },
   "copyright": "Copyright © 2025 Flowpad Developer",
-  "main": "main.js",
+  "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
     "dev": "electronmon .",
