@@ -31,6 +31,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onUpdateStatus: (callback) => ipcRenderer.on('update-status', callback),
   onCheckForUpdates: (callback) => ipcRenderer.on('check-for-updates', callback),
   
+  // File operations
+  openNotesFolder: () => ipcRenderer.invoke('open-notes-folder'),
+  
   // Remove listeners
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel)
 }); 

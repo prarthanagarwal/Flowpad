@@ -731,10 +731,10 @@ function handleKeyDown(e) {
             if (currentLineText.trim() === '-' || currentLineText.trim() === '') {
                 // Empty line or just dash - exit dash list mode with double enter
                 isDashListMode = false;
-                document.execCommand('insertHTML', false, '<br>');
+                document.execCommand('insertText', false, '\n');
             } else {
                 // Continue dash list
-                document.execCommand('insertHTML', false, '<br>- ');
+                document.execCommand('insertText', false, '\n- ');
             }
                 
                 return;
