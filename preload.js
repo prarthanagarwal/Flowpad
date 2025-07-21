@@ -14,6 +14,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveAppSettings: (settings) => ipcRenderer.invoke('save-app-settings', settings),
   updateTitleBarTheme: (theme) => ipcRenderer.invoke('update-title-bar-theme', theme),
   
+  // Window bounds
+  getWindowBounds: () => ipcRenderer.invoke('get-window-bounds'),
+  saveWindowBounds: (bounds) => ipcRenderer.invoke('save-window-bounds', bounds),
+  
   // App control
   closeApp: () => ipcRenderer.invoke('close-app'),
   minimizeWindow: () => ipcRenderer.invoke('minimize-window'),

@@ -94,10 +94,17 @@ if (!gotTheLock) {
 
 // ===== WINDOW CREATION =====
 function createWindow() {
+  // Get saved window bounds or use defaults
+  const windowBounds = storage.getWindowBounds();
+  
   // Create the browser window
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: windowBounds.width,
+    height: windowBounds.height,
+    x: windowBounds.x,
+    y: windowBounds.y,
+    minWidth: 600,  // Set minimum window size
+    minHeight: 500,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -109,6 +116,11 @@ function createWindow() {
     show: false,
     backgroundColor: 'rgba(0,0,0,0)'
   });
+
+  // Restore maximized state if it was maximized when closed
+  if (windowBounds.isMaximized) {
+    mainWindow.maximize();
+  }
 
   // Load the app
   mainWindow.loadFile(path.join(__dirname, '../../index.html'));
@@ -133,14 +145,62 @@ function createWindow() {
     clearTimeout(showTimeout);
   });
 
+  // Save window bounds when they change
+  let saveWindowStateTimeout;
+  const saveWindowState = () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    
+    // Clear existing timeout to debounce rapid changes
+    if (saveWindowStateTimeout) {
+      clearTimeout(saveWindowStateTimeout);
+    }
+    
+    // Debounce window state saving to avoid excessive writes
+    saveWindowStateTimeout = setTimeout(() => {
+      const bounds = mainWindow.getBounds();
+      const isMaximized = mainWindow.isMaximized();
+      
+      storage.saveWindowBounds({
+        width: bounds.width,
+        height: bounds.height,
+        x: bounds.x,
+        y: bounds.y,
+        isMaximized: isMaximized
+      });
+    }, 500); // Wait 500ms after the last change
+  };
+
+  // Listen for window events to save state
+  mainWindow.on('resize', saveWindowState);
+  mainWindow.on('move', saveWindowState);
+  mainWindow.on('maximize', saveWindowState);
+  mainWindow.on('unmaximize', saveWindowState);
+
   // Handle window closed
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 
-  // Ensure app quits when window is closed on Windows/Linux
+  // Save window state immediately before closing (no debounce)
   mainWindow.on('close', (event) => {
-    // Allow normal close behavior
+    if (saveWindowStateTimeout) {
+      clearTimeout(saveWindowStateTimeout);
+    }
+    
+    // Save immediately on close
+    if (!mainWindow.isDestroyed()) {
+      const bounds = mainWindow.getBounds();
+      const isMaximized = mainWindow.isMaximized();
+      
+      storage.saveWindowBounds({
+        width: bounds.width,
+        height: bounds.height,
+        x: bounds.x,
+        y: bounds.y,
+        isMaximized: isMaximized
+      });
+    }
+    
     mainWindow = null;
   });
 }

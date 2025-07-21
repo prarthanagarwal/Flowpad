@@ -72,6 +72,16 @@ function setupSettingsHandlers() {
     return storage.saveAppSettings(settings);
   });
 
+  // Get window bounds
+  ipcMain.handle('get-window-bounds', async () => {
+    return storage.getWindowBounds();
+  });
+
+  // Save window bounds
+  ipcMain.handle('save-window-bounds', async (event, bounds) => {
+    return storage.saveWindowBounds(bounds);
+  });
+
   // Update title bar theme
   ipcMain.handle('update-title-bar-theme', async (event, theme) => {
     try {

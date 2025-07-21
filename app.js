@@ -132,6 +132,12 @@ function setupEventListeners() {
     editor.addEventListener('keyup', updateFormatButtonStates);
     editor.addEventListener('mouseup', updateFormatButtonStates);
     editor.addEventListener('focus', updateFormatButtonStates);
+    editor.addEventListener('click', () => {
+        // Ensure editor maintains focus when clicked
+        if (!editor.contains(document.activeElement)) {
+            focusEditor();
+        }
+    });
     
     // Reset formatting on Enter key
     editor.addEventListener('keydown', handleFormattingReset);
@@ -471,6 +477,11 @@ function loadNote(note) {
         item.classList.remove('active');
     });
     document.querySelector(`[data-note-id="${note.id}"]`)?.classList.add('active');
+    
+    // Ensure editor has focus and cursor is positioned properly
+    setTimeout(() => {
+        focusEditor();
+    }, 100); // Small delay to ensure DOM updates are complete
 }
 
 // Create new note
@@ -497,7 +508,7 @@ function createNewNote() {
     const randomIndex = Math.floor(Math.random() * placeholderTexts.length);
     editorPlaceholder.textContent = placeholderTexts[randomIndex];
     
-    editor.focus();
+    focusEditor(false); // Don't position at end for new note
     updatePlaceholder();
     updateWordCount();
     
@@ -605,15 +616,43 @@ function handleSearch(e) {
     renderNotesList(filteredNotes);
 }
 
+// Helper function for consistent editor focus management
+function focusEditor(positionAtEnd = true) {
+    editor.focus();
+    
+    if (positionAtEnd && editor.innerHTML.trim() !== '') {
+        // Position cursor at the end of the content
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(editor);
+        range.collapse(false); // Collapse to end
+        selection.removeAllRanges();
+        selection.addRange(range);
+    }
+}
+
 // Sidebar management
 function toggleSidebar() {
+    const isOpening = !sidebar.classList.contains('open');
     sidebar.classList.toggle('open');
     sidebarOverlay.classList.toggle('show');
+    
+    // If closing sidebar, restore focus to editor after animation
+    if (!isOpening) {
+        setTimeout(() => {
+            focusEditor();
+        }, 350); // Wait for sidebar animation to complete
+    }
 }
 
 function closeSidebar() {
     sidebar.classList.remove('open');
     sidebarOverlay.classList.remove('show');
+    
+    // Restore focus to editor after sidebar closes
+    setTimeout(() => {
+        focusEditor();
+    }, 350); // Wait for sidebar animation to complete
 }
 
 // Editor functionality
@@ -1032,7 +1071,26 @@ function handleFormattingReset(e) {
 
 // Focus editor on startup
 window.addEventListener('load', () => {
-    editor.focus();
+    focusEditor(false);
+});
+
+// Maintain editor focus when window regains focus
+window.addEventListener('focus', () => {
+    // Small delay to ensure the window is fully focused
+    setTimeout(() => {
+        if (!sidebar.classList.contains('open')) {
+            focusEditor();
+        }
+    }, 100);
+});
+
+// Handle visibility change to maintain focus
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && !sidebar.classList.contains('open')) {
+        setTimeout(() => {
+            focusEditor();
+        }, 100);
+    }
 });
 
 // Fullscreen functionality
@@ -1069,7 +1127,7 @@ function toggleFullscreen() {
     
     // Adjust editor focus
     setTimeout(() => {
-        editor.focus();
+        focusEditor();
     }, 100);
 }
 

@@ -223,6 +223,26 @@ function saveAppSettings(settings) {
   }
 }
 
+// ===== WINDOW STATE MANAGEMENT =====
+function getWindowBounds() {
+  return store.get('windowBounds', {
+    width: 900,  // Smaller default size
+    height: 700, // Smaller default size
+    x: undefined,
+    y: undefined,
+    isMaximized: false
+  });
+}
+
+function saveWindowBounds(bounds) {
+  try {
+    store.set('windowBounds', bounds);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
 // ===== DIRECTORY ACCESS =====
 function getNotesDirectory() {
   return NOTES_DIR;
@@ -241,6 +261,10 @@ module.exports = {
   // Settings
   getAppSettings,
   saveAppSettings,
+  
+  // Window state
+  getWindowBounds,
+  saveWindowBounds,
   
   // Directory management
   ensureNotesDirectory,
