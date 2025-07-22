@@ -77,20 +77,9 @@ autoUpdater.on('update-downloaded', (info) => {
   }
 });
 
-// ===== SINGLE INSTANCE LOCK =====
-const gotTheLock = app.requestSingleInstanceLock();
-
-if (!gotTheLock) {
-  app.quit();
-} else {
-  app.on('second-instance', (event, commandLine, workingDirectory) => {
-    // Someone tried to run a second instance, focus our window instead
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
-    }
-  });
-}
+// ===== MULTIPLE INSTANCE SUPPORT =====
+// Removed single instance lock to allow multiple windows for snap layouts
+// Each instance will share the same storage but operate independently
 
 // ===== WINDOW CREATION =====
 function createWindow() {
@@ -323,7 +312,7 @@ function createMenu() {
 app.whenReady().then(async () => {
   // Set Application User Model ID for Windows taskbar grouping and identification
   if (process.platform === 'win32') {
-    app.setAppUserModelId('com.notesapp.app');
+    app.setAppUserModelId('com.flowpad.app');
   }
   
   // Migrate existing notes to file-based storage
@@ -351,7 +340,7 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
-  // Always quit when all windows are closed (including macOS)
+  // Each instance is independent - quit when its window closes
   app.quit();
 });
 
