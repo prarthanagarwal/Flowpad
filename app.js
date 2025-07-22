@@ -1,6 +1,8 @@
 // Application state
 let currentNote = null;
 let allNotes = [];
+let allFolders = [];
+let currentFolder = 'all'; // 'all' means show all notes, otherwise folder ID
 let settings = {
     fontSize: 16,
     fontFamily: 'Aeonik',
@@ -54,6 +56,8 @@ const currentNoteTitle = document.getElementById('currentNoteTitle');
 const wordCount = document.getElementById('wordCount');
 const currentTime = document.getElementById('currentTime');
 const searchNotes = document.getElementById('searchNotes');
+const folderTabs = document.getElementById('folderTabs');
+const newFolderBtn = document.getElementById('newFolderBtn');
 
 // Update notification elements
 const updateNotification = document.getElementById('updateNotification');
@@ -72,6 +76,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     editorPlaceholder.textContent = placeholderTexts[randomIndex];
     
     await loadSettings();
+    await loadFolders();
     await loadNotes();
     setupEventListeners();
     updateTooltips();
@@ -150,6 +155,9 @@ function setupEventListeners() {
     
     // Search functionality
     searchNotes.addEventListener('input', handleSearch);
+    
+    // Folder functionality
+    newFolderBtn.addEventListener('click', createNewFolder);
     
     // Formatting toolbar
     document.querySelectorAll('.format-btn').forEach(btn => {
@@ -328,7 +336,12 @@ async function loadNotes() {
 }
 
 // Render notes list in sidebar
-function renderNotesList(notesToRender = allNotes) {
+function renderNotesList(notesToRender = null) {
+    // If no specific notes provided, use filtered notes based on current folder
+    if (!notesToRender) {
+        notesToRender = getFilteredNotes();
+    }
+    
     notesList.innerHTML = '';
     
     if (notesToRender.length === 0) {
@@ -466,17 +479,36 @@ function createNoteListItem(note) {
         }
     }
     
+    // Create time display with folder info
+    let timeDisplay = displayText;
+    let folderInfo = '';
+    
+    if (note.folder && currentFolder === 'all') {
+        const folder = allFolders.find(f => f.id === note.folder);
+        if (folder) {
+            folderInfo = `<span class="folder-separator">·</span><i class="ph ph-folder-simple note-folder-icon"></i><span class="folder-name">${folder.name}</span>`;
+        }
+    }
+    
     div.innerHTML = `
         <div class="note-item-content">
             <div class="note-item-title">${title}</div>
-            <div class="note-item-time">${displayText}</div>
+            <div class="note-item-time">
+                <span class="time-text">${timeDisplay}</span>${folderInfo}
+            </div>
         </div>
         <div class="note-item-actions">
+            <button class="note-action-btn move-note" data-note-id="${note.id}" title="Move to Folder">
+                <i class="ph ph-folder-simple" style="font-size: 12px;"></i>
+            </button>
             <button class="note-action-btn delete-note" data-note-id="${note.id}" title="Delete">
                 <i class="ph ph-trash" style="font-size: 12px;"></i>
             </button>
         </div>
     `;
+    
+    // Make draggable
+    div.draggable = true;
     
     // Add click event to load note
     div.addEventListener('click', (e) => {
@@ -490,6 +522,28 @@ function createNoteListItem(note) {
     div.querySelector('.delete-note').addEventListener('click', (e) => {
         e.stopPropagation();
         deleteNote(note.id);
+    });
+    
+    // Add move note event
+    div.querySelector('.move-note').addEventListener('click', (e) => {
+        e.stopPropagation();
+        showMoveNoteMenu(e, note);
+    });
+    
+    // Add drag events
+    div.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', note.id);
+        div.classList.add('dragging');
+    });
+    
+    div.addEventListener('dragend', () => {
+        div.classList.remove('dragging');
+    });
+    
+    // Add right-click context menu
+    div.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        showMoveNoteMenu(e, note);
     });
     
     return div;
@@ -535,6 +589,13 @@ function loadNote(note) {
 
 // Create new note
 function createNewNote() {
+    // Get folder name if creating in a specific folder
+    let folderName = null;
+    if (currentFolder !== 'all') {
+        const folder = allFolders.find(f => f.id === currentFolder);
+        folderName = folder ? folder.name : null;
+    }
+    
     currentNote = {
         id: Date.now().toString(),
         title: 'Untitled Note',
@@ -543,7 +604,9 @@ function createNewNote() {
         updatedAt: new Date().toISOString(),
         tags: [],
         fontSize: settings.fontSize,  // Store current font size with note
-        fontFamily: settings.fontFamily  // Store current font family with note
+        fontFamily: settings.fontFamily,  // Store current font family with note
+        folder: currentFolder === 'all' ? null : currentFolder,  // Assign current folder
+        folderName: folderName  // Assign current folder name
     };
     
     editor.innerHTML = '';
@@ -661,13 +724,447 @@ function handleSearch(e) {
         return;
     }
     
-    const filteredNotes = allNotes.filter(note => {
+    // Start with notes from current folder, then filter by search query
+    const folderNotes = getFilteredNotes();
+    const filteredNotes = folderNotes.filter(note => {
         // Convert HTML content to plain text for searching
         const contentText = new DOMParser().parseFromString(note.content, 'text/html').body.textContent.toLowerCase();
         return contentText.includes(query);
     });
     
     renderNotesList(filteredNotes);
+}
+
+// ===== FOLDER FUNCTIONALITY =====
+
+// Load all folders
+async function loadFolders() {
+    try {
+        const result = await window.electronAPI.getFolders();
+        if (result.success) {
+            allFolders = result.folders;
+            renderFolderTabs();
+        }
+    } catch (error) {
+        console.error('Error loading folders:', error);
+    }
+}
+
+// Render folder tabs
+function renderFolderTabs() {
+    folderTabs.innerHTML = '';
+    
+    // Add "All" tab
+    const allTab = document.createElement('button');
+    allTab.className = 'folder-tab';
+    allTab.dataset.folder = 'all';
+    allTab.textContent = 'All';
+    if (currentFolder === 'all') {
+        allTab.classList.add('active');
+    }
+    allTab.addEventListener('click', () => switchFolder('all'));
+    
+    // Add drop events for "All" tab (moves note out of any folder)
+    allTab.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        allTab.classList.add('drag-over');
+    });
+    
+    allTab.addEventListener('dragleave', () => {
+        allTab.classList.remove('drag-over');
+    });
+    
+    allTab.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        allTab.classList.remove('drag-over');
+        
+        const noteId = e.dataTransfer.getData('text/plain');
+        if (noteId) {
+            await moveNoteToFolder(noteId, null); // null means no folder
+        }
+    });
+    
+    folderTabs.appendChild(allTab);
+    
+    // Add folder tabs
+    allFolders.forEach(folder => {
+        const tab = document.createElement('button');
+        tab.className = 'folder-tab';
+        tab.dataset.folder = folder.id;
+        tab.textContent = folder.name;
+        if (currentFolder === folder.id) {
+            tab.classList.add('active');
+        }
+        tab.addEventListener('click', () => switchFolder(folder.id));
+        
+        // Add right-click context menu for folder actions
+        tab.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            showFolderContextMenu(e, folder);
+        });
+        
+        // Add drop events for drag & drop note moving
+        tab.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            tab.classList.add('drag-over');
+        });
+        
+        tab.addEventListener('dragleave', () => {
+            tab.classList.remove('drag-over');
+        });
+        
+        tab.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            tab.classList.remove('drag-over');
+            
+            const noteId = e.dataTransfer.getData('text/plain');
+            if (noteId) {
+                await moveNoteToFolder(noteId, folder.id);
+            }
+        });
+        
+        folderTabs.appendChild(tab);
+    });
+}
+
+// Switch to a specific folder
+function switchFolder(folderId) {
+    currentFolder = folderId;
+    
+    // Update active tab
+    document.querySelectorAll('.folder-tab').forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.dataset.folder === folderId) {
+            tab.classList.add('active');
+        }
+    });
+    
+    // Filter and render notes
+    renderNotesList();
+}
+
+// Create new folder
+async function createNewFolder() {
+    const folderId = Date.now().toString();
+    let folderName = 'New Folder';
+    
+    // Find a unique name if "New Folder" already exists
+    let counter = 1;
+    while (allFolders.find(f => f.name.toLowerCase() === folderName.toLowerCase())) {
+        counter++;
+        folderName = `New Folder ${counter}`;
+    }
+    
+    try {
+        const result = await window.electronAPI.saveFolder({
+            id: folderId,
+            name: folderName
+        });
+        
+        if (result.success) {
+            await loadFolders();
+            // Start editing the newly created folder
+            setTimeout(() => {
+                const newTab = document.querySelector(`[data-folder="${folderId}"]`);
+                if (newTab) {
+                    startEditingFolder(newTab, result.folder);
+                }
+            }, 100);
+        }
+    } catch (error) {
+        console.error('Error creating folder:', error);
+    }
+}
+
+// Start editing folder name
+function startEditingFolder(tabElement, folder) {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = folder.name;
+    input.className = 'folder-tab editing';
+    input.dataset.folder = folder.id;
+    
+    // Replace the button with input
+    tabElement.parentNode.replaceChild(input, tabElement);
+    input.focus();
+    input.select();
+    
+    // Handle save on Enter or blur
+    const saveEdit = async () => {
+        const newName = input.value.trim();
+        if (newName && newName !== folder.name) {
+            // Check if folder name already exists
+            const existingFolder = allFolders.find(f => f.id !== folder.id && f.name.toLowerCase() === newName.toLowerCase());
+            if (existingFolder) {
+                alert(`A folder named "${newName}" already exists. Please choose a different name.`);
+                input.focus();
+                input.select();
+                return;
+            }
+            
+            try {
+                const result = await window.electronAPI.saveFolder({
+                    id: folder.id,
+                    name: newName
+                });
+                if (result.success) {
+                    await loadFolders();
+                    // Update folderName in all notes that reference this folder
+                    await updateNotesWithNewFolderName(folder.id, newName);
+                }
+            } catch (error) {
+                console.error('Error saving folder:', error);
+                await loadFolders(); // Revert on error
+            }
+        } else {
+            await loadFolders(); // Revert if no change or empty
+        }
+    };
+    
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveEdit();
+        } else if (e.key === 'Escape') {
+            loadFolders(); // Cancel editing
+        }
+    });
+    
+    input.addEventListener('blur', saveEdit);
+}
+
+// Show folder context menu
+function showFolderContextMenu(event, folder) {
+    // Remove any existing context menu
+    const existingMenu = document.querySelector('.folder-context-menu');
+    if (existingMenu) {
+        existingMenu.remove();
+    }
+    
+    const menu = document.createElement('div');
+    menu.className = 'folder-context-menu';
+    menu.style.position = 'fixed';
+    menu.style.left = event.clientX + 'px';
+    menu.style.top = event.clientY + 'px';
+    menu.style.zIndex = '10000';
+    
+    menu.innerHTML = `
+        <div class="context-menu-item" data-action="rename">
+            <i class="ph ph-pencil-simple" style="font-size: 12px;"></i>
+            Rename
+        </div>
+        <div class="context-menu-item" data-action="delete">
+            <i class="ph ph-trash" style="font-size: 12px;"></i>
+            Delete
+        </div>
+    `;
+    
+    // Add event listeners
+    menu.querySelectorAll('.context-menu-item').forEach(item => {
+        item.addEventListener('click', async (e) => {
+            const action = e.currentTarget.dataset.action;
+            
+            if (action === 'rename') {
+                const tabElement = document.querySelector(`[data-folder="${folder.id}"]`);
+                if (tabElement) {
+                    startEditingFolder(tabElement, folder);
+                }
+            } else if (action === 'delete') {
+                if (confirm(`Are you sure you want to delete the folder "${folder.name}"? Notes in this folder will be moved to "All".`)) {
+                    try {
+                        const result = await window.electronAPI.deleteFolder(folder.id);
+                        if (result.success) {
+                            if (currentFolder === folder.id) {
+                                switchFolder('all');
+                            }
+                            await loadFolders();
+                            await loadNotes(); // Refresh notes as some may have moved
+                        }
+                    } catch (error) {
+                        console.error('Error deleting folder:', error);
+                    }
+                }
+            }
+            
+            menu.remove();
+        });
+    });
+    
+    document.body.appendChild(menu);
+    
+    // Remove menu when clicking elsewhere
+    setTimeout(() => {
+        document.addEventListener('click', function removeMenu() {
+            menu.remove();
+            document.removeEventListener('click', removeMenu);
+        });
+    }, 0);
+}
+
+// Get filtered notes based on current folder
+function getFilteredNotes() {
+    if (currentFolder === 'all') {
+        return allNotes;
+    }
+    return allNotes.filter(note => note.folder === currentFolder);
+}
+
+// Move note to a specific folder
+async function moveNoteToFolder(noteId, folderId) {
+    try {
+        const note = allNotes.find(n => n.id === noteId);
+        if (!note) return;
+        
+        // Get folder name if moving to a folder
+        let folderName = null;
+        if (folderId) {
+            const folder = allFolders.find(f => f.id === folderId);
+            folderName = folder ? folder.name : null;
+        }
+        
+        // Update note's folder and folderName
+        const updatedNote = { ...note, folder: folderId, folderName: folderName };
+        const result = await window.electronAPI.saveNote(updatedNote);
+        
+        if (result.success) {
+            // Update local notes array
+            const noteIndex = allNotes.findIndex(n => n.id === noteId);
+            if (noteIndex > -1) {
+                allNotes[noteIndex] = result.note;
+            }
+            
+            // Update current note if it's the one being moved
+            if (currentNote && currentNote.id === noteId) {
+                currentNote = result.note;
+            }
+            
+            // Refresh the notes list
+            renderNotesList();
+        }
+    } catch (error) {
+        console.error('Error moving note to folder:', error);
+    }
+}
+
+// Show move note context menu
+function showMoveNoteMenu(event, note) {
+    // Remove any existing context menu
+    const existingMenu = document.querySelector('.move-note-menu');
+    if (existingMenu) {
+        existingMenu.remove();
+    }
+    
+    const menu = document.createElement('div');
+    menu.className = 'move-note-menu folder-context-menu';
+    menu.style.position = 'fixed';
+    menu.style.zIndex = '10000';
+    
+    let menuItems = '';
+    
+    // Only show "Remove from folder" if note is currently in a folder
+    if (note.folder) {
+        const currentFolder = allFolders.find(f => f.id === note.folder);
+        const folderName = currentFolder ? currentFolder.name : 'folder';
+        menuItems += `
+            <div class="context-menu-item" data-folder="null">
+                <i class="ph ph-x" style="font-size: 12px;"></i>
+                Remove from ${folderName}
+            </div>
+        `;
+        
+        // Add separator if there are other folders
+        if (allFolders.length > 0) {
+            menuItems += '<div class="context-menu-separator"></div>';
+        }
+    }
+    
+    allFolders.forEach(folder => {
+        const isCurrentFolder = note.folder === folder.id;
+        if (!isCurrentFolder) { // Only show folders the note is NOT in
+            menuItems += `
+                <div class="context-menu-item" data-folder="${folder.id}">
+                    <i class="ph ph-folder-simple" style="font-size: 12px;"></i>
+                    Move to ${folder.name}
+                </div>
+            `;
+        }
+    });
+    
+    menu.innerHTML = menuItems;
+    
+    // Position menu and adjust if it would go off-screen
+    document.body.appendChild(menu); // Add to DOM first to get dimensions
+    
+    const menuRect = menu.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    let left = event.clientX;
+    let top = event.clientY;
+    
+    // Adjust horizontal position if menu would go off right edge
+    if (left + menuRect.width > viewportWidth) {
+        left = viewportWidth - menuRect.width - 10;
+    }
+    
+    // Adjust vertical position if menu would go off bottom edge
+    if (top + menuRect.height > viewportHeight) {
+        top = viewportHeight - menuRect.height - 10;
+    }
+    
+    // Ensure menu doesn't go off left or top edge
+    left = Math.max(10, left);
+    top = Math.max(10, top);
+    
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+    
+    // Add event listeners
+    menu.querySelectorAll('.context-menu-item').forEach(item => {
+        item.addEventListener('click', async (e) => {
+            const folderId = e.currentTarget.dataset.folder;
+            const targetFolder = folderId === 'null' ? null : folderId;
+            
+            await moveNoteToFolder(note.id, targetFolder);
+            menu.remove();
+        });
+    });
+    
+    // Remove menu when clicking elsewhere
+    setTimeout(() => {
+        document.addEventListener('click', function removeMenu() {
+            menu.remove();
+            document.removeEventListener('click', removeMenu);
+        });
+    }, 0);
+}
+
+// Update folderName in all notes when a folder is renamed
+async function updateNotesWithNewFolderName(folderId, newFolderName) {
+    try {
+        const notesToUpdate = allNotes.filter(note => note.folder === folderId);
+        
+        for (const note of notesToUpdate) {
+            const updatedNote = { ...note, folderName: newFolderName };
+            await window.electronAPI.saveNote(updatedNote);
+            
+            // Update local notes array
+            const noteIndex = allNotes.findIndex(n => n.id === note.id);
+            if (noteIndex > -1) {
+                allNotes[noteIndex] = updatedNote;
+            }
+            
+            // Update current note if it's one of the updated notes
+            if (currentNote && currentNote.id === note.id) {
+                currentNote = updatedNote;
+            }
+        }
+        
+        // Refresh the notes list to show updated folder names
+        renderNotesList();
+    } catch (error) {
+        console.error('Error updating notes with new folder name:', error);
+    }
 }
 
 // Helper function for consistent editor focus management

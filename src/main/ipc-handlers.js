@@ -24,6 +24,19 @@ function setupNoteHandlers() {
     return await storage.deleteNote(noteId);
   });
 
+  // Folder operations
+  ipcMain.handle('get-folders', async () => {
+    return await storage.getFolders();
+  });
+
+  ipcMain.handle('save-folder', async (event, folderData) => {
+    return await storage.saveFolder(folderData);
+  });
+
+  ipcMain.handle('delete-folder', async (event, folderId) => {
+    return await storage.deleteFolder(folderId);
+  });
+
   // Export note
   ipcMain.handle('export-note', async (event, note) => {
     try {

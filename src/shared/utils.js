@@ -77,6 +77,8 @@ updatedAt: ${formatDateTime(note.updatedAt)}
 tags: [${note.tags.map(tag => `"${tag}"`).join(', ')}]
 fontSize: ${note.fontSize || 16}
 fontFamily: "${note.fontFamily || 'Aeonik'}"
+folder: ${note.folder ? `"${note.folder}"` : 'null'}
+folderName: ${note.folderName ? `"${note.folderName.replace(/"/g, '\\"')}"` : 'null'}
 ---
 
 `;
@@ -107,6 +109,8 @@ function parseFrontmatter(content) {
         value = value.replace(/^\[|\]$/g, '').split(',').map(tag => tag.trim().replace(/^"|"$/g, ''));
       } else if (key === 'fontSize') {
         value = parseInt(value) || 16; // Parse as number with default
+      } else if ((key === 'folder' || key === 'folderName') && value === 'null') {
+        value = null; // Parse null values for folder and folderName
       } else if (value.startsWith('"') && value.endsWith('"')) {
         value = value.slice(1, -1).replace(/\\"/g, '"');
       }

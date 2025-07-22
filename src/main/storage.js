@@ -50,7 +50,9 @@ async function saveNote(noteData) {
       updatedAt: timestamp,
       tags: noteData.tags || [],
       fontSize: noteData.fontSize || 16,
-      fontFamily: noteData.fontFamily || 'Aeonik'
+      fontFamily: noteData.fontFamily || 'Aeonik',
+      folder: noteData.folder || null,
+      folderName: noteData.folderName || null
     };
     
     // Convert HTML content to Markdown for storage
@@ -119,7 +121,9 @@ async function loadNotes() {
             updatedAt: metadata.updatedAt || new Date().toISOString(),
             tags: metadata.tags || [],
             fontSize: metadata.fontSize || 16,
-            fontFamily: metadata.fontFamily || 'Aeonik'
+            fontFamily: metadata.fontFamily || 'Aeonik',
+            folder: metadata.folder || null,
+            folderName: metadata.folderName || null
           };
           
           notes.push(note);
@@ -259,12 +263,78 @@ function getNotesDirectory() {
   return NOTES_DIR;
 }
 
+// ===== FOLDER MANAGEMENT =====
+async function getFolders() {
+  try {
+    const folders = store.get('folders', []);
+    return { success: true, folders };
+  } catch (error) {
+    console.error('Error getting folders:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+async function saveFolder(folderData) {
+  try {
+    const folders = store.get('folders', []);
+    const folderId = folderData.id || Date.now().toString();
+    
+    const folder = {
+      id: folderId,
+      name: folderData.name,
+      createdAt: folderData.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Check if folder exists
+    const existingIndex = folders.findIndex(f => f.id === folderId);
+    if (existingIndex > -1) {
+      folders[existingIndex] = folder;
+    } else {
+      folders.push(folder);
+    }
+    
+    store.set('folders', folders);
+    return { success: true, folder };
+  } catch (error) {
+    console.error('Error saving folder:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+async function deleteFolder(folderId) {
+  try {
+    const folders = store.get('folders', []);
+    const updatedFolders = folders.filter(f => f.id !== folderId);
+    store.set('folders', updatedFolders);
+    
+    // Also update any notes that were in this folder to have no folder
+    const result = await loadNotes();
+    if (result.success) {
+      const notesToUpdate = result.notes.filter(note => note.folder === folderId);
+      for (const note of notesToUpdate) {
+        await saveNote({ ...note, folder: null });
+      }
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting folder:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 // ===== EXPORTS =====
 module.exports = {
   // Note operations
   saveNote,
   loadNotes,
   deleteNote,
+  
+  // Folder operations
+  getFolders,
+  saveFolder,
+  deleteFolder,
   
   // Migration
   migrateNotesToFiles,

@@ -9,6 +9,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteNote: (noteId) => ipcRenderer.invoke('delete-note', noteId),
   exportNote: (note) => ipcRenderer.invoke('export-note', note),
   
+  // Folder operations
+  getFolders: () => ipcRenderer.invoke('get-folders'),
+  saveFolder: (folderData) => ipcRenderer.invoke('save-folder', folderData),
+  deleteFolder: (folderId) => ipcRenderer.invoke('delete-folder', folderId),
+  
   // Settings
   getAppSettings: () => ipcRenderer.invoke('get-app-settings'),
   saveAppSettings: (settings) => ipcRenderer.invoke('save-app-settings', settings),
