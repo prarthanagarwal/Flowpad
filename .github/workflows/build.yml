@@ -48,9 +48,16 @@ jobs:
       - name: Install DMG dependencies on macOS
         if: matrix.platform == 'mac-intel' || matrix.platform == 'mac-arm'
         run: |
+          # Install Xcode Command Line Tools (usually pre-installed but ensure)
+          xcode-select --install || true
           # Install required tools for DMG creation
           brew install create-dmg
-          npm install -g appdmg
+          # Install appdmg specifically for Electron Forge
+          npm install -g appdmg@latest
+          # Verify installations
+          which create-dmg
+          which appdmg
+          appdmg --version
 
       - name: Build for macOS Intel
         if: matrix.platform == 'mac-intel'
@@ -64,6 +71,14 @@ jobs:
           # Enable DMG debugging
           DEBUG: electron-installer-dmg*
 
+      - name: Debug macOS Intel output
+        if: matrix.platform == 'mac-intel'
+        run: |
+          echo "=== Checking output directory ==="
+          find out/ -type f -name "*.dmg" -o -name "*.zip" | head -20
+          echo "=== Directory structure ==="
+          ls -la out/make/ || echo "No make directory found"
+
       - name: Build for macOS Apple Silicon
         if: matrix.platform == 'mac-arm'
         run: npm run make-mac-arm
@@ -75,6 +90,14 @@ jobs:
           BUILD_MAC: true
           # Enable DMG debugging
           DEBUG: electron-installer-dmg*
+
+      - name: Debug macOS Apple Silicon output
+        if: matrix.platform == 'mac-arm'
+        run: |
+          echo "=== Checking output directory ==="
+          find out/ -type f -name "*.dmg" -o -name "*.zip" | head -20
+          echo "=== Directory structure ==="
+          ls -la out/make/ || echo "No make directory found"
 
       - name: Upload Windows artifacts
         if: matrix.platform == 'win'

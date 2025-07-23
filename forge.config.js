@@ -98,26 +98,41 @@ module.exports = {
       platforms: ['win32'],
     },
     
-    // macOS DMG - Intel
+    // macOS DMG - Intel and Apple Silicon
     {
       name: '@electron-forge/maker-dmg',
       config: {
-        // 2025 working configuration for DMG creation
+        // Working 2025 configuration
         format: 'UDZO',
         icon: 'assets/icon.icns',
-        additionalDMGOptions: {
-          window: {
-            size: {
-              width: 540,
-              height: 380
-            }
+        name: 'Flowpad-${version}',
+        // Simplified window config
+        window: {
+          size: {
+            width: 540,
+            height: 380
           }
-        }
+        },
+        // Add contents for drag-to-install experience
+        contents: [
+          {
+            x: 410,
+            y: 150,
+            type: 'link',
+            path: '/Applications'
+          },
+          {
+            x: 130,
+            y: 150,
+            type: 'file',
+            path: 'Flowpad.app'
+          }
+        ]
       },
       platforms: ['darwin'],
     },
     
-    // macOS ZIP - Intel
+    // macOS ZIP - Backup format
     {
       name: '@electron-forge/maker-zip',
       config: {},
