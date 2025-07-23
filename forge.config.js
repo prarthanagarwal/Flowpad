@@ -102,18 +102,16 @@ module.exports = {
     {
       name: '@electron-forge/maker-dmg',
       config: {
-        // Working 2025 configuration
+        // Working 2025 configuration - let Forge handle app path automatically
         format: 'UDZO',
         icon: 'assets/icon.icns',
         name: 'Flowpad-${version}',
-        // Simplified window config
         window: {
           size: {
             width: 540,
             height: 380
           }
         },
-        // Add contents for drag-to-install experience
         contents: [
           {
             x: 410,
@@ -124,8 +122,8 @@ module.exports = {
           {
             x: 130,
             y: 150,
-            type: 'file',
-            path: 'Flowpad.app'
+            type: 'file'
+            // Don't specify path - let Forge auto-detect the .app location
           }
         ]
       },
