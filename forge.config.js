@@ -104,19 +104,8 @@ module.exports = {
       config: {
         icon: 'assets/icon.icns',
         iconSize: 100,
-        contents: [
-          {
-            x: 410,
-            y: 150,
-            type: 'link',
-            path: '/Applications'
-          },
-          {
-            x: 130,
-            y: 150,
-            type: 'file'
-          }
-        ],
+        // Use simpler DMG configuration - let forge handle the contents automatically
+        format: 'UDZO',
         additionalDMGOptions: {
           window: {
             size: {
