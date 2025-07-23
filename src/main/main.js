@@ -1,11 +1,139 @@
 // ===== MAIN PROCESS - APP LIFECYCLE & WINDOW MANAGEMENT =====
 // Handles Electron app lifecycle, window creation, and menu setup
 
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const storage = require('./storage');
 const { initializeIpcHandlers } = require('./ipc-handlers');
+
+// ===== SQUIRREL WINDOWS STARTUP HANDLING =====
+// Handle Squirrel events for Windows installation
+if (require('electron-squirrel-startup')) {
+  app.quit();
+}
+
+// Handle Squirrel events manually for better control
+const handleSquirrelEvent = () => {
+  if (process.argv.length === 1) {
+    return false;
+  }
+
+  const ChildProcess = require('child_process');
+  const fs = require('fs');
+  const os = require('os');
+  const appFolder = path.resolve(process.execPath, '..');
+  const rootAtomFolder = path.resolve(appFolder, '..');
+  const updateDotExe = path.resolve(path.join(rootAtomFolder, 'Update.exe'));
+  const exeName = path.basename(process.execPath);
+
+  const spawn = function(command, args) {
+    let spawnedProcess;
+    try {
+      spawnedProcess = ChildProcess.spawn(command, args, { detached: true });
+    } catch (error) {
+      console.log('Error spawning process:', error);
+    }
+    return spawnedProcess;
+  };
+
+  const spawnUpdate = function(args) {
+    return spawn(updateDotExe, args);
+  };
+
+  // Create custom shortcuts without subfolder
+  const createCustomShortcuts = () => {
+    try {
+      const shell = require('electron').shell;
+      
+      // Create desktop shortcut
+      const desktopPath = path.join(os.homedir(), 'Desktop');
+      const startMenuPath = path.join(os.homedir(), 'AppData', 'Roaming', 'Microsoft', 'Windows', 'Start Menu', 'Programs');
+      
+      // Use Windows scripting to create shortcuts without company folder
+      const createShortcut = (targetPath, shortcutName) => {
+        const vbsScript = `
+Set WshShell = CreateObject("WScript.Shell")
+Set Shortcut = WshShell.CreateShortcut("${path.join(targetPath, shortcutName + '.lnk')}")
+Shortcut.TargetPath = "${process.execPath}"
+Shortcut.WorkingDirectory = "${appFolder}"
+Shortcut.IconLocation = "${process.execPath},0"
+Shortcut.Description = "a minimal notepad for your thoughts to flow"
+Shortcut.Save
+`;
+        
+        const vbsFile = path.join(os.tmpdir(), 'create_shortcut.vbs');
+        fs.writeFileSync(vbsFile, vbsScript);
+        
+        spawn('cscript', ['/nologo', vbsFile]);
+        
+        // Clean up VBS file after a delay
+        setTimeout(() => {
+          try {
+            fs.unlinkSync(vbsFile);
+          } catch (e) {
+            // Ignore cleanup errors
+          }
+        }, 2000);
+      };
+
+      // Create desktop shortcut
+      createShortcut(desktopPath, 'Flowpad');
+      
+      // Create Start Menu shortcut directly in Programs folder
+      createShortcut(startMenuPath, 'Flowpad');
+      
+    } catch (error) {
+      console.log('Error creating custom shortcuts:', error);
+      // Fallback to default Squirrel behavior
+      spawnUpdate(['--createShortcut', exeName]);
+    }
+  };
+
+  const squirrelEvent = process.argv[1];
+  switch (squirrelEvent) {
+    case '--squirrel-install':
+    case '--squirrel-updated':
+      // Create custom shortcuts without company subfolder
+      createCustomShortcuts();
+      setTimeout(app.quit, 1000);
+      return true;
+
+    case '--squirrel-uninstall':
+      // Remove shortcuts
+      try {
+        const desktopShortcut = path.join(os.homedir(), 'Desktop', 'Flowpad.lnk');
+        const startMenuShortcut = path.join(os.homedir(), 'AppData', 'Roaming', 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Flowpad.lnk');
+        
+        if (fs.existsSync(desktopShortcut)) {
+          fs.unlinkSync(desktopShortcut);
+        }
+        if (fs.existsSync(startMenuShortcut)) {
+          fs.unlinkSync(startMenuShortcut);
+        }
+      } catch (error) {
+        console.log('Error removing shortcuts:', error);
+      }
+      
+      // Also remove default Squirrel shortcuts
+      spawnUpdate(['--removeShortcut', exeName]);
+      setTimeout(app.quit, 1000);
+      return true;
+
+    case '--squirrel-obsolete':
+      // This is called on the outgoing version of your app before we update to the new version
+      app.quit();
+      return true;
+  }
+
+  return false;
+};
+
+// Handle Squirrel events on Windows
+if (process.platform === 'win32' && handleSquirrelEvent()) {
+  // Squirrel event handled, exit early
+  return;
+}
 
 // ===== GLOBAL VARIABLES =====
 let mainWindow;

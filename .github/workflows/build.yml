@@ -9,7 +9,7 @@ on:
       version:
         description: 'Version to build'
         required: true
-        default: '1.0.5'
+        default: '1.6.0'
 
 jobs:
   build:
@@ -30,7 +30,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -38,19 +38,20 @@ jobs:
 
       - name: Build for Windows
         if: matrix.platform == 'win'
-        run: npm run build-win
+        run: npm run make-win
         env:
           # Provide GitHub token for publishing
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build for macOS
         if: matrix.platform == 'mac'
-        run: npm run build-mac
+        run: npm run make-mac
         env:
           # Disable code signing for now
           CSC_IDENTITY_AUTO_DISCOVERY: false
           # Provide GitHub token for publishing
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUILD_MAC: true
 
       - name: Upload Windows artifacts
         if: matrix.platform == 'win'
@@ -58,8 +59,8 @@ jobs:
         with:
           name: windows-build
           path: |
-            dist/*.exe
-            dist/*.zip
+            out/make/squirrel.windows/**/*.exe
+            out/make/zip/**/*.zip
 
       - name: Upload macOS artifacts
         if: matrix.platform == 'mac'
@@ -67,10 +68,8 @@ jobs:
         with:
           name: macos-build
           path: |
-            dist/*.dmg
-            dist/*.zip
-            dist/mac/**/*
-            dist/mac-arm64/**/*
+            out/make/dmg/**/*.dmg
+            out/make/zip/**/*.zip
 
   release:
     needs: build
@@ -78,6 +77,9 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Download Windows artifacts
         uses: actions/download-artifact@v4
         with:
@@ -94,9 +96,10 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            dist-windows/*
-            dist-macos/*
+            dist-windows/**/*
+            dist-macos/**/*
           draft: false
           prerelease: false
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

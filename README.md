@@ -2,7 +2,7 @@
 
 # hello there, this is Flowpad
 
-**a notepad to channel your flow state**
+**a minimal notepad for your thoughts to flow**
 
 download the latest version [here](https://flowpad.live/)
 
