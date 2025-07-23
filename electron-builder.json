@@ -6,19 +6,9 @@
   },
   "files": [
     "**/*",
-    "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
-    "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
-    "!**/node_modules/*.d.ts",
-    "!**/node_modules/.bin",
-    "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
-    "!.editorconfig",
-    "!**/._*",
-    "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
-    "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
-    "!**/{appveyor.yml,.travis.yml,circle.yml}",
-    "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}",
+    "!dist/**/*",
+    "!.git/**/*",
     "!**/Release Notes/**/*",
-    "!**/docs/**/*",
     "!forge.config.js",
     "!electron-builder.json"
   ],
@@ -42,8 +32,7 @@
     "entitlementsInherit": null
   },
   "dmg": {
-    "title": "Flowpad ${version}",
-    "icon": "assets/icon.icns",
+    "artifactName": "${productName}-${version}-mac.${ext}",
     "iconSize": 100,
     "contents": [
       {
@@ -57,11 +46,6 @@
         "y": 150,
         "type": "file"
       }
-    ],
-    "window": {
-      "width": 540,
-      "height": 380
-    },
-    "backgroundColor": "#2c3e50"
+    ]
   }
 } 
