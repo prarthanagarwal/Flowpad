@@ -45,6 +45,13 @@ jobs:
           # Provide GitHub token for publishing
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install DMG dependencies on macOS
+        if: matrix.platform == 'mac-intel' || matrix.platform == 'mac-arm'
+        run: |
+          # Install required tools for DMG creation
+          brew install create-dmg
+          npm install -g appdmg
+
       - name: Build for macOS Intel
         if: matrix.platform == 'mac-intel'
         run: npm run make-mac
@@ -54,6 +61,8 @@ jobs:
           # Provide GitHub token for publishing
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BUILD_MAC: true
+          # Enable DMG debugging
+          DEBUG: electron-installer-dmg*
 
       - name: Build for macOS Apple Silicon
         if: matrix.platform == 'mac-arm'
@@ -64,6 +73,8 @@ jobs:
           # Provide GitHub token for publishing
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BUILD_MAC: true
+          # Enable DMG debugging
+          DEBUG: electron-installer-dmg*
 
       - name: Upload Windows artifacts
         if: matrix.platform == 'win'
@@ -96,7 +107,9 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
-    
+    permissions:
+      contents: write
+      
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -120,7 +133,7 @@ jobs:
           path: ./dist-macos-arm
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             dist-windows/**/*
@@ -129,5 +142,4 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          token: ${{ secrets.GITHUB_TOKEN }} 

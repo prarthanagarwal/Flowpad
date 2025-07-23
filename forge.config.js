@@ -102,10 +102,9 @@ module.exports = {
     {
       name: '@electron-forge/maker-dmg',
       config: {
-        icon: 'assets/icon.icns',
-        iconSize: 100,
-        // Use simpler DMG configuration - let forge handle the contents automatically
+        // 2025 working configuration for DMG creation
         format: 'UDZO',
+        icon: 'assets/icon.icns',
         additionalDMGOptions: {
           window: {
             size: {
