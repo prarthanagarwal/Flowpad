@@ -98,7 +98,7 @@ module.exports = {
       platforms: ['win32'],
     },
     
-    // macOS DMG
+    // macOS DMG - Intel
     {
       name: '@electron-forge/maker-dmg',
       config: {
@@ -129,7 +129,7 @@ module.exports = {
       platforms: ['darwin'],
     },
     
-    // macOS ZIP (backup)
+    // macOS ZIP - Intel
     {
       name: '@electron-forge/maker-zip',
       config: {},
