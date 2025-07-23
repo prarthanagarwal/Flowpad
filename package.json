@@ -16,8 +16,9 @@
     "make": "electron-forge make",
     "publish": "electron-forge publish",
     "make-win": "electron-forge make --platform=win32 --arch=x64",
-    "make-mac": "electron-forge make --platform=darwin --arch=x64",
-    "make-mac-arm": "electron-forge make --platform=darwin --arch=arm64",
+    "make-mac": "electron-builder --mac --x64",
+    "make-mac-arm": "electron-builder --mac --arm64",
+    "make-mac-universal": "electron-builder --mac --universal",
     "make-portable": "electron-forge make --platform=win32 --arch=x64 --targets=@electron-forge/maker-zip",
     "lint": "echo \"No linting configured yet\"",
     "test": "echo \"No tests configured yet\""
@@ -42,6 +43,7 @@
     "@electron/fuses": "^1.8.0",
     "cross-env": "^7.0.3",
     "electron": "^36.5.0",
+    "electron-builder": "^26.0.12",
     "electronmon": "^2.0.3"
   },
   "dependencies": {

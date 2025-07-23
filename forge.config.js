@@ -98,44 +98,8 @@ module.exports = {
       platforms: ['win32'],
     },
     
-    // macOS DMG - Intel and Apple Silicon
-    {
-      name: '@electron-forge/maker-dmg',
-      config: {
-        // Working 2025 configuration - let Forge handle app path automatically
-        format: 'UDZO',
-        icon: 'assets/icon.icns',
-        name: 'Flowpad-${version}',
-        window: {
-          size: {
-            width: 540,
-            height: 380
-          }
-        },
-        contents: [
-          {
-            x: 410,
-            y: 150,
-            type: 'link',
-            path: '/Applications'
-          },
-          {
-            x: 130,
-            y: 150,
-            type: 'file'
-            // Don't specify path - let Forge auto-detect the .app location
-          }
-        ]
-      },
-      platforms: ['darwin'],
-    },
-    
-    // macOS ZIP - Backup format
-    {
-      name: '@electron-forge/maker-zip',
-      config: {},
-      platforms: ['darwin'],
-    },
+    // macOS builds now handled by electron-builder (see electron-builder.json)
+    // Keeping Forge only for Windows builds
   ],
   
   publishers: [

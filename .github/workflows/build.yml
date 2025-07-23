@@ -45,20 +45,6 @@ jobs:
           # Provide GitHub token for publishing
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install DMG dependencies on macOS
-        if: matrix.platform == 'mac-intel' || matrix.platform == 'mac-arm'
-        run: |
-          # Install Xcode Command Line Tools (usually pre-installed but ensure)
-          xcode-select --install || true
-          # Install required tools for DMG creation
-          brew install create-dmg
-          # Install appdmg specifically for Electron Forge
-          npm install -g appdmg@latest
-          # Verify installations
-          which create-dmg
-          which appdmg
-          appdmg --version
-
       - name: Build for macOS Intel
         if: matrix.platform == 'mac-intel'
         run: npm run make-mac
@@ -67,17 +53,6 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: false
           # Provide GitHub token for publishing
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BUILD_MAC: true
-          # Enable DMG debugging
-          DEBUG: electron-installer-dmg*
-
-      - name: Debug macOS Intel output
-        if: matrix.platform == 'mac-intel'
-        run: |
-          echo "=== Checking output directory ==="
-          find out/ -type f -name "*.dmg" -o -name "*.zip" | head -20
-          echo "=== Directory structure ==="
-          ls -la out/make/ || echo "No make directory found"
 
       - name: Build for macOS Apple Silicon
         if: matrix.platform == 'mac-arm'
@@ -87,17 +62,6 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: false
           # Provide GitHub token for publishing
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BUILD_MAC: true
-          # Enable DMG debugging
-          DEBUG: electron-installer-dmg*
-
-      - name: Debug macOS Apple Silicon output
-        if: matrix.platform == 'mac-arm'
-        run: |
-          echo "=== Checking output directory ==="
-          find out/ -type f -name "*.dmg" -o -name "*.zip" | head -20
-          echo "=== Directory structure ==="
-          ls -la out/make/ || echo "No make directory found"
 
       - name: Upload Windows artifacts
         if: matrix.platform == 'win'
@@ -114,8 +78,8 @@ jobs:
         with:
           name: macos-intel-build
           path: |
-            out/make/dmg/**/*.dmg
-            out/make/zip/**/*.zip
+            dist/*.dmg
+            dist/*.zip
 
       - name: Upload macOS Apple Silicon artifacts
         if: matrix.platform == 'mac-arm'
@@ -123,8 +87,8 @@ jobs:
         with:
           name: macos-arm-build
           path: |
-            out/make/dmg/**/*.dmg
-            out/make/zip/**/*.zip
+            dist/*.dmg
+            dist/*.zip
 
   release:
     needs: build
