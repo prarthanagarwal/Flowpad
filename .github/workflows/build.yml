@@ -21,9 +21,7 @@ jobs:
           - os: windows-latest
             platform: win
           - os: macos-latest
-            platform: mac-intel
-          - os: macos-latest
-            platform: mac-arm
+            platform: mac
 
     steps:
       - name: Checkout code
@@ -32,7 +30,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '20'
           cache: 'npm'
 
       - name: Install dependencies
@@ -45,18 +43,9 @@ jobs:
           # Provide GitHub token for publishing
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build for macOS Intel
-        if: matrix.platform == 'mac-intel'
-        run: npm run make-mac
-        env:
-          # Disable code signing for now
-          CSC_IDENTITY_AUTO_DISCOVERY: false
-          # Provide GitHub token for publishing
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build for macOS Apple Silicon
-        if: matrix.platform == 'mac-arm'
-        run: npm run make-mac-arm
+      - name: Build for macOS
+        if: matrix.platform == 'mac'
+        run: npm run build-mac
         env:
           # Disable code signing for now
           CSC_IDENTITY_AUTO_DISCOVERY: false
@@ -71,24 +60,17 @@ jobs:
           path: |
             out/make/squirrel.windows/**/*.exe
             out/make/zip/**/*.zip
-
-      - name: Upload macOS Intel artifacts
-        if: matrix.platform == 'mac-intel'
+            
+      - name: Upload macOS artifacts
+        if: matrix.platform == 'mac'
         uses: actions/upload-artifact@v4
         with:
-          name: macos-intel-build
+          name: macos-build
           path: |
             dist/*.dmg
             dist/*.zip
-
-      - name: Upload macOS Apple Silicon artifacts
-        if: matrix.platform == 'mac-arm'
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-arm-build
-          path: |
-            dist/*.dmg
-            dist/*.zip
+            dist/mac/**/*
+            dist/mac-arm64/**/*
 
   release:
     needs: build
@@ -107,26 +89,19 @@ jobs:
           name: windows-build
           path: ./dist-windows
 
-      - name: Download macOS Intel artifacts
+      - name: Download macOS artifacts
         uses: actions/download-artifact@v4
         with:
-          name: macos-intel-build
-          path: ./dist-macos-intel
-
-      - name: Download macOS Apple Silicon artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: macos-arm-build
-          path: ./dist-macos-arm
+          name: macos-build
+          path: ./dist-macos
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v1
         with:
           files: |
-            dist-windows/**/*
-            dist-macos-intel/**/*
-            dist-macos-arm/**/*
+            dist-windows/*
+            dist-macos/*
           draft: false
           prerelease: false
-          generate_release_notes: true
-          token: ${{ secrets.GITHUB_TOKEN }} 
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

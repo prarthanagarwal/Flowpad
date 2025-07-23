@@ -16,9 +16,7 @@
     "make": "electron-forge make",
     "publish": "electron-forge publish",
     "make-win": "electron-forge make --platform=win32 --arch=x64",
-    "make-mac": "electron-builder --mac --x64",
-    "make-mac-arm": "electron-builder --mac --arm64",
-    "make-mac-universal": "electron-builder --mac --universal",
+    "build-mac": "electron-builder --mac --universal",
     "make-portable": "electron-forge make --platform=win32 --arch=x64 --targets=@electron-forge/maker-zip",
     "lint": "echo \"No linting configured yet\"",
     "test": "echo \"No tests configured yet\""
