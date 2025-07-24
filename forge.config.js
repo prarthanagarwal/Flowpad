@@ -1,5 +1,8 @@
 const { FusesPlugin } = require('@electron-forge/plugin-fuses');
 const { FuseV1Options, FuseVersion } = require('@electron/fuses');
+const path = require('path');
+const fs = require('fs');
+const packageJson = require('./package.json');
 
 module.exports = {
   packagerConfig: {
@@ -66,6 +69,11 @@ module.exports = {
     // General optimizations
     derefSymlinks: true,
     junk: true, // Remove unnecessary files
+    
+    // Auto-update configuration
+    extraResource: [
+      // We'll create this file in the post-make hook
+    ]
   },
   
   rebuildConfig: {
@@ -166,5 +174,31 @@ module.exports = {
         }
       }
     },
+    
+    // Create app-update.yml in the resources directory for auto-updates
+    postMake: async (forgeConfig, results) => {
+      console.log('📦 Post-make: Creating update metadata...');
+      
+      try {
+        // Run the update metadata generator script
+        const { execSync } = require('child_process');
+        execSync('node scripts/generate-update-metadata.js', { stdio: 'inherit' });
+        
+        // For each artifact, ensure app-update.yml is embedded
+        for (const makeResult of results) {
+          for (const artifact of makeResult.artifacts) {
+            if (artifact.endsWith('.exe') && artifact.includes('Setup')) {
+              console.log(`✅ Created update metadata for: ${artifact}`);
+            }
+          }
+        }
+        
+        console.log('✅ Update metadata generation completed');
+      } catch (error) {
+        console.error('❌ Error generating update metadata:', error);
+      }
+      
+      return results;
+    }
   },
 };

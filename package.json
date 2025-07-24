@@ -18,6 +18,9 @@
     "make-win": "electron-forge make --platform=win32 --arch=x64",
     "build-mac": "electron-builder --mac --universal",
     "make-portable": "electron-forge make --platform=win32 --arch=x64 --targets=@electron-forge/maker-zip",
+    "generate-update-metadata": "node scripts/generate-update-metadata.js",
+    "make-win-with-metadata": "npm run make-win && npm run generate-update-metadata",
+    "build-mac-with-metadata": "npm run build-mac && npm run generate-update-metadata",
     "lint": "echo \"No linting configured yet\"",
     "test": "echo \"No tests configured yet\""
   },
@@ -42,6 +45,7 @@
     "cross-env": "^7.0.3",
     "electron": "^36.5.0",
     "electron-builder": "^26.0.12",
+    "electron-updater-yaml": "^1.1.2",
     "electronmon": "^2.0.3"
   },
   "dependencies": {

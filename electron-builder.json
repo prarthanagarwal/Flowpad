@@ -2,7 +2,7 @@
   "appId": "com.flowpad.app",
   "productName": "Flowpad",
   "directories": {
-    "output": "dist"
+    "output": "out"
   },
   "files": [
     "**/*",
@@ -11,6 +11,13 @@
     "!**/Release Notes/**/*",
     "!forge.config.js",
     "!electron-builder.json"
+  ],
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "PrarthanAgarwal",
+      "repo": "Flowpad"
+    }
   ],
   "mac": {
     "icon": "assets/icon.icns",
@@ -43,5 +50,6 @@
         "type": "file"
       }
     ]
-  }
+  },
+  "afterPack": "scripts/after-pack.js"
 } 

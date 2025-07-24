@@ -38,14 +38,14 @@ jobs:
 
       - name: Build for Windows
         if: matrix.platform == 'win'
-        run: npm run make-win
+        run: npm run make-win-with-metadata
         env:
           # Provide GitHub token for publishing
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build for macOS
         if: matrix.platform == 'mac'
-        run: npm run build-mac
+        run: npm run build-mac-with-metadata
         env:
           # Disable code signing for now
           CSC_IDENTITY_AUTO_DISCOVERY: false
@@ -59,6 +59,7 @@ jobs:
           name: windows-build
           path: |
             out/make/squirrel.windows/**/*.exe
+            out/make/squirrel.windows/**/*.yml
             out/make/zip/**/*.zip
             
       - name: Upload macOS artifacts
@@ -67,10 +68,10 @@ jobs:
         with:
           name: macos-build
           path: |
-            dist/*.dmg
-            dist/*.zip
-            dist/mac/**/*
-            dist/mac-arm64/**/*
+            out/*.dmg
+            out/*.yml
+            out/mac/**/*
+            out/mac-arm64/**/*
 
   release:
     needs: build
@@ -99,8 +100,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            dist-windows/*
-            dist-macos/*
+            dist-windows/**/*
+            dist-macos/**/*
           draft: false
           prerelease: false
         env:

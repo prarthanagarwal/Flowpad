@@ -150,9 +150,12 @@ function setupUpdaterHandlers() {
   ipcMain.handle('check-for-updates', async () => {
     try {
       const { autoUpdater } = require('electron-updater');
+      console.log('Manually checking for updates...');
+      console.log('Update feed URL:', autoUpdater.getFeedURL());
       await autoUpdater.checkForUpdates();
       return { success: true };
     } catch (error) {
+      console.error('Error checking for updates:', error);
       return { success: false, error: error.message };
     }
   });
@@ -164,6 +167,7 @@ function setupUpdaterHandlers() {
       await autoUpdater.downloadUpdate();
       return { success: true };
     } catch (error) {
+      console.error('Error downloading update:', error);
       return { success: false, error: error.message };
     }
   });
@@ -175,6 +179,7 @@ function setupUpdaterHandlers() {
       autoUpdater.quitAndInstall(true, true);
       return { success: true };
     } catch (error) {
+      console.error('Error during quit and install:', error);
       return { success: false, error: error.message };
     }
   });
