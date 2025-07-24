@@ -38,19 +38,42 @@ jobs:
 
       - name: Build for Windows
         if: matrix.platform == 'win'
-        run: npm run make-win-with-metadata
+        run: npm run make-win
         env:
           # Provide GitHub token for publishing
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Generate Windows Update Metadata
+        if: matrix.platform == 'win'
+        run: node scripts/generate-update-metadata.js
+        
       - name: Build for macOS
         if: matrix.platform == 'mac'
-        run: npm run build-mac-with-metadata
+        run: npm run build-mac
         env:
           # Disable code signing for now
           CSC_IDENTITY_AUTO_DISCOVERY: false
           # Provide GitHub token for publishing
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate Mac Update Metadata
+        if: matrix.platform == 'mac'
+        run: |
+          VERSION=$(node -e "console.log(require('./package.json').version)")
+          cd out
+          echo "provider: github" > latest-mac.yml
+          echo "owner: PrarthanAgarwal" >> latest-mac.yml
+          echo "repo: Flowpad" >> latest-mac.yml
+          echo "version: $VERSION" >> latest-mac.yml
+          echo "files:" >> latest-mac.yml
+          DMG_FILE=$(ls *.dmg)
+          echo "  - url: https://github.com/PrarthanAgarwal/Flowpad/releases/download/v$VERSION/$DMG_FILE" >> latest-mac.yml
+          echo "    sha512: $(shasum -a 512 $DMG_FILE | awk '{print $1}')" >> latest-mac.yml
+          echo "    size: $(stat -f%z $DMG_FILE)" >> latest-mac.yml
+          echo "path: $DMG_FILE" >> latest-mac.yml
+          echo "sha512: $(shasum -a 512 $DMG_FILE | awk '{print $1}')" >> latest-mac.yml
+          echo "releaseDate: $(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> latest-mac.yml
+          cat latest-mac.yml
 
       - name: Upload Windows artifacts
         if: matrix.platform == 'win'

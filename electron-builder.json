@@ -12,13 +12,7 @@
     "!forge.config.js",
     "!electron-builder.json"
   ],
-  "publish": [
-    {
-      "provider": "github",
-      "owner": "PrarthanAgarwal",
-      "repo": "Flowpad"
-    }
-  ],
+  "publish": null,
   "mac": {
     "icon": "assets/icon.icns",
     "category": "public.app-category.productivity",

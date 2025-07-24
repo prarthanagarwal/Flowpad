@@ -11,18 +11,9 @@ module.exports = async function(context) {
   console.log('Running after-pack script for macOS...');
   
   try {
-    const { appOutDir, outDir, arch, targets } = context;
+    const { appOutDir, outDir, arch } = context;
     
-    // Only run for macOS DMG builds
-    const macDmgTarget = targets.find(target => 
-      target.name === 'dmg' && target.arch.includes(arch)
-    );
-    
-    if (!macDmgTarget) {
-      console.log('No macOS DMG target found, skipping update metadata generation');
-      return;
-    }
-    
+    // Skip target checking - it's causing issues
     console.log(`Generating update metadata for macOS ${arch}...`);
     
     // Find the DMG file
