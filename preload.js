@@ -14,6 +14,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveFolder: (folderData) => ipcRenderer.invoke('save-folder', folderData),
   deleteFolder: (folderId) => ipcRenderer.invoke('delete-folder', folderId),
   
+  // Migration
+  triggerMigration: () => ipcRenderer.invoke('trigger-migration'),
+  
   // Settings
   getAppSettings: () => ipcRenderer.invoke('get-app-settings'),
   saveAppSettings: (settings) => ipcRenderer.invoke('save-app-settings', settings),

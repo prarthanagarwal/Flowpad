@@ -37,6 +37,17 @@ function setupNoteHandlers() {
     return await storage.deleteFolder(folderId);
   });
 
+  // Manual migration trigger
+  ipcMain.handle('trigger-migration', async () => {
+    try {
+      await storage.migrateNotesToFiles();
+      return { success: true, message: 'Migration completed' };
+    } catch (error) {
+      console.error('Error during manual migration:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // Export note
   ipcMain.handle('export-note', async (event, note) => {
     try {

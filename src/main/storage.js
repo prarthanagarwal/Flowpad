@@ -176,46 +176,102 @@ async function deleteNote(noteId) {
 // ===== MIGRATION =====
 async function migrateNotesToFiles() {
   try {
+    // Get notes from current electron-store
     const existingNotes = store.get('notes', []);
+    let migratedCount = 0;
+    let totalNotesToMigrate = existingNotes.length;
     
-    if (existingNotes.length > 0) {
-      console.log(`Migrating ${existingNotes.length} notes to file-based storage...`);
+    // Check for notes in the legacy location (without -data suffix)
+    let legacyNotes = [];
+    const legacyConfigPath = path.join(os.homedir(), 'AppData', 'Roaming', 'flowpad', 'config.json');
+    
+    try {
+      if (fsSync.existsSync(legacyConfigPath)) {
+        console.log(`Found legacy config file at ${legacyConfigPath}`);
+        const legacyConfig = JSON.parse(fsSync.readFileSync(legacyConfigPath, 'utf8'));
+        if (legacyConfig.notes && Array.isArray(legacyConfig.notes)) {
+          legacyNotes = legacyConfig.notes;
+          console.log(`Found ${legacyNotes.length} notes in legacy config`);
+          totalNotesToMigrate += legacyNotes.length;
+        }
+      }
+    } catch (legacyError) {
+      console.error('Error reading legacy config:', legacyError);
+    }
+    
+    if (totalNotesToMigrate > 0) {
+      console.log(`Migrating ${totalNotesToMigrate} notes to file-based storage...`);
       await ensureNotesDirectory();
       
+      // First migrate notes from current store
       for (const note of existingNotes) {
         try {
-          // Add default font settings for backward compatibility
-          const noteWithFonts = {
-            ...note,
-            fontSize: note.fontSize || 16,
-            fontFamily: note.fontFamily || 'Aeonik'
-          };
-          
-          // Convert HTML content to Markdown
-          const markdownContent = await convertHtmlToMarkdown(noteWithFonts.content);
-          
-          // Create file content with frontmatter
-          const fileContent = createFrontmatter(noteWithFonts) + markdownContent;
-          
-          // Generate filename
-          const filename = generateNoteFilename(noteWithFonts);
-          const filepath = path.join(NOTES_DIR, filename);
-          
-          // Write the note file
-          await fs.writeFile(filepath, fileContent, 'utf8');
-          console.log(`Migrated note: ${filename}`);
+          await migrateNote(note);
+          migratedCount++;
         } catch (noteError) {
           console.error(`Error migrating note ${note.id}:`, noteError);
         }
       }
       
+      // Then migrate notes from legacy location
+      for (const note of legacyNotes) {
+        try {
+          await migrateNote(note);
+          migratedCount++;
+        } catch (noteError) {
+          console.error(`Error migrating legacy note ${note.id}:`, noteError);
+        }
+      }
+      
       // Clear the old notes from electron-store after successful migration
-      store.set('notes', []);
-      console.log('Migration completed successfully!');
+      if (existingNotes.length > 0) {
+        store.set('notes', []);
+      }
+      
+      // Try to clear legacy notes if they exist
+      if (legacyNotes.length > 0) {
+        try {
+          if (fsSync.existsSync(legacyConfigPath)) {
+            const legacyConfig = JSON.parse(fsSync.readFileSync(legacyConfigPath, 'utf8'));
+            legacyConfig.notes = [];
+            fsSync.writeFileSync(legacyConfigPath, JSON.stringify(legacyConfig, null, 2), 'utf8');
+          }
+        } catch (clearError) {
+          console.error('Error clearing legacy notes:', clearError);
+        }
+      }
+      
+      console.log(`Migration completed! Migrated ${migratedCount} of ${totalNotesToMigrate} notes.`);
+    } else {
+      console.log('No notes found to migrate.');
     }
   } catch (error) {
     console.error('Error during migration:', error);
   }
+}
+
+// Helper function to migrate a single note
+async function migrateNote(note) {
+  // Add default font settings for backward compatibility
+  const noteWithFonts = {
+    ...note,
+    fontSize: note.fontSize || 16,
+    fontFamily: note.fontFamily || 'Aeonik'
+  };
+  
+  // Convert HTML content to Markdown
+  const markdownContent = await convertHtmlToMarkdown(noteWithFonts.content);
+  
+  // Create file content with frontmatter
+  const fileContent = createFrontmatter(noteWithFonts) + markdownContent;
+  
+  // Generate filename
+  const filename = generateNoteFilename(noteWithFonts);
+  const filepath = path.join(NOTES_DIR, filename);
+  
+  // Write the note file
+  await fs.writeFile(filepath, fileContent, 'utf8');
+  console.log(`Migrated note: ${filename}`);
 }
 
 // ===== SETTINGS MANAGEMENT =====
