@@ -58,22 +58,7 @@ jobs:
 
       - name: Generate Mac Update Metadata
         if: matrix.platform == 'mac'
-        run: |
-          VERSION=$(node -e "console.log(require('./package.json').version)")
-          cd out
-          echo "provider: github" > latest-mac.yml
-          echo "owner: PrarthanAgarwal" >> latest-mac.yml
-          echo "repo: Flowpad" >> latest-mac.yml
-          echo "version: $VERSION" >> latest-mac.yml
-          echo "files:" >> latest-mac.yml
-          DMG_FILE=$(ls *.dmg)
-          echo "  - url: https://github.com/PrarthanAgarwal/Flowpad/releases/download/v$VERSION/$DMG_FILE" >> latest-mac.yml
-          echo "    sha512: $(shasum -a 512 $DMG_FILE | awk '{print $1}')" >> latest-mac.yml
-          echo "    size: $(stat -f%z $DMG_FILE)" >> latest-mac.yml
-          echo "path: $DMG_FILE" >> latest-mac.yml
-          echo "sha512: $(shasum -a 512 $DMG_FILE | awk '{print $1}')" >> latest-mac.yml
-          echo "releaseDate: $(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> latest-mac.yml
-          cat latest-mac.yml
+        run: node scripts/generate-update-metadata.js
 
       - name: Upload Windows artifacts
         if: matrix.platform == 'win'
@@ -82,8 +67,9 @@ jobs:
           name: windows-build
           path: |
             out/make/squirrel.windows/**/*.exe
+            out/make/squirrel.windows/**/*.nupkg
             out/make/squirrel.windows/**/*.yml
-            out/make/zip/**/*.zip
+            out/make/squirrel.windows/**/*.zip
             
       - name: Upload macOS artifacts
         if: matrix.platform == 'mac'

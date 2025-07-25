@@ -139,11 +139,11 @@ if (process.platform === 'win32' && handleSquirrelEvent()) {
 let mainWindow;
 
 // ===== AUTO-UPDATER CONFIGURATION =====
-autoUpdater.setFeedURL({
-  provider: 'github',
-  owner: 'PrarthanAgarwal',
-  repo: 'Flowpad'
-});
+// Configure autoUpdater - no need to call setFeedURL as electron-updater 
+// will automatically find the app-update.yml file in the resources folder
+autoUpdater.logger = require('electron').app.isPackaged ? null : console;
+autoUpdater.autoDownload = true;
+autoUpdater.autoInstallOnAppQuit = true;
 
 // Auto-updater event handlers
 autoUpdater.on('checking-for-update', () => {

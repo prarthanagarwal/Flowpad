@@ -21,6 +21,7 @@
     "generate-update-metadata": "node scripts/generate-update-metadata.js",
     "make-win-with-metadata": "npm run make-win && npm run generate-update-metadata",
     "build-mac-with-metadata": "npm run build-mac && npm run generate-update-metadata",
+    "publish-win": "electron-forge make --platform=win32 --arch=x64 && node scripts/generate-update-metadata.js",
     "lint": "echo \"No linting configured yet\"",
     "test": "echo \"No tests configured yet\""
   },
