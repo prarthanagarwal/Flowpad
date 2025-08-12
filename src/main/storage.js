@@ -91,7 +91,7 @@ async function saveNote(noteData) {
     
     return { success: true, note };
   } catch (error) {
-    console.error('Error saving note:', error);
+    console.error('Storage: Error saving note:', error);
     return { success: false, error: error.message };
   }
 }
@@ -128,7 +128,7 @@ async function loadNotes() {
           
           notes.push(note);
         } catch (fileError) {
-          console.error(`Error reading note file ${file}:`, fileError);
+          console.error(`Storage: Error reading note file ${file}:`, fileError);
         }
       }
     }
@@ -138,7 +138,7 @@ async function loadNotes() {
     
     return { success: true, notes };
   } catch (error) {
-    console.error('Error loading notes:', error);
+    console.error('Storage: Error loading notes:', error);
     return { success: false, error: error.message };
   }
 }

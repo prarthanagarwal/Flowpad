@@ -862,10 +862,22 @@ body.light-mode .notes-list::-webkit-scrollbar-thumb:hover {
     -webkit-app-region: no-drag;
 }
 
-.toolbar-left,
-.toolbar-right {
+.toolbar-left {
     display: flex;
     gap: 15px;
+}
+
+.toolbar-right {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.toolbar-separator {
+    color: #555;
+    font-size: 16px;
+    font-weight: normal;
+    opacity: 0.7;
 }
 
 .toolbar-center {

@@ -94,8 +94,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         applyNoteFontSettings();
     }
     
-    // Auto-save functionality - always enabled
-    setInterval(autoSave, 3000); // Auto-save every 3 seconds
+    // Auto-save functionality - backup timer every 30 seconds
+    setInterval(() => {
+        if (currentNote && editor.innerHTML.trim() && currentNote.originalContent !== editor.innerHTML) {
+            console.log('Backup auto-save triggered');
+            autoSave();
+        }
+    }, 30000);
 });
 
 // Event Listeners Setup
@@ -326,9 +331,12 @@ async function saveSettings() {
 async function loadNotes() {
     try {
         const result = await window.electronAPI.loadNotes();
+        
         if (result.success) {
             allNotes = result.notes;
             renderNotesList();
+        } else {
+            console.error('Failed to load notes:', result.error);
         }
     } catch (error) {
         console.error('Error loading notes:', error);
@@ -651,7 +659,11 @@ async function saveCurrentNote() {
         };
         
         const result = await window.electronAPI.saveNote(noteData);
+        
         if (result.success) {
+            const oldTitle = currentNote.title;
+            const wasNewNote = !allNotes.find(note => note.id === currentNote.id);
+            
             currentNote = result.note;
             // Store original content for future comparison
             currentNote.originalContent = currentNote.content;
@@ -663,10 +675,13 @@ async function saveCurrentNote() {
             }
             currentNoteTitle.textContent = displayTitle;
             
-            // Only refresh list if content changed (which may affect title)
-            if (contentChanged) {
+            // Refresh list if it's a new note or title changed
+            const titleChanged = oldTitle !== currentNote.title;
+            if (wasNewNote || titleChanged) {
                 await loadNotes();
             }
+        } else {
+            console.error('Save failed:', result.error);
         }
     } catch (error) {
         console.error('Error saving note:', error);
@@ -676,7 +691,10 @@ async function saveCurrentNote() {
 // Auto-save functionality
 async function autoSave() {
     if (currentNote && editor.innerHTML.trim()) {
-        await saveCurrentNote();
+        // Only save if content has actually changed
+        if (currentNote.originalContent !== editor.innerHTML) {
+            await saveCurrentNote();
+        }
     }
 }
 
@@ -1206,6 +1224,17 @@ function closeSidebar() {
     }, 350); // Wait for sidebar animation to complete
 }
 
+// Debounced auto-save
+let autoSaveTimeout;
+function debouncedAutoSave() {
+    clearTimeout(autoSaveTimeout);
+    autoSaveTimeout = setTimeout(() => {
+        if (currentNote && editor.innerHTML.trim() && currentNote.originalContent !== editor.innerHTML) {
+            autoSave();
+        }
+    }, 2000); // Save 2 seconds after last change
+}
+
 // Editor functionality
 function handleEditorInput(e) {
     updatePlaceholder();
@@ -1221,6 +1250,9 @@ function handleEditorInput(e) {
         
         // Update title based on first line of content
         updateTitleFromContent();
+        
+        // Trigger debounced auto-save
+        debouncedAutoSave();
     }
 }
 
