@@ -139,9 +139,9 @@ if (process.platform === 'win32' && handleSquirrelEvent()) {
 let mainWindow;
 
 // ===== AUTO-UPDATER CONFIGURATION =====
-// Configure autoUpdater - no need to call setFeedURL as electron-updater 
-// will automatically find the app-update.yml file in the resources folder
-autoUpdater.logger = require('electron').app.isPackaged ? null : console;
+// Simple auto-updater setup - electron-updater will automatically detect GitHub releases
+// using the repository field in package.json
+autoUpdater.logger = app.isPackaged ? null : console;
 autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = true;
 

@@ -106,8 +106,21 @@ module.exports = {
       platforms: ['win32'],
     },
     
-    // macOS builds now handled by electron-builder (see electron-builder.json)
-    // Keeping Forge only for Windows builds
+    // macOS DMG Installer
+    {
+      name: '@electron-forge/maker-dmg',
+      config: {
+        // Let Electron Forge handle the default configuration
+      },
+      platforms: ['darwin'],
+    },
+    
+    // macOS ZIP (for auto-updates)
+    {
+      name: '@electron-forge/maker-zip',
+      config: {},
+      platforms: ['darwin'],
+    },
   ],
   
   publishers: [
@@ -175,30 +188,6 @@ module.exports = {
       }
     },
     
-    // Create app-update.yml in the resources directory for auto-updates
-    postMake: async (forgeConfig, results) => {
-      console.log('📦 Post-make: Creating update metadata...');
-      
-      try {
-        // Run the update metadata generator script
-        const { execSync } = require('child_process');
-        execSync('node scripts/generate-update-metadata.js', { stdio: 'inherit' });
-        
-        // For each artifact, ensure app-update.yml is embedded
-        for (const makeResult of results) {
-          for (const artifact of makeResult.artifacts) {
-            if (artifact.endsWith('.exe') && artifact.includes('Setup')) {
-              console.log(`✅ Created update metadata for: ${artifact}`);
-            }
-          }
-        }
-        
-        console.log('✅ Update metadata generation completed');
-      } catch (error) {
-        console.error('❌ Error generating update metadata:', error);
-      }
-      
-      return results;
-    }
+
   },
 };

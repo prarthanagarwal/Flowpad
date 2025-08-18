@@ -1184,6 +1184,14 @@ body.light-mode .notes-list::-webkit-scrollbar-thumb:hover {
     margin: 5px 0;
 }
 
+/* Hide icons in normal view - only show at minimum width */
+#themeBtn i,
+#fullscreenBtn i,
+#fontBtn i,
+#fontsizeBtn i {
+    display: none;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .sidebar {
@@ -1192,6 +1200,14 @@ body.light-mode .notes-list::-webkit-scrollbar-thumb:hover {
     
     .toolbar-btn span {
         display: none;
+    }
+    
+    /* Show icons at minimum width */
+    #themeBtn i,
+    #fullscreenBtn i,
+    #fontBtn i,
+    #fontsizeBtn i {
+        display: inline;
     }
     
     .toolbar-center {
