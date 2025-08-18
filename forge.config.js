@@ -62,7 +62,7 @@ module.exports = {
     // macOS specific - only include if on macOS or building for macOS
     ...(process.platform === 'darwin' || process.env.BUILD_MAC === 'true' ? {
       darwinDarkModeSupport: true,
-      osxSign: false, // Disable signing for now, enable when certificates are available
+      osxSign: false, // Disable signing - users can bypass with right-click > Open
       osxNotarize: false,
     } : {}),
     
