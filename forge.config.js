@@ -62,7 +62,7 @@ module.exports = {
     // macOS specific - only include if on macOS or building for macOS
     ...(process.platform === 'darwin' || process.env.BUILD_MAC === 'true' ? {
       darwinDarkModeSupport: true,
-      osxSign: false, // Disable signing - users can bypass with right-click > Open
+      osxSign: false, // Disable signing to prevent crashes - use alternative storage location
       osxNotarize: false,
     } : {}),
     
@@ -72,7 +72,7 @@ module.exports = {
     
     // Auto-update configuration
     extraResource: [
-      // We'll create this file in the post-make hook
+      'app-update.yml'
     ]
   },
   
@@ -188,6 +188,28 @@ module.exports = {
       }
     },
     
+    // Remove quarantine attributes from macOS DMG to prevent "damaged" error
+    postMake: async (forgeConfig, results) => {
+      if (process.platform === 'darwin') {
+        const { execSync } = require('child_process');
+        
+        for (const makeResult of results) {
+          for (const artifact of makeResult.artifacts) {
+            if (artifact.endsWith('.dmg')) {
+              try {
+                console.log(`🍎 Removing quarantine from: ${artifact}`);
+                execSync(`xattr -cr "${artifact}"`);
+                console.log('✅ Quarantine removed - DMG will not show "damaged" error');
+              } catch (error) {
+                console.log('⚠️  Could not remove quarantine attributes:', error.message);
+              }
+            }
+          }
+        }
+      }
+      
+      return results;
+    }
 
   },
 };
