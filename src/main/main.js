@@ -43,7 +43,7 @@ const handleSquirrelEvent = () => {
   // Create custom shortcuts without subfolder
   const createCustomShortcuts = () => {
     try {
-      const shell = require('electron').shell;
+      // shell is already imported at the top of the file
       
       // Create desktop shortcut
       const desktopPath = path.join(os.homedir(), 'Desktop');
@@ -140,7 +140,8 @@ let mainWindow;
 // ===== AUTO-UPDATER CONFIGURATION =====
 // Using update-electron-app for simple, automatic updates
 if (app.isPackaged) {
-  require('update-electron-app')({
+  const { updateElectronApp } = require('update-electron-app');
+  updateElectronApp({
     repo: 'PrarthanAgarwal/Flowpad',
     updateInterval: '1 hour',
     logger: console
