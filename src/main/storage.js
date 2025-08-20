@@ -16,9 +16,7 @@ const {
 
 // ===== CONFIGURATION =====
 // Use Application Support directory to avoid Documents permission issues
-const NOTES_DIR = process.platform === 'darwin' 
-  ? path.join(os.homedir(), 'Library', 'Application Support', 'Flowpad', 'Notes')
-  : path.join(os.homedir(), 'Documents', 'Flowpad');
+const NOTES_DIR = path.join(os.homedir(), 'Documents', 'Flowpad');
 
 // Initialize electron-store for settings (we still use this for app preferences)
 const store = new Store({

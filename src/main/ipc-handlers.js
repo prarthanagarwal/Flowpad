@@ -144,46 +144,7 @@ function setupWindowHandlers(mainWindow) {
   });
 }
 
-// ===== AUTO-UPDATER HANDLERS =====
-function setupUpdaterHandlers() {
-  // Check for updates
-  ipcMain.handle('check-for-updates', async () => {
-    try {
-      const { autoUpdater } = require('electron-updater');
-      console.log('Manually checking for updates...');
-      console.log('Update feed URL:', autoUpdater.getFeedURL());
-      await autoUpdater.checkForUpdates();
-      return { success: true };
-    } catch (error) {
-      console.error('Error checking for updates:', error);
-      return { success: false, error: error.message };
-    }
-  });
 
-  // Download update
-  ipcMain.handle('download-update', async () => {
-    try {
-      const { autoUpdater } = require('electron-updater');
-      await autoUpdater.downloadUpdate();
-      return { success: true };
-    } catch (error) {
-      console.error('Error downloading update:', error);
-      return { success: false, error: error.message };
-    }
-  });
-
-  // Quit and install
-  ipcMain.handle('quit-and-install', async () => {
-    try {
-      const { autoUpdater } = require('electron-updater');
-      autoUpdater.quitAndInstall(true, true);
-      return { success: true };
-    } catch (error) {
-      console.error('Error during quit and install:', error);
-      return { success: false, error: error.message };
-    }
-  });
-}
 
 // ===== FILE SYSTEM HANDLERS =====
 function setupFileSystemHandlers() {
@@ -205,7 +166,6 @@ function initializeIpcHandlers(mainWindow) {
   setupNoteHandlers();
   setupSettingsHandlers();
   setupWindowHandlers(mainWindow);
-  setupUpdaterHandlers();
   setupFileSystemHandlers();
   
   console.log('IPC handlers initialized');

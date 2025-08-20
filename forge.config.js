@@ -1,79 +1,53 @@
 const { FusesPlugin } = require('@electron-forge/plugin-fuses');
 const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 const path = require('path');
-const fs = require('fs');
-const packageJson = require('./package.json');
 
 module.exports = {
   packagerConfig: {
     asar: true,
-    // App metadata from electron-builder config
+    // App metadata
     name: 'Flowpad',
     productName: 'Flowpad',
     executableName: 'Flowpad',
     appBundleId: 'com.flowpad.app',
     appCategoryType: 'public.app-category.productivity',
-    appCopyright: 'Copyright © 2025 Flowpad Developer',
+    appCopyright: 'Copyright © 2025 Prarthan Agarwal',
     
     // Icons
-    icon: 'assets/icon', // Will auto-select .ico on Windows, .icns on macOS
+    icon: 'assets/icon',
     
-    // Optimization settings for smaller app size
-    prune: true,
-    ignore: [
-      // Exclude unnecessary files to reduce app size
-      /^\/\.git/,
-      /^\/\.github/,
-      /^\/docs/,
-      /^\/Release Notes/,
-      /^\/dist/,
-      /^\/out/,
-      /RELEASE_NOTES.*\.md$/,
-      /\.md$/,
-      /\.map$/,
-      /\.log$/,
-      /\.git/,
-      /node_modules\/.*\/test/,
-      /node_modules\/.*\/tests/,
-      /node_modules\/.*\/\.github/,
-      /node_modules\/.*\/docs/,
-      /node_modules\/.*\/example/,
-      /node_modules\/.*\/examples/,
-      /node_modules\/.*\/benchmark/,
-      /node_modules\/.*\/README/,
-      /node_modules\/.*\/CHANGELOG/,
-      /node_modules\/.*\/CONTRIBUTING/,
-      /node_modules\/.*\/LICENSE/,
-      /node_modules\/.*\/\.nyc_output/,
-      /node_modules\/.*\/coverage/,
-    ],
-    
-    // Platform-specific configurations
+    // Windows metadata
     win32metadata: {
       CompanyName: 'Prarthan Agarwal',
       FileDescription: 'a minimal notepad for your thoughts to flow',
       OriginalFilename: 'Flowpad.exe',
       ProductName: 'Flowpad',
       InternalName: 'Flowpad',
-      LegalTrademarks: 'Flowpad',
       RequestedExecutionLevel: 'asInvoker',
     },
     
-    // macOS specific - only include if on macOS or building for macOS
+    // macOS signing and notarization
     ...(process.platform === 'darwin' || process.env.BUILD_MAC === 'true' ? {
       darwinDarkModeSupport: true,
-      osxSign: false, // Disable signing to prevent crashes - use alternative storage location
-      osxNotarize: false,
+      osxSign: {
+        identity: process.env.CSC_NAME || `Developer ID Application: Prarthan Agarwal (${process.env.APPLE_TEAM_ID || 'NYTQ72PV9X'})`,
+        hardenedRuntime: true,
+        entitlements: path.resolve(__dirname, 'entitlements.plist'),
+        'entitlements-inherit': path.resolve(__dirname, 'entitlements.inherit.plist'),
+        optionsForFile: (filePath) => {
+          return {
+            entitlements: path.resolve(__dirname, 'entitlements.plist'),
+            'entitlements-inherit': path.resolve(__dirname, 'entitlements.inherit.plist')
+          };
+        }
+      }
     } : {}),
     
-    // General optimizations
+    // Optimizations
     derefSymlinks: true,
-    junk: true, // Remove unnecessary files
+    junk: true,
     
-    // Auto-update configuration
-    extraResource: [
-      'app-update.yml'
-    ]
+
   },
   
   rebuildConfig: {
@@ -81,7 +55,6 @@ module.exports = {
   },
   
   makers: [
-    // Windows Squirrel Installer with desktop shortcuts
     {
       name: '@electron-forge/maker-squirrel',
       config: {
@@ -91,34 +64,11 @@ module.exports = {
         setupIcon: 'assets/icon.ico',
         iconUrl: 'https://raw.githubusercontent.com/PrarthanAgarwal/Flowpad/main/assets/icon.ico',
         noMsi: true,
-        ...(process.env.WINDOWS_CERTIFICATE_FILE ? {
-          certificateFile: process.env.WINDOWS_CERTIFICATE_FILE,
-          certificatePassword: process.env.WINDOWS_CERTIFICATE_PASSWORD,
-        } : {}),
       },
       platforms: ['win32'],
     },
-    
-    // Windows ZIP (portable version)
-    {
-      name: '@electron-forge/maker-zip',
-      config: {},
-      platforms: ['win32'],
-    },
-    
-    // macOS DMG Installer
     {
       name: '@electron-forge/maker-dmg',
-      config: {
-        // Let Electron Forge handle the default configuration
-      },
-      platforms: ['darwin'],
-    },
-    
-    // macOS ZIP (for auto-updates)
-    {
-      name: '@electron-forge/maker-zip',
-      config: {},
       platforms: ['darwin'],
     },
   ],
@@ -144,8 +94,6 @@ module.exports = {
       name: '@electron-forge/plugin-auto-unpack-natives',
       config: {},
     },
-    
-    // Fuses for security and optimization
     new FusesPlugin({
       version: FuseVersion.V1,
       [FuseV1Options.RunAsNode]: false,
@@ -154,62 +102,7 @@ module.exports = {
       [FuseV1Options.EnableNodeCliInspectArguments]: false,
       [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
       [FuseV1Options.OnlyLoadAppFromAsar]: true,
-      [FuseV1Options.LoadBrowserProcessSpecificV8Snapshot]: false, // Reduces bundle size
+      [FuseV1Options.LoadBrowserProcessSpecificV8Snapshot]: false,
     }),
   ],
-  
-  // Hooks for additional optimization
-  hooks: {
-    packageAfterPrune: async (config, buildPath) => {
-      console.log('🔧 Post-prune optimization...');
-      
-      // Additional cleanup could be done here
-      const fs = require('fs');
-      const path = require('path');
-      
-      // Remove any remaining development files
-      const devFiles = [
-        '.nyc_output',
-        'coverage',
-        '.github',
-        'test',
-        'tests',
-        'spec',
-        'example',
-        'examples'
-      ];
-      
-      for (const file of devFiles) {
-        const filePath = path.join(buildPath, file);
-        if (fs.existsSync(filePath)) {
-          fs.rmSync(filePath, { recursive: true, force: true });
-          console.log(`🗑️  Removed: ${file}`);
-        }
-      }
-    },
-    
-    // Remove quarantine attributes from macOS DMG to prevent "damaged" error
-    postMake: async (forgeConfig, results) => {
-      if (process.platform === 'darwin') {
-        const { execSync } = require('child_process');
-        
-        for (const makeResult of results) {
-          for (const artifact of makeResult.artifacts) {
-            if (artifact.endsWith('.dmg')) {
-              try {
-                console.log(`🍎 Removing quarantine from: ${artifact}`);
-                execSync(`xattr -cr "${artifact}"`);
-                console.log('✅ Quarantine removed - DMG will not show "damaged" error');
-              } catch (error) {
-                console.log('⚠️  Could not remove quarantine attributes:', error.message);
-              }
-            }
-          }
-        }
-      }
-      
-      return results;
-    }
-
-  },
 };

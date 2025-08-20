@@ -7,7 +7,6 @@
     "name": "Prarthan Agarwal",
     "email": "developer@flowpad.com"
   },
-  "copyright": "Copyright © 2025 Flowpad Developer",
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron-forge start",
@@ -18,7 +17,6 @@
     "build:win": "electron-forge make --platform=win32 --arch=x64",
     "build:mac": "electron-forge make --platform=darwin --arch=arm64",
     "build:mac:intel": "electron-forge make --platform=darwin --arch=x64",
-    "build:portable": "electron-forge make --platform=win32 --arch=x64 --targets=@electron-forge/maker-zip",
     "lint": "echo \"No linting configured yet\"",
     "test": "echo \"No tests configured yet\""
   },
@@ -52,6 +50,6 @@
     "@phosphor-icons/web": "^2.1.2",
     "electron-squirrel-startup": "^1.0.1",
     "electron-store": "^8.1.0",
-    "electron-updater": "^6.6.2"
+    "update-electron-app": "^3.1.1"
   }
 }

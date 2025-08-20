@@ -36,13 +36,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onToggleHistory: (callback) => ipcRenderer.on('toggle-history', callback),
   onToggleFullscreen: (callback) => ipcRenderer.on('toggle-fullscreen', callback),
   
-  // Auto-updater
-  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
-  downloadUpdate: () => ipcRenderer.invoke('download-update'),
-  quitAndInstall: () => ipcRenderer.invoke('quit-and-install'),
-  onUpdateStatus: (callback) => ipcRenderer.on('update-status', callback),
-  onCheckForUpdates: (callback) => ipcRenderer.on('check-for-updates', callback),
-  
   // File operations
   openNotesFolder: () => ipcRenderer.invoke('open-notes-folder'),
   

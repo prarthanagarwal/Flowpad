@@ -150,6 +150,15 @@ temp/
 tmp/
 *.tmp
 
+#Certificates
+certificates/
+*.p12
+*.pem
+*.key
+*.cer
+*.crt
+*.csr
+
 # Auto-generated files
 auto-updated/
 

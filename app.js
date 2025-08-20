@@ -59,15 +59,7 @@ const searchNotes = document.getElementById('searchNotes');
 const folderTabs = document.getElementById('folderTabs');
 const newFolderBtn = document.getElementById('newFolderBtn');
 
-// Update notification elements
-const updateNotification = document.getElementById('updateNotification');
-const updateText = document.getElementById('updateText');
-const updateProgress = document.getElementById('updateProgress');
-const progressFill = document.getElementById('progressFill');
-const progressText = document.getElementById('progressText');
-const downloadBtn = document.getElementById('downloadBtn');
-const installBtn = document.getElementById('installBtn');
-const dismissBtn = document.getElementById('dismissBtn');
+
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', async () => {
@@ -204,20 +196,9 @@ function setupEventListeners() {
     window.electronAPI.onToggleHistory(() => toggleSidebar());
     window.electronAPI.onToggleFullscreen(() => toggleFullscreen());
     
-    // Auto-update event listeners
-    window.electronAPI.onUpdateStatus((event, status) => {
-        handleUpdateStatus(status);
-    });
+
     
-    // Handle manual update check from menu
-    window.electronAPI.onCheckForUpdates(() => {
-        window.electronAPI.checkForUpdates();
-    });
-    
-    // Update notification event listeners
-    downloadBtn.addEventListener('click', handleDownloadUpdate);
-    installBtn.addEventListener('click', handleInstallUpdate);
-    dismissBtn.addEventListener('click', hideUpdateNotification);
+
     
     // Close dropdowns when clicking outside
     document.addEventListener('click', (e) => {
@@ -1735,136 +1716,3 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
-// Auto-update functionality
-let updateState = {
-    available: false,
-    downloading: false,
-    downloaded: false,
-    error: null,
-    version: null
-};
-
-function handleUpdateStatus(status) {
-    console.log('Update status:', status);
-    
-    switch (status.type) {
-        case 'checking':
-            // Optionally show checking status, but keep it minimal
-            break;
-            
-        case 'available':
-            updateState.available = true;
-            updateState.version = status.version;
-            showUpdateNotification(`Update ${status.version} available`, 'available');
-            break;
-            
-        case 'not-available':
-            // No update available - don't show notification
-            break;
-            
-        case 'download-progress':
-            updateState.downloading = true;
-            const percent = Math.round(status.percent);
-            showUpdateProgress(percent);
-            updateText.textContent = `Downloading ${updateState.version}...`;
-            break;
-            
-        case 'downloaded':
-            updateState.downloading = false;
-            updateState.downloaded = true;
-            showUpdateNotification(`Update ready to install`, 'ready');
-            hideUpdateProgress();
-            downloadBtn.style.display = 'none';
-            installBtn.style.display = 'flex';
-            break;
-            
-        case 'error':
-            updateState.error = status.message;
-            showUpdateNotification('Update failed', 'error');
-            console.error('Update error:', status.message);
-            
-            // Auto-hide error after 5 seconds
-            setTimeout(() => {
-                hideUpdateNotification();
-            }, 5000);
-            break;
-    }
-}
-
-function showUpdateNotification(message, type = 'available') {
-    updateText.textContent = message;
-    updateNotification.style.display = 'flex';
-    
-    // Reset classes
-    updateNotification.className = 'update-notification';
-    
-    // Add appropriate class based on type
-    if (type === 'downloading') {
-        updateNotification.classList.add('downloading');
-    } else if (type === 'ready') {
-        updateNotification.classList.add('ready');
-    }
-    
-    // Show/hide appropriate buttons
-    if (type === 'available') {
-        downloadBtn.style.display = 'flex';
-        installBtn.style.display = 'none';
-    } else if (type === 'ready') {
-        downloadBtn.style.display = 'none';
-        installBtn.style.display = 'flex';
-    }
-}
-
-function showUpdateProgress(percent) {
-    updateProgress.style.display = 'flex';
-    progressFill.style.width = `${percent}%`;
-    progressText.textContent = `${percent}%`;
-    
-    updateNotification.className = 'update-notification downloading';
-}
-
-function hideUpdateProgress() {
-    updateProgress.style.display = 'none';
-}
-
-function hideUpdateNotification() {
-    updateNotification.style.display = 'none';
-    updateState = {
-        available: false,
-        downloading: false,
-        downloaded: false,
-        error: null,
-        version: null
-    };
-}
-
-async function handleDownloadUpdate() {
-    if (updateState.available && !updateState.downloading) {
-        try {
-            updateState.downloading = true;
-            showUpdateNotification(`Downloading ${updateState.version}...`, 'downloading');
-            await window.electronAPI.downloadUpdate();
-        } catch (error) {
-            console.error('Failed to download update:', error);
-            showUpdateNotification('Download failed', 'error');
-            updateState.downloading = false;
-        }
-    }
-}
-
-async function handleInstallUpdate() {
-    if (updateState.downloaded) {
-        try {
-            // Save current note before restarting
-            if (currentNote && currentNote.content !== editor.innerHTML) {
-                await saveCurrentNote();
-            }
-            
-            // Install and restart
-            await window.electronAPI.quitAndInstall();
-        } catch (error) {
-            console.error('Failed to install update:', error);
-            showUpdateNotification('Install failed', 'error');
-        }
-    }
-}

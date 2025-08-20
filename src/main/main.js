@@ -2,7 +2,6 @@
 // Handles Electron app lifecycle, window creation, and menu setup
 
 const { app, BrowserWindow, Menu, shell } = require('electron');
-const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const storage = require('./storage');
 const { initializeIpcHandlers } = require('./ipc-handlers');
@@ -139,71 +138,14 @@ if (process.platform === 'win32' && handleSquirrelEvent()) {
 let mainWindow;
 
 // ===== AUTO-UPDATER CONFIGURATION =====
-// Simple auto-updater setup - electron-updater will automatically detect GitHub releases
-// using the repository field in package.json
-autoUpdater.logger = app.isPackaged ? null : console;
-autoUpdater.autoDownload = true;
-autoUpdater.autoInstallOnAppQuit = true;
-
-// Auto-updater event handlers
-autoUpdater.on('checking-for-update', () => {
-  console.log('Checking for update...');
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', { type: 'checking' });
-  }
-});
-
-autoUpdater.on('update-available', (info) => {
-  console.log('Update available:', info);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', { 
-      type: 'available', 
-      version: info.version,
-      releaseDate: info.releaseDate,
-      downloadSize: info.files?.[0]?.size || 0
-    });
-  }
-});
-
-autoUpdater.on('update-not-available', (info) => {
-  console.log('Update not available:', info);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', { type: 'not-available' });
-  }
-});
-
-autoUpdater.on('error', (err) => {
-  console.error('Auto-updater error:', err);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', { 
-      type: 'error', 
-      message: err.message 
-    });
-  }
-});
-
-autoUpdater.on('download-progress', (progressObj) => {
-  console.log('Download progress:', progressObj.percent);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', { 
-      type: 'download-progress', 
-      percent: progressObj.percent,
-      bytesPerSecond: progressObj.bytesPerSecond,
-      total: progressObj.total,
-      transferred: progressObj.transferred
-    });
-  }
-});
-
-autoUpdater.on('update-downloaded', (info) => {
-  console.log('Update downloaded:', info);
-  if (mainWindow) {
-    mainWindow.webContents.send('update-status', { 
-      type: 'downloaded', 
-      version: info.version 
-    });
-  }
-});
+// Using update-electron-app for simple, automatic updates
+if (app.isPackaged) {
+  require('update-electron-app')({
+    repo: 'PrarthanAgarwal/Flowpad',
+    updateInterval: '1 hour',
+    logger: console
+  });
+}
 
 // ===== MULTIPLE INSTANCE SUPPORT =====
 // Removed single instance lock to allow multiple windows for snap layouts
@@ -333,12 +275,7 @@ function createMenu() {
       submenu: [
         { role: 'about' },
         { type: 'separator' },
-        {
-          label: 'Check for Updates...',
-          click: () => {
-            mainWindow.webContents.send('check-for-updates');
-          }
-        },
+
         { type: 'separator' },
         { role: 'services', submenu: [] },
         { type: 'separator' },
@@ -455,10 +392,7 @@ app.whenReady().then(async () => {
   // Create application menu
   createMenu();
   
-  // Check for updates after a delay to ensure app is fully loaded
-  setTimeout(() => {
-    autoUpdater.checkForUpdatesAndNotify();
-  }, 30000); // Check after 30 seconds
+
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
