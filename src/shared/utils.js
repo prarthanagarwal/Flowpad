@@ -9,7 +9,7 @@ function sanitizeFilename(title) {
     .replace(/\s+/g, ' ') // Normalize spaces
     .trim()
     .substring(0, 20) // Limit to 20 characters max
-    || 'Untitled Note';
+    || 'New Note';
 }
 
 function generateNoteFilename(note) {
@@ -66,12 +66,12 @@ async function convertMarkdownToHtml(markdownContent) {
 
 // ===== FRONTMATTER UTILITIES =====
 function createFrontmatter(note) {
-  // Use the sanitized title in frontmatter, not the full title
-  const sanitizedTitle = sanitizeFilename(note.title);
+  // Store the full title in frontmatter (sanitization only for filename)
+  const fullTitle = note.title || 'New Note';
   
   return `---
 id: ${note.id}
-title: "${sanitizedTitle.replace(/"/g, '\\"')}"
+title: "${fullTitle.replace(/"/g, '\\"')}"
 createdAt: ${formatDateTime(note.createdAt)}
 updatedAt: ${formatDateTime(note.updatedAt)}
 tags: [${note.tags.map(tag => `"${tag}"`).join(', ')}]
@@ -108,7 +108,12 @@ function parseFrontmatter(content) {
       if (key === 'tags') {
         value = value.replace(/^\[|\]$/g, '').split(',').map(tag => tag.trim().replace(/^"|"$/g, ''));
       } else if (key === 'fontSize') {
-        value = parseInt(value) || 16; // Parse as number with default
+        const parsedValue = parseInt(value) || 16; // Parse as number with default
+        value = parsedValue;
+      } else if (key === 'fontFamily') {
+        if (value.startsWith('"') && value.endsWith('"')) {
+          value = value.slice(1, -1).replace(/\\"/g, '"');
+        }
       } else if ((key === 'folder' || key === 'folderName') && value === 'null') {
         value = null; // Parse null values for folder and folderName
       } else if (value.startsWith('"') && value.endsWith('"')) {

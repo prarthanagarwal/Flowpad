@@ -80,7 +80,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Create initial note if no notes exist or no current note
     if (allNotes.length === 0 || !currentNote) {
-        createNewNote();
+        await createNewNote();
     } else if (currentNote) {
         // If we have a current note, apply its font settings
         applyNoteFontSettings();
@@ -103,7 +103,9 @@ function setupEventListeners() {
     sidebarOverlay.addEventListener('click', closeSidebar);
     
     // New note
-    document.getElementById('newNoteBtn').addEventListener('click', createNewNote);
+    document.getElementById('newNoteBtn').addEventListener('click', async () => {
+        await createNewNote();
+    });
     
     // Font dropdown
     document.getElementById('fontBtn').addEventListener('click', toggleFontDropdown);
@@ -191,8 +193,8 @@ function setupEventListeners() {
     });
     
     // Menu event listeners
-    window.electronAPI.onNewNote(() => createNewNote());
-    window.electronAPI.onSaveNote(() => saveCurrentNote());
+    window.electronAPI.onNewNote(async () => await createNewNote());
+    window.electronAPI.onSaveNote(async () => await saveCurrentNote());
     window.electronAPI.onToggleHistory(() => toggleSidebar());
     window.electronAPI.onToggleFullscreen(() => toggleFullscreen());
     
@@ -272,6 +274,11 @@ function applySettings() {
 function applyNoteFontSettings() {
     if (!currentNote) return;
     
+    // Debug font application for non-default fonts
+    if (currentNote.fontSize !== 16 || currentNote.fontFamily !== 'Aeonik') {
+        console.log(`Applying font settings - fontSize: ${currentNote.fontSize}px, fontFamily: "${currentNote.fontFamily}" for note: "${currentNote.title}"`);
+    }
+    
     // Apply note's font settings to editor
     editor.style.fontSize = `${currentNote.fontSize}px`;
     editor.style.fontFamily = currentNote.fontFamily;
@@ -297,6 +304,10 @@ function applyNoteFontSettings() {
             option.classList.add('active');
         }
     });
+    
+    if (currentNote.fontSize !== 16 || currentNote.fontFamily !== 'Aeonik') {
+        console.log(`Font settings applied successfully to editor`);
+    }
 }
 
 // Save settings
@@ -458,14 +469,12 @@ function createNoteListItem(note) {
     const date = new Date(note.updatedAt);
     const displayText = getDisplayTextForNote(note);
     
-    // Extract title from first line of content for consistency
-    let title = note.title || 'Untitled Note';
-    if (note.content) {
-        const contentText = new DOMParser().parseFromString(note.content, 'text/html').body.textContent;
-        const firstLine = contentText.split('\n')[0].trim();
-        if (firstLine) {
-            title = firstLine.length > 25 ? firstLine.substring(0, 22) + '...' : firstLine;
-        }
+    // Extract title using centralized logic for consistency
+    let title = extractTitleFromContent(note.content);
+    
+    // Apply character limit for sidebar display
+    if (title.length > 25) {
+        title = title.substring(0, 22) + '...';
     }
     
     // Create time display with folder info
@@ -499,10 +508,10 @@ function createNoteListItem(note) {
     // Make draggable
     div.draggable = true;
     
-    // Add click event to load note
-    div.addEventListener('click', (e) => {
+    // Add click event to load note (async to handle auto-save)
+    div.addEventListener('click', async (e) => {
         if (!e.target.closest('.note-item-actions')) {
-            loadNote(note);
+            await loadNote(note);
             closeSidebar(); // Auto-close sidebar when note is clicked
         }
     });
@@ -538,9 +547,32 @@ function createNoteListItem(note) {
     return div;
 }
 
-// Load a specific note
-function loadNote(note) {
-    currentNote = note;
+// Load a specific note (with auto-save protection)
+async function loadNote(note) {
+    // CRITICAL: Save current note before switching if content has changed
+    if (currentNote && editor.innerHTML.trim()) {
+        const hasUnsavedChanges = currentNote.originalContent !== editor.innerHTML;
+        if (hasUnsavedChanges) {
+            console.log(`Auto-saving current note before switch: "${currentNote.title}"`);
+            await saveCurrentNote();
+        }
+    }
+    
+    // Don't reload the same note
+    if (currentNote && currentNote.id === note.id) {
+        console.log(`Note already loaded: "${note.title}"`);
+        return;
+    }
+    
+    // CRITICAL FIX: Always get the most up-to-date version from allNotes cache
+    const freshNote = allNotes.find(n => n.id === note.id);
+    if (freshNote) {
+        currentNote = { ...freshNote }; // Use the fresh cached version
+        console.log(`Using fresh cached data for note: "${currentNote.title}"`);
+    } else {
+        currentNote = { ...note }; // Fallback to passed note
+        console.log(`Using passed note data (no cache found): "${currentNote.title}"`);
+    }
     
     // Handle backward compatibility - add font settings if they don't exist
     if (!currentNote.fontSize) {
@@ -550,12 +582,17 @@ function loadNote(note) {
         currentNote.fontFamily = settings.fontFamily;
     }
     
-    editor.innerHTML = note.content;
+    // Set editor content from the current note's stored content
+    const noteContent = currentNote.content || '';
+    editor.innerHTML = noteContent;
     
-    // Store original content for change detection
-    currentNote.originalContent = note.content;
+    // Store original content for change detection (must match editor content)
+    currentNote.originalContent = noteContent;
     
-    // Update title from content
+    // Ensure current content is up to date
+    currentNote.content = noteContent;
+    
+    // Update title from content (this will also update sidebar if needed)
     updateTitleFromContent();
     
     // Apply the note's font settings to editor
@@ -574,10 +611,30 @@ function loadNote(note) {
     setTimeout(() => {
         focusEditor();
     }, 100); // Small delay to ensure DOM updates are complete
+    
+    console.log(`Loaded note: "${currentNote.title}" (ID: ${currentNote.id}) - Content length: ${noteContent.length}, fontSize: ${currentNote.fontSize}px, fontFamily: "${currentNote.fontFamily}"`);
+    
+    // Debug: Check what's in the allNotes cache for this note
+    const cachedNote = allNotes.find(n => n.id === note.id);
+    if (cachedNote) {
+        console.log(`Cache comparison - Loaded: fontSize ${currentNote.fontSize}, fontFamily "${currentNote.fontFamily}" | Cached: fontSize ${cachedNote.fontSize}, fontFamily "${cachedNote.fontFamily}"`);
+        if (cachedNote.fontSize !== currentNote.fontSize || cachedNote.fontFamily !== currentNote.fontFamily) {
+            console.warn(`⚠️ CACHE MISMATCH DETECTED! Using outdated note data.`);
+        }
+    }
 }
 
-// Create new note
-function createNewNote() {
+// Create new note (with auto-save protection)
+async function createNewNote() {
+    // CRITICAL: Save current note before creating new one if content has changed
+    if (currentNote && editor.innerHTML.trim()) {
+        const hasUnsavedChanges = currentNote.originalContent !== editor.innerHTML;
+        if (hasUnsavedChanges) {
+            console.log(`Auto-saving current note before creating new note: "${currentNote.title}"`);
+            await saveCurrentNote();
+        }
+    }
+    
     // Get folder name if creating in a specific folder
     let folderName = null;
     if (currentFolder !== 'all') {
@@ -587,7 +644,7 @@ function createNewNote() {
     
     currentNote = {
         id: Date.now().toString(),
-        title: 'Untitled Note',
+        title: 'New Note',
         content: '',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -600,8 +657,12 @@ function createNewNote() {
     
     editor.innerHTML = '';
     
+    // Set initial content reference for change detection
+    currentNote.originalContent = '';
+    currentNote.content = '';
+    
     // Apply title character limit for display
-    let displayTitle = 'Untitled Note';
+    let displayTitle = 'New Note';
     if (displayTitle.length > 15) {
         displayTitle = displayTitle.substring(0, 12) + '...';
     }
@@ -645,9 +706,14 @@ async function saveCurrentNote() {
             const oldTitle = currentNote.title;
             const wasNewNote = !allNotes.find(note => note.id === currentNote.id);
             
-            currentNote = result.note;
-            // Store original content for future comparison
-            currentNote.originalContent = currentNote.content;
+            // Update current note with saved data
+            const updatedNote = result.note;
+            
+            // Preserve editor content reference for consistency
+            updatedNote.originalContent = updatedNote.content;
+            
+            // Update current note reference
+            currentNote = updatedNote;
             
             // Apply title character limit for display
             let displayTitle = currentNote.title;
@@ -656,11 +722,29 @@ async function saveCurrentNote() {
             }
             currentNoteTitle.textContent = displayTitle;
             
-            // Refresh list if it's a new note or title changed
+            // Update the note in allNotes array for consistency
+            const noteIndex = allNotes.findIndex(note => note.id === currentNote.id);
+            if (noteIndex > -1) {
+                // CRITICAL: Update the cached note with the fresh saved data
+                allNotes[noteIndex] = { ...currentNote };
+                console.log(`Updated cached note: "${currentNote.title}" with fontSize: ${currentNote.fontSize}, fontFamily: "${currentNote.fontFamily}"`);
+            } else if (wasNewNote) {
+                allNotes.unshift(currentNote); // Add new note to the beginning
+                console.log(`Added new note to cache: "${currentNote.title}"`);
+            }
+            
+            // Check if title changed
             const titleChanged = oldTitle !== currentNote.title;
+            
+            // Refresh list if it's a new note or title changed significantly
             if (wasNewNote || titleChanged) {
                 await loadNotes();
+            } else {
+                // Update sidebar title without full reload for minor changes
+                updateSidebarNoteTitle(currentNote);
             }
+            
+            console.log(`Note saved successfully: ${currentNote.title}`);
         } else {
             console.error('Save failed:', result.error);
         }
@@ -673,8 +757,14 @@ async function saveCurrentNote() {
 async function autoSave() {
     if (currentNote && editor.innerHTML.trim()) {
         // Only save if content has actually changed
-        if (currentNote.originalContent !== editor.innerHTML) {
+        const currentContent = editor.innerHTML;
+        const hasContentChanged = currentNote.originalContent !== currentContent;
+        
+        if (hasContentChanged) {
+            console.log(`Auto-save: Content changed for "${currentNote.title}"`);
             await saveCurrentNote();
+        } else {
+            console.log(`Auto-save: No changes detected for "${currentNote.title}"`);
         }
     }
 }
@@ -685,7 +775,7 @@ async function exportCurrentNote() {
     
     try {
         const noteToExport = {
-            title: currentNote.title || 'Untitled Note',
+            title: currentNote.title || 'New Note',
             content: editor.textContent || editor.innerText
         };
         
@@ -1205,15 +1295,22 @@ function closeSidebar() {
     }, 350); // Wait for sidebar animation to complete
 }
 
-// Debounced auto-save
+// Debounced auto-save with improved content detection
 let autoSaveTimeout;
 function debouncedAutoSave() {
     clearTimeout(autoSaveTimeout);
     autoSaveTimeout = setTimeout(() => {
-        if (currentNote && editor.innerHTML.trim() && currentNote.originalContent !== editor.innerHTML) {
-            autoSave();
+        if (currentNote && editor.innerHTML.trim()) {
+            // More robust content comparison
+            const currentContent = editor.innerHTML;
+            const hasContentChanged = currentNote.originalContent !== currentContent;
+            
+            if (hasContentChanged) {
+                console.log('Auto-save triggered: content changed');
+                autoSave();
+            }
         }
-    }, 2000); // Save 2 seconds after last change
+    }, 1500); // Reduced to 1.5 seconds for better responsiveness
 }
 
 // Editor functionality
@@ -1227,13 +1324,16 @@ function handleEditorInput(e) {
     }
     
     if (currentNote) {
+        // Always update the current note content
         currentNote.content = editor.innerHTML;
         
-        // Update title based on first line of content
+        // Update title based on first line of content (includes sidebar update)
         updateTitleFromContent();
         
-        // Trigger debounced auto-save
-        debouncedAutoSave();
+        // Trigger debounced auto-save only if content actually changed
+        if (currentNote.originalContent !== editor.innerHTML) {
+            debouncedAutoSave();
+        }
     }
 }
 
@@ -1272,32 +1372,76 @@ function updateWordCount() {
     wordCount.textContent = `${words} word${words !== 1 ? 's' : ''}`;
 }
 
-// Extract title from first line of content
-function updateTitleFromContent() {
-    if (!currentNote) return;
+// ===== CENTRALIZED TITLE MANAGEMENT =====
+
+// Extract title from content using consistent logic
+function extractTitleFromContent(content) {
+    if (!content) return 'New Note';
     
-    // Get the text content and handle empty/whitespace cases properly
-    const textContent = editor.textContent || editor.innerText || '';
+    // Handle both HTML content and plain text
+    let textContent;
+    if (typeof content === 'string' && content.includes('<')) {
+        // Parse HTML content to get plain text
+        textContent = new DOMParser().parseFromString(content, 'text/html').body.textContent || '';
+    } else {
+        textContent = content;
+    }
+    
     const trimmedContent = textContent.trim();
     
     // If content is completely empty, use 'New Note'
     if (!trimmedContent) {
-        const newTitle = 'New Note';
-        if (currentNote.title !== newTitle) {
-            currentNote.title = newTitle;
-            currentNoteTitle.textContent = newTitle;
-        }
-        return;
+        return 'New Note';
     }
     
     // Get the first line of text
     let firstLine = trimmedContent.split('\n')[0].trim();
     
     // Use the first line as title, or 'New Note' if first line is empty
-    const newTitle = firstLine || 'New Note';
+    return firstLine || 'New Note';
+}
+
+// Debounced sidebar update to avoid excessive DOM manipulation
+let sidebarUpdateTimeout;
+function debouncedSidebarUpdate() {
+    clearTimeout(sidebarUpdateTimeout);
+    sidebarUpdateTimeout = setTimeout(() => {
+        updateSidebarNoteTitle(currentNote);
+    }, 100); // Update sidebar 100ms after last change
+}
+
+// Update a specific note's title in the sidebar
+function updateSidebarNoteTitle(note) {
+    if (!note) return;
     
-    // Update note's full title
+    const noteElement = document.querySelector(`[data-note-id="${note.id}"]`);
+    if (noteElement) {
+        const titleElement = noteElement.querySelector('.note-item-title');
+        if (titleElement) {
+            // Use the same title extraction logic as createNoteListItem
+            let title = extractTitleFromContent(note.content);
+            
+            // Apply the same character limit as in createNoteListItem
+            if (title.length > 25) {
+                title = title.substring(0, 22) + '...';
+            }
+            
+            titleElement.textContent = title;
+        }
+    }
+}
+
+// Extract title from first line of content and update UI
+function updateTitleFromContent() {
+    if (!currentNote) return;
+    
+    // Get current editor content
+    const editorContent = editor.innerHTML;
+    const newTitle = extractTitleFromContent(editorContent);
+    
+    // Update note's full title if it changed
     if (currentNote.title !== newTitle) {
+        const oldTitle = currentNote.title;
         currentNote.title = newTitle;
         
         // Limit title bar display to 15 characters max
@@ -1308,6 +1452,14 @@ function updateTitleFromContent() {
         
         // Update the title bar with shortened title
         currentNoteTitle.textContent = displayTitle;
+        
+        // Update content for title detection
+        currentNote.content = editorContent;
+        
+        // Update sidebar in real-time with debouncing
+        debouncedSidebarUpdate();
+        
+        console.log(`Title updated: "${oldTitle}" → "${newTitle}"`);
     }
 }
 
@@ -1354,7 +1506,7 @@ function handleKeyDown(e) {
     // New note shortcut
     if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'n') {
         e.preventDefault();
-        createNewNote();
+        createNewNote(); // Fire and forget - async handled internally
         return;
     }
     
@@ -1526,6 +1678,8 @@ function closeFormattingDropdown() {
 function updateFontSize(size) {
     if (!currentNote) return;
     
+    console.log(`Updating font size from ${currentNote.fontSize}px to ${size}px for note: "${currentNote.title}"`);
+    
     // Update current note's font size
     currentNote.fontSize = parseInt(size);
     
@@ -1541,12 +1695,15 @@ function updateFontSize(size) {
         }
     });
     
+    console.log(`Font size updated successfully. Saving note...`);
     // Auto-save the note with new font settings
     saveCurrentNote();
 }
 
 function updateFontFamily(family) {
     if (!currentNote) return;
+    
+    console.log(`Updating font family from "${currentNote.fontFamily}" to "${family}" for note: "${currentNote.title}"`);
     
     // Update current note's font family
     currentNote.fontFamily = family;
@@ -1565,6 +1722,7 @@ function updateFontFamily(family) {
         }
     });
     
+    console.log(`Font family updated successfully. Saving note...`);
     // Auto-save the note with new font settings
     saveCurrentNote();
 }

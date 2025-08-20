@@ -45,10 +45,10 @@ async function saveNote(noteData) {
     
     const note = {
       id: noteId,
-      title: noteData.title || 'Untitled Note',
+      title: noteData.title || 'New Note',
       content: noteData.content,
       createdAt: noteData.createdAt || timestamp,
-      updatedAt: timestamp,
+      updatedAt: noteData.updatedAt || timestamp, // Preserve provided timestamp if given
       tags: noteData.tags || [],
       fontSize: noteData.fontSize || 16,
       fontFamily: noteData.fontFamily || 'Aeonik',
@@ -116,7 +116,7 @@ async function loadNotes() {
           
           const note = {
             id: metadata.id || Date.now().toString(),
-            title: metadata.title || 'Untitled Note',
+            title: metadata.title || 'New Note',
             content: htmlContent,
             createdAt: metadata.createdAt || new Date().toISOString(),
             updatedAt: metadata.updatedAt || new Date().toISOString(),
@@ -126,6 +126,11 @@ async function loadNotes() {
             folder: metadata.folder || null,
             folderName: metadata.folderName || null
           };
+          
+          // Debug font loading for non-default fonts
+          if (metadata.fontSize !== 16 || (metadata.fontFamily && metadata.fontFamily !== 'Aeonik')) {
+            console.log(`Storage: Loading note with custom fonts - fontSize: ${metadata.fontSize}, fontFamily: "${metadata.fontFamily}" for note: "${note.title}"`);
+          }
           
           notes.push(note);
         } catch (fileError) {
