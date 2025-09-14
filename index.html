@@ -25,6 +25,9 @@
                     <button class="window-control-btn minimize-btn" id="minimizeBtn" title="Minimize">
                         <i class="ph ph-minus" style="font-size: 14px;"></i>
                     </button>
+                    <button class="window-control-btn fullscreen-btn" id="fullscreenBtn" title="Toggle Fullscreen">
+                        <i class="ph ph-arrows-out-simple" style="font-size: 14px;"></i>
+                    </button>
                     <button class="window-control-btn close-btn" id="closeBtn" title="Close">
                         <i class="ph ph-x" style="font-size: 14px;"></i>
                     </button>
@@ -156,15 +159,95 @@
                     <i class="ph ph-sun"></i>
                     <span>Light Mode</span>
                 </button>
-                <button id="fullscreenBtn" class="toolbar-btn" title="Toggle Fullscreen">
-                    <i class="ph ph-frame-corners" style="font-size: 16px;"></i>
-                    <span>Fullscreen</span>
+                <button id="settingsBtn" class="toolbar-btn" title="Settings">
+                    <i class="ph ph-gear" style="font-size: 16px;"></i>
+                    <span>Settings</span>
                 </button>
             </div>
         </div>
     </div>
 
+    <!-- Context Menu for Editor -->
+    <div class="editor-context-menu" id="editorContextMenu">
+        <div class="context-menu-item" data-action="copy">
+            <i class="ph ph-copy" style="font-size: 12px;"></i>
+            Copy
+        </div>
+        <div class="context-menu-item" data-action="paste">
+            <i class="ph ph-clipboard-text" style="font-size: 12px;"></i>
+            Paste
+        </div>
+        <div class="context-menu-item" data-action="cut">
+            <i class="ph ph-scissors" style="font-size: 12px;"></i>
+            Cut
+        </div>
+        <div class="context-menu-item" data-action="select-all">
+            <i class="ph ph-selection-all" style="font-size: 12px;"></i>
+            Select All
+        </div>
+    </div>
 
+    <!-- Settings Modal -->
+    <div class="settings-modal" id="settingsModal">
+        <div class="settings-modal-overlay"></div>
+        <div class="settings-modal-content">
+            <div class="settings-modal-header">
+                <h3>Settings</h3>
+                <button class="settings-modal-close" id="settingsModalClose">
+                    <i class="ph ph-x" style="font-size: 18px;"></i>
+                </button>
+            </div>
+            <div class="settings-modal-body">
+                <!-- Settings content will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Prompt Bar -->
+    <div class="ai-prompt-bar" id="aiPromptBar">
+        <div class="ai-prompt-overlay" id="aiPromptOverlay"></div>
+        <div class="ai-prompt-content">
+            <div class="ai-prompt-header">
+                <div class="ai-prompt-icon">
+                    <i class="ph ph-sparkle" style="font-size: 18px;"></i>
+                </div>
+                <div class="ai-prompt-title">Ask AI</div>
+                <button class="ai-prompt-close" id="aiPromptClose">
+                    <i class="ph ph-x" style="font-size: 16px;"></i>
+                </button>
+            </div>
+            <div class="ai-prompt-body">
+                <div class="ai-prompt-input-container">
+                    <input type="text" id="aiPromptInput" placeholder="Ask me anything about your notes..." class="ai-prompt-input" spellcheck="false">
+                    <button class="ai-prompt-submit" id="aiPromptSubmit">
+                        <i class="ph ph-paper-plane-tilt" style="font-size: 16px;"></i>
+                    </button>
+                </div>
+                <div class="ai-prompt-suggestions">
+                    <div class="ai-suggestion" data-action="expand">Expand on this</div>
+                    <div class="ai-suggestion" data-action="summarize">Summarize</div>
+                    <div class="ai-suggestion" data-action="improve">Improve writing</div>
+                    <div class="ai-suggestion" data-action="brainstorm">Brainstorm ideas</div>
+                </div>
+                <div class="ai-response-container" id="aiResponseContainer" style="display: none;">
+                    <div class="ai-response-header">
+                        <span>AI Response</span>
+                        <button class="ai-response-insert" id="aiResponseInsert">
+                            <i class="ph ph-plus" style="font-size: 14px;"></i>
+                            Insert
+                        </button>
+                    </div>
+                    <div class="ai-response-content" id="aiResponseContent"></div>
+                </div>
+            </div>
+            <div class="ai-prompt-footer">
+                <div class="ai-status" id="aiStatus">
+                    <i class="ph ph-circle" style="font-size: 8px;"></i>
+                    <span id="aiStatusText">AI not configured</span>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="src/shared/utils.js"></script>
     <script src="app.js"></script>

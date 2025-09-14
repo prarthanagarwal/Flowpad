@@ -47,6 +47,7 @@
     "electronmon": "^2.0.3"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.21.0",
     "@phosphor-icons/web": "^2.1.2",
     "electron-squirrel-startup": "^1.0.1",
     "electron-store": "^8.1.0",

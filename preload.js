@@ -21,6 +21,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAppSettings: () => ipcRenderer.invoke('get-app-settings'),
   saveAppSettings: (settings) => ipcRenderer.invoke('save-app-settings', settings),
   updateTitleBarTheme: (theme) => ipcRenderer.invoke('update-title-bar-theme', theme),
+
+  // AI Settings
+  getAiSettings: () => ipcRenderer.invoke('get-ai-settings'),
+  saveAiSettings: (aiSettings) => ipcRenderer.invoke('save-ai-settings', aiSettings),
+  initializeAiService: (apiKey) => ipcRenderer.invoke('initialize-ai-service', apiKey),
+  getAiStatus: () => ipcRenderer.invoke('get-ai-status'),
+  generateAiResponse: (data) => ipcRenderer.invoke('generate-ai-response', data),
+  suggestContent: (data) => ipcRenderer.invoke('suggest-content', data),
   
   // Window bounds
   getWindowBounds: () => ipcRenderer.invoke('get-window-bounds'),
@@ -38,6 +46,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // File operations
   openNotesFolder: () => ipcRenderer.invoke('open-notes-folder'),
+  openExternalLink: (url) => ipcRenderer.invoke('open-external-link', url),
   
   // Remove listeners
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel)

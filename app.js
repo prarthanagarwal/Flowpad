@@ -74,6 +74,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateTooltips();
     updateTime();
     setInterval(updateTime, 1000);
+
+    // Initialize AI status
+    setTimeout(() => {
+        updateAIStatus();
+    }, 500);
     
     // Apply initial global settings (before any note is loaded)
     applySettings();
@@ -118,7 +123,10 @@ function setupEventListeners() {
     
     // Theme toggle
     document.getElementById('themeBtn').addEventListener('click', toggleTheme);
-    
+
+    // Settings button
+    document.getElementById('settingsBtn').addEventListener('click', openSettingsModal);
+
     // Fullscreen toggle
     document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
     
@@ -151,6 +159,9 @@ function setupEventListeners() {
     
     // Reset formatting on Enter key
     editor.addEventListener('keydown', handleFormattingReset);
+
+    // Context menu for editor
+    editor.addEventListener('contextmenu', showEditorContextMenu);
     
     // Search functionality
     searchNotes.addEventListener('input', handleSearch);
@@ -1538,10 +1549,23 @@ function handleKeyDown(e) {
         return;
     }
     
+    // AI prompt bar shortcut (Cmd+K / Ctrl+K)
+    if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        toggleAIPromptBar();
+        return;
+    }
+
     // Close app with ESC key
     if (e.key === 'Escape') {
         e.preventDefault();
-        window.electronAPI.closeApp();
+        // Close AI prompt bar if open, otherwise close app
+        const aiPromptBar = document.getElementById('aiPromptBar');
+        if (aiPromptBar && aiPromptBar.style.display !== 'none') {
+            closeAIPromptBar();
+        } else {
+            window.electronAPI.closeApp();
+        }
         return;
     }
 }
@@ -1829,16 +1853,769 @@ document.addEventListener('visibilitychange', () => {
     }
 });
 
+// ===== EDITOR CONTEXT MENU =====
+function showEditorContextMenu(e) {
+    e.preventDefault();
+
+    const contextMenu = document.getElementById('editorContextMenu');
+    const selection = window.getSelection();
+
+    // Position the menu at cursor
+    contextMenu.style.left = e.clientX + 'px';
+    contextMenu.style.top = e.clientY + 'px';
+    contextMenu.style.display = 'block';
+
+    // Check if there's a selection to determine which menu items to show
+    const hasSelection = selection.rangeCount > 0 && !selection.isCollapsed;
+
+    // Update menu items based on selection state
+    const copyItem = contextMenu.querySelector('[data-action="copy"]');
+    const cutItem = contextMenu.querySelector('[data-action="cut"]');
+
+    if (hasSelection) {
+        copyItem.style.opacity = '1';
+        copyItem.style.pointerEvents = 'auto';
+        cutItem.style.opacity = '1';
+        cutItem.style.pointerEvents = 'auto';
+    } else {
+        copyItem.style.opacity = '0.5';
+        copyItem.style.pointerEvents = 'none';
+        cutItem.style.opacity = '0.5';
+        cutItem.style.pointerEvents = 'none';
+    }
+
+    // Close menu when clicking elsewhere
+    const closeMenu = (e) => {
+        if (!contextMenu.contains(e.target)) {
+            contextMenu.style.display = 'none';
+            document.removeEventListener('click', closeMenu);
+        }
+    };
+
+    // Add event listener after a small delay to prevent immediate closing
+    setTimeout(() => {
+        document.addEventListener('click', closeMenu);
+    }, 10);
+}
+
+// Handle context menu actions
+document.addEventListener('click', async (e) => {
+    if (e.target.closest('.context-menu-item')) {
+        const action = e.target.closest('.context-menu-item').dataset.action;
+        const editor = document.getElementById('editor');
+
+        switch (action) {
+            case 'copy':
+                await handleCopy(editor);
+                break;
+            case 'cut':
+                await handleCut(editor);
+                break;
+            case 'paste':
+                await handlePaste(editor);
+                break;
+            case 'select-all':
+                handleSelectAll(editor);
+                break;
+        }
+
+        // Hide the context menu
+        document.getElementById('editorContextMenu').style.display = 'none';
+    }
+});
+
+// Robust clipboard functions
+async function handleCopy(editor) {
+    try {
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+            const selectedText = selection.toString();
+            if (selectedText) {
+                await navigator.clipboard.writeText(selectedText);
+                console.log('Text copied successfully');
+            }
+        }
+    } catch (err) {
+        console.error('Copy failed:', err);
+        // Fallback for older browsers or restricted environments
+        try {
+            document.execCommand('copy');
+        } catch (execErr) {
+            console.error('ExecCommand copy also failed:', execErr);
+            alert('Copy functionality is not available. Please use Ctrl+C instead.');
+        }
+    }
+}
+
+async function handleCut(editor) {
+    try {
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+            const selectedText = selection.toString();
+            if (selectedText) {
+                await navigator.clipboard.writeText(selectedText);
+                // Remove selected text
+                selection.deleteFromDocument();
+                // Trigger input event to update word count and save
+                editor.dispatchEvent(new Event('input', { bubbles: true }));
+                console.log('Text cut successfully');
+            }
+        }
+    } catch (err) {
+        console.error('Cut failed:', err);
+        // Fallback for older browsers or restricted environments
+        try {
+            document.execCommand('cut');
+            // Trigger input event to update word count and save
+            editor.dispatchEvent(new Event('input', { bubbles: true }));
+        } catch (execErr) {
+            console.error('ExecCommand cut also failed:', execErr);
+            alert('Cut functionality is not available. Please use Ctrl+X instead.');
+        }
+    }
+}
+
+async function handlePaste(editor) {
+    try {
+        const clipboardText = await navigator.clipboard.readText();
+        if (clipboardText) {
+            const selection = window.getSelection();
+
+            if (selection.rangeCount > 0) {
+                const range = selection.getRangeAt(0);
+                range.deleteContents();
+                range.insertNode(document.createTextNode(clipboardText));
+                // Move cursor to end of pasted text
+                selection.collapseToEnd();
+            } else {
+                // If no selection, append to end
+                editor.innerHTML += clipboardText.replace(/\n/g, '<br>');
+            }
+
+            // Trigger input event to update word count and save
+            editor.dispatchEvent(new Event('input', { bubbles: true }));
+            // Ensure editor maintains focus
+            editor.focus();
+            console.log('Text pasted successfully');
+        }
+    } catch (err) {
+        console.error('Modern paste failed, trying fallback:', err);
+        // Fallback for older browsers or restricted environments
+        try {
+            const success = document.execCommand('paste');
+            if (success) {
+                // Trigger input event to update word count and save
+                editor.dispatchEvent(new Event('input', { bubbles: true }));
+                // Ensure editor maintains focus
+                editor.focus();
+                console.log('Paste successful via execCommand');
+            } else {
+                console.log('ExecCommand paste returned false, but this is normal in some contexts');
+                // Don't show alert - execCommand often returns false even when it works
+            }
+        } catch (execErr) {
+            console.error('ExecCommand paste also failed:', execErr);
+            // Only show alert if both methods completely fail
+            alert('Paste functionality is not available. Please use Ctrl+V instead.');
+        }
+    }
+}
+
+function handleSelectAll(editor) {
+    const selection = window.getSelection();
+    const range = document.createRange();
+
+    // Select all content in the editor
+    range.selectNodeContents(editor);
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    // Ensure editor maintains focus
+    editor.focus();
+}
+
+// ===== SETTINGS MODAL =====
+async function openSettingsModal() {
+    const modal = document.getElementById('settingsModal');
+    const modalBody = document.querySelector('.settings-modal-body');
+
+    // Get AI settings
+    const aiSettings = await loadAISettings();
+
+    // Populate settings content
+    modalBody.innerHTML = `
+        <div class="gemini-settings-container">
+            <h2 class="gemini-settings-title">Gemini API Settings</h2>
+            <p class="gemini-settings-description">Configure your Gemini API key to enable AI-powered insights. Get your API key from the Google AI Studio.</p>
+            
+            <div class="gemini-input-container">
+                <input type="password" id="aiApiKeyInput" class="gemini-api-input" placeholder="Enter your API key" value="${aiSettings.aiApiKey || ''}">
+                <button id="aiToggleVisibility" class="gemini-toggle-visibility" title="Toggle visibility">
+                    <i class="ph ph-eye" style="font-size: 16px;"></i>
+                </button>
+            </div>
+            
+            <p class="gemini-security-message">Your API key is stored securely in your browser's local storage.</p>
+            
+            <button id="aiSaveBtn" class="gemini-save-btn">Save API Key</button>
+            
+            <div class="gemini-help-link">
+                <span>Need an API key?</span>
+                <a href="#" onclick="event.preventDefault(); event.stopPropagation(); openExternalLink('https://aistudio.google.com/app/apikey')">Visit Google AI Studio →</a>
+            </div>
+        </div>
+    `;
+
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden'; // Prevent scrolling when modal is open
+
+    // Setup AI settings listeners after modal is shown
+    setTimeout(setupAISettingsListeners, 100);
+}
+
+function closeSettingsModal() {
+    const modal = document.getElementById('settingsModal');
+    modal.style.display = 'none';
+    document.body.style.overflow = 'auto';
+}
+
+// Settings modal event listeners
+document.addEventListener('DOMContentLoaded', () => {
+    const settingsModalClose = document.getElementById('settingsModalClose');
+    if (settingsModalClose) {
+        settingsModalClose.addEventListener('click', closeSettingsModal);
+    }
+
+    // Close modal when clicking overlay
+    const modal = document.getElementById('settingsModal');
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target.classList.contains('settings-modal-overlay')) {
+                closeSettingsModal();
+            }
+        });
+    }
+
+    // AI settings event listeners
+    setupAISettingsListeners();
+
+    // AI prompt bar event listeners
+    setupAIPromptBarListeners();
+});
+
+// Setup AI settings event listeners
+function setupAISettingsListeners() {
+    // AI API key input
+    const aiApiKeyInput = document.getElementById('aiApiKeyInput');
+    const aiSaveBtn = document.getElementById('aiSaveBtn');
+    const aiToggleVisibility = document.getElementById('aiToggleVisibility');
+
+    if (aiApiKeyInput) {
+        aiApiKeyInput.addEventListener('input', () => {
+            // Enable save button when there's input
+            if (aiSaveBtn) {
+                aiSaveBtn.disabled = !aiApiKeyInput.value.trim();
+            }
+        });
+    }
+
+    if (aiSaveBtn) {
+        aiSaveBtn.addEventListener('click', async () => {
+            const apiKey = aiApiKeyInput ? aiApiKeyInput.value.trim() : '';
+            
+            if (!apiKey) {
+                alert('Please enter an API key');
+                return;
+            }
+
+            // Show loading state
+            aiSaveBtn.disabled = true;
+            aiSaveBtn.textContent = 'Saving...';
+
+            try {
+                // Test the API key first
+                const testResult = await window.electronAPI.initializeAiService(apiKey);
+                
+                if (testResult.success) {
+                    // Save the settings
+                    await saveAISettings({ aiApiKey: apiKey, aiEnabled: true });
+                    updateAIStatus();
+                    
+                    // Show success message
+                    aiSaveBtn.textContent = 'Saved!';
+                    aiSaveBtn.style.backgroundColor = '#28a745';
+                    
+                    setTimeout(() => {
+                        aiSaveBtn.textContent = 'Save API Key';
+                        aiSaveBtn.style.backgroundColor = '';
+                        aiSaveBtn.disabled = false;
+                    }, 2000);
+                } else {
+                    throw new Error(testResult.error);
+                }
+            } catch (error) {
+                alert('Failed to save API key: ' + error.message);
+                aiSaveBtn.textContent = 'Save API Key';
+                aiSaveBtn.disabled = false;
+            }
+        });
+    }
+
+    if (aiToggleVisibility) {
+        aiToggleVisibility.addEventListener('click', () => {
+            const input = aiApiKeyInput;
+            const icon = aiToggleVisibility.querySelector('i');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'ph ph-eye-slash';
+            } else {
+                input.type = 'password';
+                icon.className = 'ph ph-eye';
+            }
+        });
+    }
+}
+
+// Setup AI prompt bar event listeners
+function setupAIPromptBarListeners() {
+    // Close prompt bar
+    const aiPromptClose = document.getElementById('aiPromptClose');
+    const aiPromptOverlay = document.getElementById('aiPromptOverlay');
+
+    if (aiPromptClose) {
+        aiPromptClose.addEventListener('click', closeAIPromptBar);
+    }
+
+    if (aiPromptOverlay) {
+        aiPromptOverlay.addEventListener('click', closeAIPromptBar);
+    }
+
+    // Prompt input and submission
+    const aiPromptInput = document.getElementById('aiPromptInput');
+    const aiPromptSubmit = document.getElementById('aiPromptSubmit');
+
+    if (aiPromptInput) {
+        aiPromptInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                const prompt = aiPromptInput.value.trim();
+                if (prompt) {
+                    handleAIPrompt(prompt);
+                }
+            }
+        });
+    }
+
+    if (aiPromptSubmit) {
+        aiPromptSubmit.addEventListener('click', () => {
+            const prompt = aiPromptInput ? aiPromptInput.value.trim() : '';
+            if (prompt) {
+                handleAIPrompt(prompt);
+            }
+        });
+    }
+
+    // AI suggestions
+    const aiSuggestions = document.querySelectorAll('.ai-suggestion');
+    aiSuggestions.forEach(suggestion => {
+        suggestion.addEventListener('click', (e) => {
+            const action = e.target.dataset.action;
+            handleAISuggestion(action);
+        });
+    });
+
+    // Insert response button
+    const aiResponseInsert = document.getElementById('aiResponseInsert');
+    if (aiResponseInsert) {
+        aiResponseInsert.addEventListener('click', insertAIResponse);
+    }
+}
+
+// Settings functions
+function changeTheme(theme) {
+    settings.theme = theme;
+    document.body.className = theme === 'light' ? 'light-mode' : '';
+    updateThemeButton();
+    saveSettings();
+
+    // Update theme buttons in modal
+    const themeBtns = document.querySelectorAll('.settings-btn');
+    themeBtns.forEach(btn => {
+        if (btn.textContent.trim() === 'Dark' || btn.textContent.trim() === 'Light') {
+            btn.classList.remove('active');
+        }
+    });
+
+    // Find and activate the correct theme button
+    const targetBtn = Array.from(themeBtns).find(btn =>
+        btn.textContent.trim() === (theme === 'dark' ? 'Dark' : 'Light')
+    );
+    if (targetBtn) {
+        targetBtn.classList.add('active');
+    }
+
+    // Update title bar theme
+    window.electronAPI.updateTitleBarTheme(theme);
+}
+
+function toggleSettingsFontDropdown() {
+    const dropdown = document.querySelector('.settings-font-dropdown-content');
+    const allDropdowns = document.querySelectorAll('.settings-font-dropdown-content, .settings-size-dropdown-content');
+
+    // Close other dropdowns
+    allDropdowns.forEach(d => {
+        if (d !== dropdown) d.style.display = 'none';
+    });
+
+    // Toggle current dropdown
+    dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+}
+
+function toggleSettingsSizeDropdown() {
+    const dropdown = document.querySelector('.settings-size-dropdown-content');
+    const allDropdowns = document.querySelectorAll('.settings-font-dropdown-content, .settings-size-dropdown-content');
+
+    // Close other dropdowns
+    allDropdowns.forEach(d => {
+        if (d !== dropdown) d.style.display = 'none';
+    });
+
+    // Toggle current dropdown
+    dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+}
+
+function changeFontFamily(font) {
+    updateFontFamily(font);
+    document.querySelector('.settings-font-dropdown-content').style.display = 'none';
+
+    // Update the dropdown button text
+    const dropdownBtn = document.querySelector('.settings-font-dropdown .settings-btn');
+    if (dropdownBtn) {
+        dropdownBtn.innerHTML = `${font}<i class="ph ph-caret-down" style="margin-left: 4px;"></i>`;
+    }
+}
+
+function changeFontSize(size) {
+    updateFontSize(size);
+    document.querySelector('.settings-size-dropdown-content').style.display = 'none';
+
+    // Update the dropdown button text
+    const dropdownBtn = document.querySelector('.settings-size-dropdown .settings-btn');
+    if (dropdownBtn) {
+        dropdownBtn.innerHTML = `${size}px<i class="ph ph-caret-down" style="margin-left: 4px;"></i>`;
+    }
+}
+
+function toggleWordWrap(enabled) {
+    settings.wordWrap = enabled;
+    if (enabled) {
+        editor.style.whiteSpace = 'pre-wrap';
+    } else {
+        editor.style.whiteSpace = 'pre';
+    }
+    saveSettings();
+}
+
+function toggleAutoSave(enabled) {
+    settings.autoSave = enabled;
+    saveSettings();
+}
+
+// ===== AI FUNCTIONS =====
+
+// Load AI settings
+async function loadAISettings() {
+    try {
+        const result = await window.electronAPI.getAiSettings();
+        return result || { aiApiKey: '', aiEnabled: false };
+    } catch (error) {
+        console.error('Error loading AI settings:', error);
+        return { aiApiKey: '', aiEnabled: false };
+    }
+}
+
+// Save AI settings
+async function saveAISettings(aiSettings) {
+    try {
+        await window.electronAPI.saveAiSettings(aiSettings);
+        return { success: true };
+    } catch (error) {
+        console.error('Error saving AI settings:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+// Test AI connection
+async function testAIConnection() {
+    const apiKeyInput = document.getElementById('aiApiKeyInput');
+    const testBtn = document.getElementById('aiTestBtn');
+    const testIcon = testBtn.querySelector('i');
+
+    if (!apiKeyInput || !testBtn) return;
+
+    const apiKey = apiKeyInput.value.trim();
+    if (!apiKey) {
+        alert('Please enter an API key first');
+        return;
+    }
+
+    // Show loading state
+    testBtn.disabled = true;
+    testIcon.className = 'ph ph-spinner ph-spin';
+    testIcon.style.color = '#007bff';
+
+    try {
+        const result = await window.electronAPI.initializeAiService(apiKey);
+
+        if (result.success) {
+            testIcon.className = 'ph ph-check-circle';
+            testIcon.style.color = '#28a745';
+            alert('API key is valid and AI service is ready!');
+        } else {
+            testIcon.className = 'ph ph-x-circle';
+            testIcon.style.color = '#dc3545';
+            alert('API key test failed: ' + result.error);
+        }
+    } catch (error) {
+        testIcon.className = 'ph ph-x-circle';
+        testIcon.style.color = '#dc3545';
+        alert('Connection test failed: ' + error.message);
+    } finally {
+        testBtn.disabled = false;
+        setTimeout(() => {
+            testIcon.className = 'ph ph-check';
+            testIcon.style.color = '';
+        }, 3000);
+    }
+}
+
+// Update AI status indicator
+async function updateAIStatus() {
+    const statusElement = document.getElementById('aiStatus');
+    const statusText = document.getElementById('aiStatusText');
+    const statusIcon = statusElement?.querySelector('i');
+
+    if (!statusElement || !statusText || !statusIcon) return;
+
+    try {
+        const result = await window.electronAPI.getAiStatus();
+
+        if (result.success) {
+            const status = result.status;
+            if (status.configured && status.hasApiKey && status.modelReady) {
+                statusText.textContent = 'AI Ready';
+                statusIcon.className = 'ph ph-check-circle';
+                statusIcon.style.color = '#28a745';
+            } else if (status.hasApiKey) {
+                statusText.textContent = 'API Key Set';
+                statusIcon.className = 'ph ph-circle';
+                statusIcon.style.color = '#ffc107';
+            } else {
+                statusText.textContent = 'AI not configured';
+                statusIcon.className = 'ph ph-circle';
+                statusIcon.style.color = '#6c757d';
+            }
+        } else {
+            statusText.textContent = 'Error checking AI status';
+            statusIcon.className = 'ph ph-x-circle';
+            statusIcon.style.color = '#dc3545';
+        }
+    } catch (error) {
+        console.error('Error updating AI status:', error);
+        statusText.textContent = 'Error';
+        statusIcon.className = 'ph ph-x-circle';
+        statusIcon.style.color = '#dc3545';
+    }
+}
+
+// Open external link in system browser
+function openExternalLink(url) {
+    try {
+        window.electronAPI.openExternalLink(url);
+    } catch (error) {
+        console.error('Error opening external link:', error);
+        // Fallback to window.open if electronAPI is not available
+        window.open(url, '_blank');
+    }
+}
+
+// ===== AI PROMPT BAR FUNCTIONS =====
+
+// Toggle AI prompt bar
+function toggleAIPromptBar() {
+    const aiPromptBar = document.getElementById('aiPromptBar');
+
+    if (!aiPromptBar) return;
+
+    if (aiPromptBar.style.display === 'flex') {
+        closeAIPromptBar();
+    } else {
+        openAIPromptBar();
+    }
+}
+
+// Open AI prompt bar
+function openAIPromptBar() {
+    const aiPromptBar = document.getElementById('aiPromptBar');
+    const aiPromptInput = document.getElementById('aiPromptInput');
+
+    if (!aiPromptBar) return;
+
+    aiPromptBar.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+
+    // Focus on input
+    if (aiPromptInput) {
+        setTimeout(() => {
+            aiPromptInput.focus();
+        }, 100);
+    }
+
+    // Update AI status
+    updateAIStatus();
+}
+
+// Close AI prompt bar
+function closeAIPromptBar() {
+    const aiPromptBar = document.getElementById('aiPromptBar');
+
+    if (!aiPromptBar) return;
+
+    aiPromptBar.style.display = 'none';
+    document.body.style.overflow = 'auto';
+
+    // Restore focus to editor
+    setTimeout(() => {
+        focusEditor();
+    }, 100);
+}
+
+// Handle AI prompt submission
+async function handleAIPrompt(prompt) {
+    const aiPromptInput = document.getElementById('aiPromptInput');
+    const aiResponseContainer = document.getElementById('aiResponseContainer');
+    const aiResponseContent = document.getElementById('aiResponseContent');
+    const aiPromptSubmit = document.getElementById('aiPromptSubmit');
+    const submitIcon = aiPromptSubmit.querySelector('i');
+
+    if (!prompt.trim()) return;
+
+    // Show loading state
+    aiPromptSubmit.disabled = true;
+    submitIcon.className = 'ph ph-spinner ph-spin';
+
+    // Get current note content as context
+    const context = currentNote ? currentNote.content || '' : '';
+
+    try {
+        const result = await window.electronAPI.generateAiResponse({
+            prompt: prompt,
+            context: context
+        });
+
+        if (result.success) {
+            // Show response
+            aiResponseContent.textContent = result.response;
+            aiResponseContainer.style.display = 'block';
+
+            // Scroll to response
+            aiResponseContainer.scrollIntoView({ behavior: 'smooth' });
+        } else {
+            aiResponseContent.textContent = `Error: ${result.error}`;
+            aiResponseContainer.style.display = 'block';
+        }
+    } catch (error) {
+        aiResponseContent.textContent = `Error: ${error.message}`;
+        aiResponseContainer.style.display = 'block';
+    } finally {
+        // Reset submit button
+        aiPromptSubmit.disabled = false;
+        submitIcon.className = 'ph ph-paper-plane-tilt';
+    }
+}
+
+// Handle AI suggestion clicks
+function handleAISuggestion(action) {
+    const aiPromptInput = document.getElementById('aiPromptInput');
+
+    if (!aiPromptInput) return;
+
+    // Get current note content
+    const noteContent = currentNote && currentNote.content ? currentNote.content : '';
+
+    let prompt = '';
+
+    switch (action) {
+        case 'expand':
+            prompt = 'Expand on this content with more details and examples';
+            break;
+        case 'summarize':
+            prompt = 'Create a concise summary of this content';
+            break;
+        case 'improve':
+            prompt = 'Improve the writing, clarity, and structure of this content';
+            break;
+        case 'brainstorm':
+            prompt = 'Generate ideas and brainstorm related topics for this content';
+            break;
+    }
+
+    aiPromptInput.value = prompt;
+    aiPromptInput.focus();
+
+    // Trigger submit
+    if (prompt) {
+        handleAIPrompt(prompt);
+    }
+}
+
+// Insert AI response into editor
+function insertAIResponse() {
+    const aiResponseContent = document.getElementById('aiResponseContent');
+
+    if (!aiResponseContent || !aiResponseContent.textContent.trim()) return;
+
+    const response = aiResponseContent.textContent.trim();
+
+    // Insert at cursor position
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+        range.insertNode(document.createTextNode(response));
+    } else {
+        // Append to end if no selection
+        editor.innerHTML += response;
+    }
+
+    // Trigger input event to save
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // Close prompt bar
+    closeAIPromptBar();
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.settings-font-dropdown') && !e.target.closest('.settings-size-dropdown')) {
+        document.querySelector('.settings-font-dropdown-content').style.display = 'none';
+        document.querySelector('.settings-size-dropdown-content').style.display = 'none';
+    }
+});
+
 // Fullscreen functionality
 function toggleFullscreen() {
     const appContainer = document.querySelector('.app-container');
     const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const fullscreenIcon = fullscreenBtn.querySelector('i');
     
     appContainer.classList.toggle('fullscreen-mode');
     
     if (appContainer.classList.contains('fullscreen-mode')) {
-        // Don't add active class styling
-        fullscreenBtn.querySelector('span').textContent = 'Exit Fullscreen';
+        // Change icon to exit fullscreen
+        fullscreenIcon.className = 'ph ph-arrows-in-simple';
+        fullscreenBtn.title = 'Exit Fullscreen';
         
         // Request fullscreen API if available
         if (document.documentElement.requestFullscreen) {
@@ -1849,7 +2626,9 @@ function toggleFullscreen() {
             document.documentElement.msRequestFullscreen();
         }
     } else {
-        fullscreenBtn.querySelector('span').textContent = 'Fullscreen';
+        // Change icon back to enter fullscreen
+        fullscreenIcon.className = 'ph ph-arrows-out-simple';
+        fullscreenBtn.title = 'Toggle Fullscreen';
         
         // Exit fullscreen API if available
         if (document.exitFullscreen) {
@@ -1871,6 +2650,44 @@ function toggleFullscreen() {
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape' && document.querySelector('.app-container').classList.contains('fullscreen-mode')) {
         toggleFullscreen();
+    }
+});
+
+// Listen for fullscreen change events to sync UI state
+document.addEventListener('fullscreenchange', function() {
+    const appContainer = document.querySelector('.app-container');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const fullscreenIcon = fullscreenBtn.querySelector('i');
+    
+    if (document.fullscreenElement) {
+        // Entered fullscreen
+        appContainer.classList.add('fullscreen-mode');
+        fullscreenIcon.className = 'ph ph-arrows-in-simple';
+        fullscreenBtn.title = 'Exit Fullscreen';
+    } else {
+        // Exited fullscreen
+        appContainer.classList.remove('fullscreen-mode');
+        fullscreenIcon.className = 'ph ph-arrows-out-simple';
+        fullscreenBtn.title = 'Toggle Fullscreen';
+    }
+});
+
+// Also listen for webkit fullscreen events (Safari)
+document.addEventListener('webkitfullscreenchange', function() {
+    const appContainer = document.querySelector('.app-container');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    const fullscreenIcon = fullscreenBtn.querySelector('i');
+    
+    if (document.webkitFullscreenElement) {
+        // Entered fullscreen
+        appContainer.classList.add('fullscreen-mode');
+        fullscreenIcon.className = 'ph ph-arrows-in-simple';
+        fullscreenBtn.title = 'Exit Fullscreen';
+    } else {
+        // Exited fullscreen
+        appContainer.classList.remove('fullscreen-mode');
+        fullscreenIcon.className = 'ph ph-arrows-out-simple';
+        fullscreenBtn.title = 'Toggle Fullscreen';
     }
 });
 
