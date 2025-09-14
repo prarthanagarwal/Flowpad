@@ -5,6 +5,7 @@ const { app, BrowserWindow, Menu, shell } = require('electron');
 const path = require('path');
 const storage = require('./storage');
 const { initializeIpcHandlers } = require('./ipc-handlers');
+const { aiService } = require('./ai-service');
 
 // ===== SQUIRREL WINDOWS STARTUP HANDLING =====
 // Handle Squirrel events for Windows installation
@@ -383,13 +384,24 @@ app.whenReady().then(async () => {
   
   // Migrate existing notes to file-based storage
   await storage.migrateNotesToFiles();
-  
+
+  // Initialize AI service if API key is available
+  const aiSettings = storage.getAISettings();
+  if (aiSettings.aiApiKey && aiSettings.aiEnabled) {
+    const initResult = aiService.initialize(aiSettings.aiApiKey);
+    if (initResult.success) {
+      console.log('AI service initialized on startup');
+    } else {
+      console.error('Failed to initialize AI service on startup:', initResult.error);
+    }
+  }
+
   // Create window
   createWindow();
-  
+
   // Initialize IPC handlers
   initializeIpcHandlers(mainWindow);
-  
+
   // Create application menu
   createMenu();
   

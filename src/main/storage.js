@@ -287,13 +287,39 @@ function getAppSettings() {
     fontFamily: 'Aeonik',
     theme: 'dark',
     autoSave: true,
-    wordWrap: true
+    wordWrap: true,
+    aiApiKey: '',
+    aiEnabled: false
   });
 }
 
 function saveAppSettings(settings) {
   try {
     store.set('settings', settings);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+// ===== AI SETTINGS MANAGEMENT =====
+function getAISettings() {
+  const settings = getAppSettings();
+  return {
+    aiApiKey: settings.aiApiKey || '',
+    aiEnabled: settings.aiEnabled || false
+  };
+}
+
+function saveAISettings(aiSettings) {
+  try {
+    const currentSettings = getAppSettings();
+    const updatedSettings = {
+      ...currentSettings,
+      aiApiKey: aiSettings.aiApiKey || '',
+      aiEnabled: aiSettings.aiEnabled || false
+    };
+    store.set('settings', updatedSettings);
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
@@ -392,23 +418,27 @@ module.exports = {
   saveNote,
   loadNotes,
   deleteNote,
-  
+
   // Folder operations
   getFolders,
   saveFolder,
   deleteFolder,
-  
+
   // Migration
   migrateNotesToFiles,
-  
+
   // Settings
   getAppSettings,
   saveAppSettings,
-  
+
+  // AI Settings
+  getAISettings,
+  saveAISettings,
+
   // Window state
   getWindowBounds,
   saveWindowBounds,
-  
+
   // Directory management
   ensureNotesDirectory,
   getNotesDirectory

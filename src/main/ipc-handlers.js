@@ -5,6 +5,7 @@ const { ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
 const storage = require('./storage');
+const { aiService } = require('./ai-service');
 const { sanitizeFilename, convertHtmlToMarkdown, createFrontmatter } = require('../shared/utils');
 
 // ===== NOTE OPERATIONS =====
@@ -96,6 +97,26 @@ function setupSettingsHandlers() {
     return storage.saveAppSettings(settings);
   });
 
+  // Get AI settings
+  ipcMain.handle('get-ai-settings', async () => {
+    return storage.getAISettings();
+  });
+
+  // Save AI settings
+  ipcMain.handle('save-ai-settings', async (event, aiSettings) => {
+    const result = storage.saveAISettings(aiSettings);
+
+    // Re-initialize AI service if API key changed
+    if (result.success && aiSettings.aiApiKey) {
+      const initResult = aiService.initialize(aiSettings.aiApiKey);
+      if (!initResult.success) {
+        console.error('Failed to initialize AI service:', initResult.error);
+      }
+    }
+
+    return result;
+  });
+
   // Get window bounds
   ipcMain.handle('get-window-bounds', async () => {
     return storage.getWindowBounds();
@@ -146,6 +167,55 @@ function setupWindowHandlers(mainWindow) {
 
 
 
+// ===== AI HANDLERS =====
+function setupAIHandlers() {
+  // Generate AI response
+  ipcMain.handle('generate-ai-response', async (event, { prompt, context }) => {
+    try {
+      const result = await aiService.generateResponse(prompt, context);
+      return result;
+    } catch (error) {
+      console.error('Error in AI response generation:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Generate content suggestions
+  ipcMain.handle('suggest-content', async (event, { content, type }) => {
+    try {
+      const result = await aiService.suggestContent(content, type);
+      return result;
+    } catch (error) {
+      console.error('Error in content suggestion:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Check AI service status
+  ipcMain.handle('get-ai-status', async () => {
+    try {
+      return {
+        success: true,
+        status: aiService.getStatus()
+      };
+    } catch (error) {
+      console.error('Error getting AI status:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Initialize AI service
+  ipcMain.handle('initialize-ai-service', async (event, apiKey) => {
+    try {
+      const result = aiService.initialize(apiKey);
+      return result;
+    } catch (error) {
+      console.error('Error initializing AI service:', error);
+      return { success: false, error: error.message };
+    }
+  });
+}
+
 // ===== FILE SYSTEM HANDLERS =====
 function setupFileSystemHandlers() {
   // Open notes folder
@@ -159,15 +229,27 @@ function setupFileSystemHandlers() {
       return { success: false, error: error.message };
     }
   });
+
+  // Open external link in system browser
+  ipcMain.handle('open-external-link', async (event, url) => {
+    try {
+      await shell.openExternal(url);
+      return { success: true };
+    } catch (error) {
+      console.error('Error opening external link:', error);
+      return { success: false, error: error.message };
+    }
+  });
 }
 
 // ===== INITIALIZE ALL HANDLERS =====
 function initializeIpcHandlers(mainWindow) {
   setupNoteHandlers();
   setupSettingsHandlers();
+  setupAIHandlers();
   setupWindowHandlers(mainWindow);
   setupFileSystemHandlers();
-  
+
   console.log('IPC handlers initialized');
 }
 
