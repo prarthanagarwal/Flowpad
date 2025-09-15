@@ -2095,7 +2095,7 @@ async function openSettingsModal() {
             
             <div class="gemini-help-link">
                 <span>Need an API key?</span>
-                <a href="#" onclick="event.preventDefault(); event.stopPropagation(); openExternalLink('https://aistudio.google.com/app/apikey')">Visit Google AI Studio →</a>
+                <a href="#" id="geminiHelpLink">Visit Google AI Studio →</a>
             </div>
         </div>
     `;
@@ -2209,61 +2209,52 @@ function setupAISettingsListeners() {
             }
         });
     }
+
+    // Gemini help link
+    const geminiHelpLink = document.getElementById('geminiHelpLink');
+    if (geminiHelpLink) {
+        geminiHelpLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            openExternalLink('https://aistudio.google.com/app/apikey');
+        });
+    }
 }
 
 // Setup AI prompt bar event listeners
 function setupAIPromptBarListeners() {
     // Close prompt bar
-    const aiPromptClose = document.getElementById('aiPromptClose');
-    const aiPromptOverlay = document.getElementById('aiPromptOverlay');
+    const promptClose = document.getElementById('promptClose');
 
-    if (aiPromptClose) {
-        aiPromptClose.addEventListener('click', closeAIPromptBar);
-    }
-
-    if (aiPromptOverlay) {
-        aiPromptOverlay.addEventListener('click', closeAIPromptBar);
+    if (promptClose) {
+        promptClose.addEventListener('click', closeInlinePrompt);
     }
 
     // Prompt input and submission
-    const aiPromptInput = document.getElementById('aiPromptInput');
-    const aiPromptSubmit = document.getElementById('aiPromptSubmit');
+    const promptInput = document.getElementById('promptInput');
+    const promptSubmit = document.getElementById('promptSubmit');
 
-    if (aiPromptInput) {
-        aiPromptInput.addEventListener('keydown', (e) => {
+    if (promptInput) {
+        promptInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                const prompt = aiPromptInput.value.trim();
+                const prompt = promptInput.value.trim();
                 if (prompt) {
-                    handleAIPrompt(prompt);
+                    handlePromptSubmit(prompt);
                 }
             }
         });
     }
 
-    if (aiPromptSubmit) {
-        aiPromptSubmit.addEventListener('click', () => {
-            const prompt = aiPromptInput ? aiPromptInput.value.trim() : '';
+    if (promptSubmit) {
+        promptSubmit.addEventListener('click', () => {
+            const prompt = promptInput ? promptInput.value.trim() : '';
             if (prompt) {
-                handleAIPrompt(prompt);
+                handlePromptSubmit(prompt);
             }
         });
     }
 
-    // AI suggestions
-    const aiSuggestions = document.querySelectorAll('.ai-suggestion');
-    aiSuggestions.forEach(suggestion => {
-        suggestion.addEventListener('click', (e) => {
-            const action = e.target.dataset.action;
-            handleAISuggestion(action);
-        });
-    });
-
-    // Insert response button
-    const aiResponseInsert = document.getElementById('aiResponseInsert');
-    if (aiResponseInsert) {
-        aiResponseInsert.addEventListener('click', insertAIResponse);
-    }
 }
 
 // Settings functions

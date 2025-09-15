@@ -580,35 +580,12 @@ body.light-mode .notes-list::-webkit-scrollbar-thumb:hover {
     min-width: 120px;
 }
 
-.context-menu-item {
-    padding: 6px 12px;
-    cursor: pointer;
-    font-size: 12px;
-    color: #ccc;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    transition: background-color 0.15s ease;
+body.light-mode .folder-context-menu {
+    background: #fff;
+    border-color: #d0d0d0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.context-menu-item:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-}
-
-.context-menu-item.disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.context-menu-item.disabled:hover {
-    background-color: transparent;
-}
-
-.context-menu-separator {
-    height: 1px;
-    background-color: #444;
-    margin: 4px 0;
-}
 
 /* Notes List */
 .notes-list {
@@ -638,10 +615,6 @@ body.light-mode .notes-list::-webkit-scrollbar-thumb:hover {
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 4px;
-}
-
-.category-notes {
-    /* Container for notes in each category */
 }
 
 .note-item {
@@ -1357,11 +1330,6 @@ body.light-mode .close-btn:hover {
     color: #fff;
 }
 
-/* Fullscreen button inherits all styles from .window-control-btn */
-.fullscreen-btn {
-    /* No additional styles needed - inherits from .window-control-btn */
-}
-
 /* ===== EDITOR CONTEXT MENU ===== */
 .editor-context-menu {
     position: fixed;
@@ -1408,6 +1376,15 @@ body.light-mode .context-menu-item:hover {
 .context-menu-item i {
     width: 14px;
     text-align: center;
+}
+
+.context-menu-item.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.context-menu-item.disabled:hover {
+    background-color: transparent;
 }
 
 .context-menu-separator {
