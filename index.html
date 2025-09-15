@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self';">
     <title>Flowpad</title>
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -169,6 +170,11 @@
 
     <!-- Context Menu for Editor -->
     <div class="editor-context-menu" id="editorContextMenu">
+        <div class="context-menu-item" data-action="edit-with-ai">
+            <i class="ph ph-sparkle" style="font-size: 12px;"></i>
+            Edit with AI
+        </div>
+        <div class="context-menu-separator"></div>
         <div class="context-menu-item" data-action="copy">
             <i class="ph ph-copy" style="font-size: 12px;"></i>
             Copy
@@ -203,49 +209,44 @@
         </div>
     </div>
 
-    <!-- AI Prompt Bar -->
-    <div class="ai-prompt-bar" id="aiPromptBar">
-        <div class="ai-prompt-overlay" id="aiPromptOverlay"></div>
-        <div class="ai-prompt-content">
-            <div class="ai-prompt-header">
-                <div class="ai-prompt-icon">
-                    <i class="ph ph-sparkle" style="font-size: 18px;"></i>
-                </div>
-                <div class="ai-prompt-title">Ask AI</div>
-                <button class="ai-prompt-close" id="aiPromptClose">
-                    <i class="ph ph-x" style="font-size: 16px;"></i>
+    <!-- Inline AI Prompt -->
+    <div class="inline-prompt" id="inlinePrompt">
+        <div class="inline-prompt-history" id="promptHistory"></div>
+        <div class="inline-prompt-input-container">
+            <input type="text" id="promptInput" class="inline-prompt-input" placeholder="Ask AI to edit this text..." spellcheck="false">
+            <button class="inline-prompt-submit" id="promptSubmit">
+                <i class="ph ph-paper-plane-tilt"></i>
+            </button>
+            <button class="inline-prompt-close" id="promptClose">
+                <i class="ph ph-x"></i>
+            </button>
+        </div>
+        <div class="inline-prompt-response" id="promptResponse" style="display: none;">
+            <div class="inline-prompt-actions">
+                <button class="inline-prompt-reject" id="promptReject" title="Reject (⇧⌘↩)">
+                    <span>Reject</span>
+                    <span class="shortcut">⇧⌘↩</span>
+                </button>
+                <button class="inline-prompt-accept" id="promptAccept" title="Accept (⌘↩)">
+                    <span>Accept</span>
+                    <span class="shortcut">⌘↩</span>
                 </button>
             </div>
-            <div class="ai-prompt-body">
-                <div class="ai-prompt-input-container">
-                    <input type="text" id="aiPromptInput" placeholder="Ask me anything about your notes..." class="ai-prompt-input" spellcheck="false">
-                    <button class="ai-prompt-submit" id="aiPromptSubmit">
-                        <i class="ph ph-paper-plane-tilt" style="font-size: 16px;"></i>
-                    </button>
-                </div>
-                <div class="ai-prompt-suggestions">
-                    <div class="ai-suggestion" data-action="expand">Expand on this</div>
-                    <div class="ai-suggestion" data-action="summarize">Summarize</div>
-                    <div class="ai-suggestion" data-action="improve">Improve writing</div>
-                    <div class="ai-suggestion" data-action="brainstorm">Brainstorm ideas</div>
-                </div>
-                <div class="ai-response-container" id="aiResponseContainer" style="display: none;">
-                    <div class="ai-response-header">
-                        <span>AI Response</span>
-                        <button class="ai-response-insert" id="aiResponseInsert">
-                            <i class="ph ph-plus" style="font-size: 14px;"></i>
-                            Insert
-                        </button>
-                    </div>
-                    <div class="ai-response-content" id="aiResponseContent"></div>
-                </div>
-            </div>
-            <div class="ai-prompt-footer">
-                <div class="ai-status" id="aiStatus">
-                    <i class="ph ph-circle" style="font-size: 8px;"></i>
-                    <span id="aiStatusText">AI not configured</span>
-                </div>
-            </div>
+        </div>
+    </div>
+
+    <!-- AI Response Preview -->
+    <div class="ai-preview" id="aiPreview">
+        <div class="ai-preview-content" id="aiPreviewContent"></div>
+        <div class="ai-preview-actions">
+            <button class="ai-preview-undo" id="previewUndo">
+                <span>Undo</span>
+                <span class="shortcut">⌘N</span>
+            </button>
+            <button class="ai-preview-keep" id="previewKeep">
+                <span>Keep</span>
+                <span class="shortcut">⌘Y</span>
+            </button>
         </div>
     </div>
 

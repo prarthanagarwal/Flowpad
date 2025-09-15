@@ -145,7 +145,10 @@ function setupEventListeners() {
     // Editor events
     editor.addEventListener('input', handleEditorInput);
     editor.addEventListener('keyup', handleEditorInput);
-    editor.addEventListener('paste', handlePaste);
+    editor.addEventListener('paste', async (e) => {
+        e.preventDefault();
+        await handlePaste(editor);
+    });
     editor.addEventListener('keydown', handleKeyDown);
     editor.addEventListener('keyup', updateFormatButtonStates);
     editor.addEventListener('mouseup', updateFormatButtonStates);
@@ -1552,17 +1555,47 @@ function handleKeyDown(e) {
     // AI prompt bar shortcut (Cmd+K / Ctrl+K)
     if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        toggleAIPromptBar();
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0 && !selection.isCollapsed) {
+            const range = selection.getRangeAt(0);
+            const text = selection.toString();
+            if (text.trim()) {
+                // Use the exact same logic as right-click
+                openInlinePrompt(range, text);
+            }
+        }
+        return;
+    }
+
+    // AI shortcuts
+    // Cmd+Enter / Ctrl+Enter to accept AI changes
+    if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        applyAIChanges();
+        return;
+    }
+
+    // Shift+Cmd+Enter / Shift+Ctrl+Enter to reject AI changes
+    if ((isMac ? e.metaKey : e.ctrlKey) && e.shiftKey && e.key === 'Enter') {
+        e.preventDefault();
+        undoAIChanges();
+        return;
+    }
+
+    // Cmd+Y / Ctrl+Y to keep AI changes
+    if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'y') {
+        e.preventDefault();
+        applyAIChanges();
         return;
     }
 
     // Close app with ESC key
     if (e.key === 'Escape') {
         e.preventDefault();
-        // Close AI prompt bar if open, otherwise close app
-        const aiPromptBar = document.getElementById('aiPromptBar');
-        if (aiPromptBar && aiPromptBar.style.display !== 'none') {
-            closeAIPromptBar();
+        // Close inline prompt if open, otherwise close app
+        const inlinePrompt = document.getElementById('inlinePrompt');
+        if (inlinePrompt && inlinePrompt.style.display !== 'none') {
+            closeInlinePrompt();
         } else {
             window.electronAPI.closeApp();
         }
@@ -1649,13 +1682,6 @@ function getSelectedLineText() {
     // Try to get meaningful text content
     const text = container.textContent || container.innerText || '';
     return text.trim() || '';
-}
-
-// Paste handling
-function handlePaste(e) {
-    e.preventDefault();
-    const text = (e.clipboardData || window.clipboardData).getData('text');
-    document.execCommand('insertText', false, text);
 }
 
 // Font dropdown management
@@ -1757,9 +1783,12 @@ function toggleTheme() {
     document.body.className = settings.theme === 'light' ? 'light-mode' : '';
     updateThemeButton();
     saveSettings();
-    
-    // Update title bar colors
-    window.electronAPI.updateTitleBarTheme(settings.theme);
+    updateTitleBarTheme(settings.theme);
+}
+
+// Helper function to update title bar theme
+function updateTitleBarTheme(theme) {
+    window.electronAPI.updateTitleBarTheme(theme);
 }
 
 function updateThemeButton() {
@@ -1905,6 +1934,9 @@ document.addEventListener('click', async (e) => {
         const editor = document.getElementById('editor');
 
         switch (action) {
+            case 'edit-with-ai':
+                handleEditWithAI(editor);
+                break;
             case 'copy':
                 await handleCopy(editor);
                 break;
@@ -1993,7 +2025,8 @@ async function handlePaste(editor) {
             }
 
             // Trigger input event to update word count and save
-            editor.dispatchEvent(new Event('input', { bubbles: true }));
+            const inputEvent = new Event('input', { bubbles: true });
+            editor.dispatchEvent(inputEvent);
             // Ensure editor maintains focus
             editor.focus();
             console.log('Text pasted successfully');
@@ -2005,7 +2038,8 @@ async function handlePaste(editor) {
             const success = document.execCommand('paste');
             if (success) {
                 // Trigger input event to update word count and save
-                editor.dispatchEvent(new Event('input', { bubbles: true }));
+                const inputEvent = new Event('input', { bubbles: true });
+                editor.dispatchEvent(inputEvent);
                 // Ensure editor maintains focus
                 editor.focus();
                 console.log('Paste successful via execCommand');
@@ -2256,56 +2290,10 @@ function changeTheme(theme) {
     }
 
     // Update title bar theme
-    window.electronAPI.updateTitleBarTheme(theme);
+    updateTitleBarTheme(theme);
 }
 
-function toggleSettingsFontDropdown() {
-    const dropdown = document.querySelector('.settings-font-dropdown-content');
-    const allDropdowns = document.querySelectorAll('.settings-font-dropdown-content, .settings-size-dropdown-content');
-
-    // Close other dropdowns
-    allDropdowns.forEach(d => {
-        if (d !== dropdown) d.style.display = 'none';
-    });
-
-    // Toggle current dropdown
-    dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
-}
-
-function toggleSettingsSizeDropdown() {
-    const dropdown = document.querySelector('.settings-size-dropdown-content');
-    const allDropdowns = document.querySelectorAll('.settings-font-dropdown-content, .settings-size-dropdown-content');
-
-    // Close other dropdowns
-    allDropdowns.forEach(d => {
-        if (d !== dropdown) d.style.display = 'none';
-    });
-
-    // Toggle current dropdown
-    dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
-}
-
-function changeFontFamily(font) {
-    updateFontFamily(font);
-    document.querySelector('.settings-font-dropdown-content').style.display = 'none';
-
-    // Update the dropdown button text
-    const dropdownBtn = document.querySelector('.settings-font-dropdown .settings-btn');
-    if (dropdownBtn) {
-        dropdownBtn.innerHTML = `${font}<i class="ph ph-caret-down" style="margin-left: 4px;"></i>`;
-    }
-}
-
-function changeFontSize(size) {
-    updateFontSize(size);
-    document.querySelector('.settings-size-dropdown-content').style.display = 'none';
-
-    // Update the dropdown button text
-    const dropdownBtn = document.querySelector('.settings-size-dropdown .settings-btn');
-    if (dropdownBtn) {
-        dropdownBtn.innerHTML = `${size}px<i class="ph ph-caret-down" style="margin-left: 4px;"></i>`;
-    }
-}
+// Removed unused settings dropdown functions that reference non-existent HTML elements
 
 function toggleWordWrap(enabled) {
     settings.wordWrap = enabled;
@@ -2440,169 +2428,275 @@ function openExternalLink(url) {
     }
 }
 
-// ===== AI PROMPT BAR FUNCTIONS =====
-
-// Toggle AI prompt bar
-function toggleAIPromptBar() {
-    const aiPromptBar = document.getElementById('aiPromptBar');
-
-    if (!aiPromptBar) return;
-
-    if (aiPromptBar.style.display === 'flex') {
-        closeAIPromptBar();
+// Handle Edit with AI from context menu
+function handleEditWithAI(editor) {
+    // Get selected text or all text if nothing is selected
+    const selection = window.getSelection();
+    let selectedText = '';
+    let range = null;
+    
+    if (selection.rangeCount > 0 && !selection.isCollapsed) {
+        selectedText = selection.toString();
+        range = selection.getRangeAt(0);
     } else {
-        openAIPromptBar();
+        selectedText = editor.textContent || editor.innerText;
+        range = document.createRange();
+        range.selectNodeContents(editor);
     }
-}
-
-// Open AI prompt bar
-function openAIPromptBar() {
-    const aiPromptBar = document.getElementById('aiPromptBar');
-    const aiPromptInput = document.getElementById('aiPromptInput');
-
-    if (!aiPromptBar) return;
-
-    aiPromptBar.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-
-    // Focus on input
-    if (aiPromptInput) {
-        setTimeout(() => {
-            aiPromptInput.focus();
-        }, 100);
+    
+    if (!selectedText.trim()) {
+        alert('Please select some text to edit with AI, or ensure there is content in the editor.');
+        return;
     }
-
-    // Update AI status
-    updateAIStatus();
+    
+    // Open inline prompt with the selected text - same as Cmd+K
+    openInlinePrompt(range, selectedText);
 }
 
-// Close AI prompt bar
-function closeAIPromptBar() {
-    const aiPromptBar = document.getElementById('aiPromptBar');
+// ===== INLINE AI PROMPT FUNCTIONS =====
 
-    if (!aiPromptBar) return;
+// Global variables for tracking state
+let currentRange = null;
+let currentText = '';
+let promptHistory = [];
+let lastResponse = '';
 
-    aiPromptBar.style.display = 'none';
-    document.body.style.overflow = 'auto';
+// Open inline prompt
+function openInlinePrompt(range, text) {
+    const inlinePrompt = document.getElementById('inlinePrompt');
+    const promptInput = document.getElementById('promptInput');
+    const promptHistory = document.getElementById('promptHistory');
+    const promptResponse = document.getElementById('promptResponse');
 
-    // Restore focus to editor
-    setTimeout(() => {
-        focusEditor();
-    }, 100);
-}
+    if (!inlinePrompt || !range) return;
 
-// Handle AI prompt submission
-async function handleAIPrompt(prompt) {
-    const aiPromptInput = document.getElementById('aiPromptInput');
-    const aiResponseContainer = document.getElementById('aiResponseContainer');
-    const aiResponseContent = document.getElementById('aiResponseContent');
-    const aiPromptSubmit = document.getElementById('aiPromptSubmit');
-    const submitIcon = aiPromptSubmit.querySelector('i');
+    // Store current state
+    currentRange = range;
+    currentText = text;
 
-    if (!prompt.trim()) return;
-
-    // Show loading state
-    aiPromptSubmit.disabled = true;
-    submitIcon.className = 'ph ph-spinner ph-spin';
-
-    // Get current note content as context
-    const context = currentNote ? currentNote.content || '' : '';
+    // Clear any existing markers
+    const existingMarkers = editor.querySelectorAll('.ai-text-selected');
+    existingMarkers.forEach(m => {
+        const parent = m.parentNode;
+        while (m.firstChild) {
+            parent.insertBefore(m.firstChild, m);
+        }
+        parent.removeChild(m);
+    });
 
     try {
+        // Create a wrapper for the selected text
+        const wrapper = document.createElement('span');
+        wrapper.className = 'ai-text-selected';
+        range.surroundContents(wrapper);
+
+        // Insert the prompt box before the wrapper
+        wrapper.parentNode.insertBefore(inlinePrompt, wrapper);
+
+        // Reset prompt state
+        promptInput.value = '';
+        promptHistory.innerHTML = '';
+        promptResponse.style.display = 'none';
+        inlinePrompt.style.display = 'flex';
+
+        // Add animation class after display
+        setTimeout(() => {
+            inlinePrompt.classList.add('show');
+            promptInput.focus();
+        }, 10);
+
+        // Hide any existing preview
+        hideAIPreview();
+    } catch (error) {
+        console.error('Error opening inline prompt:', error);
+        // Fallback: insert at cursor position
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            range.insertNode(inlinePrompt);
+        }
+        
+        promptInput.value = '';
+        promptHistory.innerHTML = '';
+        promptResponse.style.display = 'none';
+        inlinePrompt.style.display = 'flex';
+        setTimeout(() => {
+            inlinePrompt.classList.add('show');
+            promptInput.focus();
+        }, 10);
+    }
+}
+
+
+// Close inline prompt
+function closeInlinePrompt() {
+    const inlinePrompt = document.getElementById('inlinePrompt');
+    
+    if (!inlinePrompt) return;
+
+    // Remove the wrapper and restore text position
+    const wrapper = editor.querySelector('.ai-text-selected');
+    if (wrapper) {
+        const parent = wrapper.parentNode;
+        while (wrapper.firstChild) {
+            parent.insertBefore(wrapper.firstChild, wrapper);
+        }
+        parent.removeChild(wrapper);
+    }
+
+    // Hide prompt with animation
+    inlinePrompt.classList.remove('show');
+    setTimeout(() => {
+        inlinePrompt.style.display = 'none';
+        // Move prompt back to its original position in the DOM
+        document.body.appendChild(inlinePrompt);
+        const promptResponse = document.getElementById('promptResponse');
+        promptResponse.style.display = 'none';
+    }, 200);
+
+    // Clear state
+    currentRange = null;
+    currentText = '';
+    hideAIPreview();
+}
+
+// Handle prompt submission
+async function handlePromptSubmit(prompt) {
+    const promptInput = document.getElementById('promptInput');
+    const promptSubmit = document.getElementById('promptSubmit');
+    const promptResponse = document.getElementById('promptResponse');
+    const submitIcon = promptSubmit.querySelector('i');
+    
+    if (!prompt.trim() || !currentText) return;
+
+    // Add to history
+    addToPromptHistory(prompt);
+
+    try {
+        // Show loading state
+        promptInput.disabled = true;
+        promptSubmit.disabled = true;
+        submitIcon.className = 'ph ph-spinner ph-spin';
+
         const result = await window.electronAPI.generateAiResponse({
-            prompt: prompt,
-            context: context
+            prompt: `${prompt}. Here's the text to modify: "${currentText}"`,
+            context: currentText
         });
 
         if (result.success) {
-            // Show response
-            aiResponseContent.textContent = result.response;
-            aiResponseContainer.style.display = 'block';
-
-            // Scroll to response
-            aiResponseContainer.scrollIntoView({ behavior: 'smooth' });
+            lastResponse = result.response;
+            showAIPreview(result.response);
+            promptResponse.style.display = 'block';
         } else {
-            aiResponseContent.textContent = `Error: ${result.error}`;
-            aiResponseContainer.style.display = 'block';
+            alert('Failed to generate response: ' + result.error);
         }
     } catch (error) {
-        aiResponseContent.textContent = `Error: ${error.message}`;
-        aiResponseContainer.style.display = 'block';
+        alert('Error generating response: ' + error.message);
     } finally {
-        // Reset submit button
-        aiPromptSubmit.disabled = false;
+        // Reset input state
+        promptInput.disabled = false;
+        promptSubmit.disabled = false;
         submitIcon.className = 'ph ph-paper-plane-tilt';
+        promptInput.value = '';
+        promptInput.focus();
     }
 }
 
-// Handle AI suggestion clicks
-function handleAISuggestion(action) {
-    const aiPromptInput = document.getElementById('aiPromptInput');
+// Add prompt to history
+function addToPromptHistory(prompt) {
+    const historyContainer = document.getElementById('promptHistory');
+    const historyItem = document.createElement('div');
+    historyItem.className = 'prompt-history-item';
+    historyItem.textContent = prompt;
+    historyContainer.appendChild(historyItem);
+    promptHistory.push(prompt);
+}
 
-    if (!aiPromptInput) return;
+// Show AI preview
+function showAIPreview(text) {
+    const wrapper = editor.querySelector('.ai-text-selected');
+    if (!wrapper) return;
 
-    // Get current note content
-    const noteContent = currentNote && currentNote.content ? currentNote.content : '';
+    // Create preview element
+    const preview = document.createElement('div');
+    preview.className = 'ai-preview';
+    preview.innerHTML = `
+        <div class="ai-preview-content">${text}</div>
+        <div class="ai-preview-actions">
+            <button class="ai-preview-undo" onclick="undoAIChanges()">
+                <span>Undo</span>
+                <span class="shortcut">⌘N</span>
+            </button>
+            <button class="ai-preview-keep" onclick="applyAIChanges()">
+                <span>Keep</span>
+                <span class="shortcut">⌘Y</span>
+            </button>
+        </div>
+    `;
 
-    let prompt = '';
+    // Insert preview after the wrapper
+    wrapper.parentNode.insertBefore(preview, wrapper.nextSibling);
 
-    switch (action) {
-        case 'expand':
-            prompt = 'Expand on this content with more details and examples';
-            break;
-        case 'summarize':
-            prompt = 'Create a concise summary of this content';
-            break;
-        case 'improve':
-            prompt = 'Improve the writing, clarity, and structure of this content';
-            break;
-        case 'brainstorm':
-            prompt = 'Generate ideas and brainstorm related topics for this content';
-            break;
-    }
+    // Scroll preview into view
+    preview.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
 
-    aiPromptInput.value = prompt;
-    aiPromptInput.focus();
-
-    // Trigger submit
-    if (prompt) {
-        handleAIPrompt(prompt);
+// Hide AI preview
+function hideAIPreview() {
+    const preview = editor.querySelector('.ai-preview');
+    if (preview) {
+        preview.remove();
     }
 }
 
-// Insert AI response into editor
-function insertAIResponse() {
-    const aiResponseContent = document.getElementById('aiResponseContent');
+// Apply AI changes
+function applyAIChanges() {
+    if (!currentRange || !lastResponse) return;
 
-    if (!aiResponseContent || !aiResponseContent.textContent.trim()) return;
-
-    const response = aiResponseContent.textContent.trim();
-
-    // Insert at cursor position
-    const selection = window.getSelection();
-    if (selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0);
-        range.deleteContents();
-        range.insertNode(document.createTextNode(response));
-    } else {
-        // Append to end if no selection
-        editor.innerHTML += response;
+    // Replace text with AI response
+    const wrapper = editor.querySelector('.ai-text-selected');
+    if (wrapper) {
+        wrapper.style.marginTop = '0';
+        wrapper.textContent = lastResponse;
+        wrapper.className = '';
     }
 
-    // Trigger input event to save
+    // Remove preview
+    hideAIPreview();
+
+    // Clear selection
+    window.getSelection().removeAllRanges();
+
+    // Trigger save
     editor.dispatchEvent(new Event('input', { bubbles: true }));
 
-    // Close prompt bar
-    closeAIPromptBar();
+    // Close prompt
+    closeInlinePrompt();
 }
 
-// Close dropdowns when clicking outside
-document.addEventListener('click', (e) => {
-    if (!e.target.closest('.settings-font-dropdown') && !e.target.closest('.settings-size-dropdown')) {
-        document.querySelector('.settings-font-dropdown-content').style.display = 'none';
-        document.querySelector('.settings-size-dropdown-content').style.display = 'none';
+// Undo AI changes
+function undoAIChanges() {
+    if (!currentRange || !currentText) return;
+
+    // Restore original text
+    const wrapper = editor.querySelector('.ai-text-selected');
+    if (wrapper) {
+        wrapper.style.marginTop = '0';
+        wrapper.textContent = currentText;
+        wrapper.className = '';
     }
-});
+
+    // Remove preview
+    hideAIPreview();
+
+    // Clear selection
+    window.getSelection().removeAllRanges();
+
+    // Close prompt
+    closeInlinePrompt();
+}
+
+
 
 // Fullscreen functionality
 function toggleFullscreen() {
