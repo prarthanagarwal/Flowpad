@@ -220,9 +220,8 @@
             <button class="inline-prompt-close" id="promptClose">
                 <i class="ph ph-x"></i>
             </button>
-        </div>
-        <div class="inline-prompt-response" id="promptResponse" style="display: none;">
-            <div class="inline-prompt-actions">
+            <!-- Inline action buttons that appear after prompt submission -->
+            <div class="inline-prompt-actions" id="promptActions" style="display: none;">
                 <button class="inline-prompt-reject" id="promptReject" title="Reject (⇧⌘↩)">
                     <span>Reject</span>
                     <span class="shortcut">⇧⌘↩</span>
@@ -236,9 +235,11 @@
     </div>
 
     <!-- AI Response Preview -->
-    <div class="ai-preview" id="aiPreview">
-        <div class="ai-preview-content" id="aiPreviewContent"></div>
-        <div class="ai-preview-actions">
+    <div class="ai-preview-container">
+        <div class="ai-preview" id="aiPreview">
+            <div class="ai-preview-content" id="aiPreviewContent"></div>
+        </div>
+        <div class="ai-preview-actions" id="aiPreviewActions" style="display: none;">
             <button class="ai-preview-undo" id="previewUndo">
                 <span>Undo</span>
                 <span class="shortcut">⌘N</span>

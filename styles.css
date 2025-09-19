@@ -1760,6 +1760,7 @@ body.light-mode .settings-size-option:hover {
     transform: translateY(-5px);
     transition: opacity 0.15s ease, transform 0.15s ease;
     margin-bottom: 8px;
+    z-index: 1001;
 }
 
 body.light-mode .inline-prompt {
@@ -1800,6 +1801,7 @@ body.light-mode .prompt-history-item {
     padding: 8px 12px;
     background: transparent;
     height: 32px;
+    position: relative;
 }
 
 .inline-prompt-input {
@@ -1857,23 +1859,12 @@ body.light-mode .inline-prompt-input::placeholder {
     background: rgba(220, 53, 69, 0.1);
 }
 
-.inline-prompt-response {
-    padding: 6px 12px;
-    border-top: 1px solid #333;
-    background: #1a1a1a;
-}
-
-body.light-mode .inline-prompt-response {
-    border-top-color: #e0e0e0;
-    background: #ffffff;
-}
-
+/* Inline actions that appear after prompt submission */
 .inline-prompt-actions {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
     gap: 6px;
-    margin-top: 4px;
+    margin-left: 6px;
 }
 
 .inline-prompt-reject,
@@ -1940,9 +1931,14 @@ body.light-mode .ai-text-selected {
 }
 
 /* ===== AI PREVIEW STYLES ===== */
-.ai-preview {
+.ai-preview-container {
     position: relative;
     margin: 4px 0;
+    z-index: 1001;
+}
+
+.ai-preview {
+    position: relative;
     padding: 8px 12px;
     background: #2a2a2a;
     border-radius: 4px;
@@ -1960,17 +1956,32 @@ body.light-mode .ai-preview {
     font-size: inherit;
     line-height: inherit;
     font-family: inherit;
-    margin-bottom: 6px;
+    position: relative;
 }
 
 body.light-mode .ai-preview-content {
     color: #2d2d2d;
 }
 
+/* Typewriter cursor effect */
+.ai-preview-content.typing::after {
+    content: '|';
+    color: #007bff;
+    animation: blink 1s infinite;
+    margin-left: 2px;
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+}
+
 .ai-preview-actions {
     display: flex;
     justify-content: flex-end;
     gap: 6px;
+    margin-top: 6px;
+    padding: 4px 0;
 }
 
 .ai-preview-undo,
@@ -2008,6 +2019,23 @@ body.light-mode .ai-preview-undo {
 
 .ai-preview-keep:hover {
     background: #218838;
+}
+
+/* ===== CANVAS LOCK OVERLAY ===== */
+.canvas-lock-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    pointer-events: none; /* Allow scrolling but prevent clicking */
+    display: none;
+}
+
+.canvas-lock-overlay.active {
+    display: block;
 }
 
 /* ===== GEMINI SETTINGS STYLES ===== */

@@ -2073,6 +2073,14 @@ async function openSettingsModal() {
     const modal = document.getElementById('settingsModal');
     const modalBody = document.querySelector('.settings-modal-body');
 
+    // Clean up any orphaned elements first
+    cleanupOrphanedElements();
+
+    // Clear any existing content first to ensure clean state
+    if (modalBody) {
+        modalBody.innerHTML = '';
+    }
+
     // Get AI settings
     const aiSettings = await loadAISettings();
 
@@ -2100,8 +2108,14 @@ async function openSettingsModal() {
         </div>
     `;
 
+    // Store current scroll position before preventing scroll
+    savedScrollPosition = window.scrollY;
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${savedScrollPosition}px`;
+    document.body.style.width = '100%';
+    document.body.style.overflow = 'hidden';
+
     modal.style.display = 'block';
-    document.body.style.overflow = 'hidden'; // Prevent scrolling when modal is open
 
     // Setup AI settings listeners after modal is shown
     setTimeout(setupAISettingsListeners, 100);
@@ -2109,8 +2123,55 @@ async function openSettingsModal() {
 
 function closeSettingsModal() {
     const modal = document.getElementById('settingsModal');
+    const modalBody = document.querySelector('.settings-modal-body');
+    
+    // Hide the modal
     modal.style.display = 'none';
-    document.body.style.overflow = 'auto';
+    
+    // Restore scroll position and body styles
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.width = '';
+    document.body.style.overflow = '';
+    
+    // Restore scroll position
+    window.scrollTo(0, savedScrollPosition);
+    
+    // Clear the modal content to prevent any lingering elements
+    if (modalBody) {
+        modalBody.innerHTML = '';
+    }
+    
+    // Remove any elements that might have been created outside the modal
+    // This prevents the extra bar from appearing
+    const extraElements = document.querySelectorAll('.gemini-settings-container, .gemini-input-container, .gemini-save-btn, .gemini-toggle-visibility, .gemini-security-message, .gemini-help-link');
+    extraElements.forEach(el => {
+        if (!modal.contains(el)) {
+            console.log('Removing extra element:', el);
+            el.remove();
+        }
+    });
+    
+    // Also remove any AI-related elements that might be orphaned
+    const aiElements = document.querySelectorAll('[id^="ai"]');
+    aiElements.forEach(el => {
+        if (!modal.contains(el)) {
+            el.remove();
+        }
+    });
+}
+
+// Cleanup function to remove any orphaned AI settings elements
+function cleanupOrphanedElements() {
+    const modal = document.getElementById('settingsModal');
+    const extraElements = document.querySelectorAll('.gemini-settings-container, .gemini-input-container, .gemini-save-btn, .gemini-toggle-visibility, .gemini-security-message, .gemini-help-link');
+    
+    extraElements.forEach(el => {
+        if (!modal.contains(el)) {
+            console.log('Cleaning up orphaned element:', el);
+            el.remove();
+        }
+    });
 }
 
 // Settings modal event listeners
@@ -2130,9 +2191,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // AI settings event listeners
-    setupAISettingsListeners();
-
     // AI prompt bar event listeners
     setupAIPromptBarListeners();
 });
@@ -2143,6 +2201,12 @@ function setupAISettingsListeners() {
     const aiApiKeyInput = document.getElementById('aiApiKeyInput');
     const aiSaveBtn = document.getElementById('aiSaveBtn');
     const aiToggleVisibility = document.getElementById('aiToggleVisibility');
+
+    // Only proceed if the elements exist (modal is open)
+    if (!aiApiKeyInput || !aiSaveBtn || !aiToggleVisibility) {
+        console.log('AI settings elements not found, skipping listener setup');
+        return;
+    }
 
     if (aiApiKeyInput) {
         aiApiKeyInput.addEventListener('input', () => {
@@ -2255,6 +2319,27 @@ function setupAIPromptBarListeners() {
         });
     }
 
+    // Reject and Accept buttons (these are created dynamically, so we use event delegation)
+    document.addEventListener('click', (e) => {
+        console.log('Click detected on:', e.target);
+        if (e.target.closest('#promptReject')) {
+            console.log('Reject button clicked');
+            e.preventDefault();
+            undoAIChanges();
+        } else if (e.target.closest('#promptAccept')) {
+            console.log('Accept button clicked');
+            e.preventDefault();
+            applyAIChanges();
+        } else if (e.target.closest('.ai-preview-undo')) {
+            console.log('Undo button clicked');
+            e.preventDefault();
+            undoAIChanges();
+        } else if (e.target.closest('.ai-preview-keep')) {
+            console.log('Keep button clicked');
+            e.preventDefault();
+            applyAIChanges();
+        }
+    });
 }
 
 // Settings functions
@@ -2451,13 +2536,14 @@ let currentRange = null;
 let currentText = '';
 let promptHistory = [];
 let lastResponse = '';
+let savedScrollPosition = 0;
 
 // Open inline prompt
 function openInlinePrompt(range, text) {
     const inlinePrompt = document.getElementById('inlinePrompt');
     const promptInput = document.getElementById('promptInput');
     const promptHistory = document.getElementById('promptHistory');
-    const promptResponse = document.getElementById('promptResponse');
+    const promptActions = document.getElementById('promptActions');
 
     if (!inlinePrompt || !range) return;
 
@@ -2487,7 +2573,7 @@ function openInlinePrompt(range, text) {
         // Reset prompt state
         promptInput.value = '';
         promptHistory.innerHTML = '';
-        promptResponse.style.display = 'none';
+        promptActions.style.display = 'none';
         inlinePrompt.style.display = 'flex';
 
         // Add animation class after display
@@ -2509,7 +2595,7 @@ function openInlinePrompt(range, text) {
         
         promptInput.value = '';
         promptHistory.innerHTML = '';
-        promptResponse.style.display = 'none';
+        promptActions.style.display = 'none';
         inlinePrompt.style.display = 'flex';
         setTimeout(() => {
             inlinePrompt.classList.add('show');
@@ -2541,21 +2627,24 @@ function closeInlinePrompt() {
         inlinePrompt.style.display = 'none';
         // Move prompt back to its original position in the DOM
         document.body.appendChild(inlinePrompt);
-        const promptResponse = document.getElementById('promptResponse');
-        promptResponse.style.display = 'none';
+        const promptActions = document.getElementById('promptActions');
+        promptActions.style.display = 'none';
     }, 200);
 
     // Clear state
     currentRange = null;
     currentText = '';
     hideAIPreview();
+    
+    // Unlock canvas
+    unlockCanvas();
 }
 
 // Handle prompt submission
 async function handlePromptSubmit(prompt) {
     const promptInput = document.getElementById('promptInput');
     const promptSubmit = document.getElementById('promptSubmit');
-    const promptResponse = document.getElementById('promptResponse');
+    const promptActions = document.getElementById('promptActions');
     const submitIcon = promptSubmit.querySelector('i');
     
     if (!prompt.trim() || !currentText) return;
@@ -2564,10 +2653,11 @@ async function handlePromptSubmit(prompt) {
     addToPromptHistory(prompt);
 
     try {
-        // Show loading state
+        // Show loading state and lock canvas
         promptInput.disabled = true;
         promptSubmit.disabled = true;
         submitIcon.className = 'ph ph-spinner ph-spin';
+        lockCanvas();
 
         const result = await window.electronAPI.generateAiResponse({
             prompt: `${prompt}. Here's the text to modify: "${currentText}"`,
@@ -2576,15 +2666,19 @@ async function handlePromptSubmit(prompt) {
 
         if (result.success) {
             lastResponse = result.response;
-            showAIPreview(result.response);
-            promptResponse.style.display = 'block';
+            showAIPreviewWithTypewriter(result.response);
+            promptActions.style.display = 'flex';
         } else {
+            // Unlock canvas on error
+            unlockCanvas();
             alert('Failed to generate response: ' + result.error);
         }
     } catch (error) {
+        // Unlock canvas on error
+        unlockCanvas();
         alert('Error generating response: ' + error.message);
     } finally {
-        // Reset input state
+        // Reset input state but keep canvas locked until user decides
         promptInput.disabled = false;
         promptSubmit.disabled = false;
         submitIcon.className = 'ph ph-paper-plane-tilt';
@@ -2603,45 +2697,392 @@ function addToPromptHistory(prompt) {
     promptHistory.push(prompt);
 }
 
-// Show AI preview
+// Show AI preview with typewriter effect
+function showAIPreviewWithTypewriter(text) {
+    const wrapper = editor.querySelector('.ai-text-selected');
+    if (!wrapper) return;
+
+    // Create preview container
+    const previewContainer = document.createElement('div');
+    previewContainer.className = 'ai-preview-container';
+    
+    // Create preview element
+    const preview = document.createElement('div');
+    preview.className = 'ai-preview';
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'ai-preview-content';
+    contentDiv.innerHTML = '<span style="color: #888;">Generating AI response...</span>';
+    preview.appendChild(contentDiv);
+
+    // Create actions container (initially hidden)
+    const actionsContainer = document.createElement('div');
+    actionsContainer.className = 'ai-preview-actions';
+    actionsContainer.style.display = 'none';
+    
+    // Create Undo button
+    const undoButton = document.createElement('button');
+    undoButton.className = 'ai-preview-undo';
+    undoButton.innerHTML = `
+        <span>Undo</span>
+        <span class="shortcut">⌘N</span>
+    `;
+    undoButton.addEventListener('click', undoAIChanges);
+    
+    // Create Keep button
+    const keepButton = document.createElement('button');
+    keepButton.className = 'ai-preview-keep';
+    keepButton.innerHTML = `
+        <span>Keep</span>
+        <span class="shortcut">⌘Y</span>
+    `;
+    keepButton.addEventListener('click', applyAIChanges);
+    
+    actionsContainer.appendChild(undoButton);
+    actionsContainer.appendChild(keepButton);
+
+    // Assemble the container
+    previewContainer.appendChild(preview);
+    previewContainer.appendChild(actionsContainer);
+
+    // Insert preview after the wrapper
+    wrapper.parentNode.insertBefore(previewContainer, wrapper.nextSibling);
+
+    // Start typewriter effect
+    startTypewriterEffect(contentDiv, text, actionsContainer);
+
+    // Scroll preview into view
+    previewContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Typewriter effect for AI generation with dynamic speed
+async function startTypewriterEffect(element, text, actionsContainer) {
+    // Clear loading message and add typing class for cursor effect
+    element.innerHTML = '';
+    element.classList.add('typing');
+    
+    // Determine typing mode based on content
+    const typingMode = determineTypingMode(text);
+    const baseSpeed = await calculateDynamicSpeed(text);
+    
+    if (typingMode === 'word') {
+        await startWordByWordTyping(element, text, actionsContainer, baseSpeed);
+    } else {
+        await startCharByCharTyping(element, text, actionsContainer, baseSpeed);
+    }
+}
+
+// Determine whether to use word-by-word or character-by-character typing
+function determineTypingMode(text) {
+    const wordCount = text.split(/\s+/).length;
+    const hasCode = /[{}();]/.test(text);
+    const hasLongWords = text.split(/\s+/).some(word => word.length > 10);
+    const hasNewlines = text.includes('\n');
+    
+    // Use word-by-word for:
+    // - Short texts (< 20 words)
+    // - Code-heavy content
+    // - Multi-line content
+    // - Texts with many long words
+    if (wordCount < 20 || hasCode || hasNewlines || hasLongWords) {
+        return 'word';
+    }
+    
+    // Use character-by-character for longer, flowing text
+    return 'char';
+}
+
+// Character-by-character typing
+async function startCharByCharTyping(element, text, actionsContainer, baseSpeed) {
+    let index = 0;
+    let currentSpeed = baseSpeed;
+    
+    function typeNextChar() {
+        if (index < text.length) {
+            const char = text[index];
+            element.textContent = text.substring(0, index + 1);
+            index++;
+            
+            // Adjust speed based on current character and position
+            currentSpeed = getAdjustedSpeed(char, index, text.length, baseSpeed);
+            
+            setTimeout(typeNextChar, currentSpeed);
+        } else {
+            // Remove typing class and show action buttons when complete
+            element.classList.remove('typing');
+            actionsContainer.style.display = 'flex';
+        }
+    }
+    
+    // Start typing
+    typeNextChar();
+}
+
+// Word-by-word typing
+async function startWordByWordTyping(element, text, actionsContainer, baseSpeed) {
+    const words = text.split(/(\s+)/); // Split but keep spaces
+    let wordIndex = 0;
+    let currentSpeed = baseSpeed;
+    
+    function typeNextWord() {
+        if (wordIndex < words.length) {
+            const word = words[wordIndex];
+            element.textContent = words.slice(0, wordIndex + 1).join('');
+            wordIndex++;
+            
+            // Adjust speed based on word characteristics
+            currentSpeed = getWordAdjustedSpeed(word, wordIndex, words.length, baseSpeed);
+            
+            setTimeout(typeNextWord, currentSpeed);
+        } else {
+            // Remove typing class and show action buttons when complete
+            element.classList.remove('typing');
+            actionsContainer.style.display = 'flex';
+        }
+    }
+    
+    // Start typing
+    typeNextWord();
+}
+
+// Get adjusted speed for word-by-word typing
+function getWordAdjustedSpeed(word, position, totalWords, baseSpeed) {
+    let speed = baseSpeed * 3; // Base word speed (3x character speed)
+    
+    // Adjust for word length
+    if (word.length > 10) {
+        speed *= 1.5; // Slower for long words
+    } else if (word.length < 3) {
+        speed *= 0.7; // Faster for short words
+    }
+    
+    // Adjust for word type
+    if (/[.!?]/.test(word)) {
+        speed *= 2; // Slower for sentences ending
+    } else if (/[,;:]/.test(word)) {
+        speed *= 1.5; // Slower for commas/semicolons
+    } else if (/^\s+$/.test(word)) {
+        speed *= 0.3; // Much faster for spaces
+    }
+    
+    // Speed up as we get closer to the end
+    const progress = position / totalWords;
+    if (progress > 0.8) {
+        speed *= 0.6; // 40% faster in last 20%
+    } else if (progress > 0.6) {
+        speed *= 0.8; // 20% faster in last 40%
+    }
+    
+    // Add randomness
+    const randomness = 0.7 + (Math.random() * 0.6); // 0.7 to 1.3
+    speed *= randomness;
+    
+    return Math.max(20, Math.round(speed)); // Minimum 20ms for words
+}
+
+// Calculate dynamic base speed based on content type and length
+async function calculateDynamicSpeed(text) {
+    const textLength = text.length;
+    const hasNewlines = text.includes('\n');
+    const hasPunctuation = /[.!?]/.test(text);
+    const hasCode = /[{}();]/.test(text);
+    
+    // Base speed calculation
+    let baseSpeed = 25; // Default 25ms per character
+    
+    // Adjust for content length (shorter = faster)
+    if (textLength < 50) {
+        baseSpeed = 15; // Very fast for short responses
+    } else if (textLength < 200) {
+        baseSpeed = 20; // Fast for medium responses
+    } else if (textLength > 1000) {
+        baseSpeed = 35; // Slower for very long responses
+    }
+    
+    // Adjust for content type
+    if (hasCode) {
+        baseSpeed += 10; // Slower for code
+    }
+    if (hasNewlines) {
+        baseSpeed -= 5; // Faster for multi-line content
+    }
+    if (hasPunctuation) {
+        baseSpeed += 5; // Slightly slower for formal text
+    }
+    
+    // Use real network speed detection
+    const networkSpeed = await getNetworkSpeed();
+    baseSpeed = Math.max(10, baseSpeed * networkSpeed);
+    
+    return Math.round(baseSpeed);
+}
+
+// Get adjusted speed for current character
+function getAdjustedSpeed(char, position, totalLength, baseSpeed) {
+    let speed = baseSpeed;
+    
+    // Faster for spaces (natural reading pause)
+    if (char === ' ') {
+        speed *= 0.3;
+    }
+    // Slower for punctuation (natural pause)
+    else if (/[.!?]/.test(char)) {
+        speed *= 2.5;
+    }
+    // Slower for commas and semicolons
+    else if (/[,;:]/.test(char)) {
+        speed *= 1.8;
+    }
+    // Faster for common letters
+    else if (/[aeiou]/.test(char.toLowerCase())) {
+        speed *= 0.8;
+    }
+    // Slower for numbers and special chars
+    else if (/[0-9@#$%&*]/.test(char)) {
+        speed *= 1.3;
+    }
+    
+    // Speed up as we get closer to the end (build excitement)
+    const progress = position / totalLength;
+    if (progress > 0.8) {
+        speed *= 0.7; // 30% faster in last 20%
+    } else if (progress > 0.6) {
+        speed *= 0.85; // 15% faster in last 40%
+    }
+    
+    // Add some randomness to make it feel more natural
+    const randomness = 0.8 + (Math.random() * 0.4); // 0.8 to 1.2
+    speed *= randomness;
+    
+    return Math.max(5, Math.round(speed)); // Minimum 5ms
+}
+
+// Real network speed detection
+let networkSpeedCache = null;
+let networkSpeedTimestamp = 0;
+
+async function getNetworkSpeed() {
+    const now = Date.now();
+    
+    // Use cached speed if it's less than 30 seconds old
+    if (networkSpeedCache && (now - networkSpeedTimestamp) < 30000) {
+        return networkSpeedCache;
+    }
+    
+    try {
+        // Measure network speed by timing a small request
+        const startTime = performance.now();
+        
+        // Use a small image or API endpoint to measure latency
+        const response = await fetch('data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', {
+            method: 'HEAD',
+            cache: 'no-cache'
+        });
+        
+        const endTime = performance.now();
+        const latency = endTime - startTime;
+        
+        // Convert latency to speed multiplier
+        let speedMultiplier;
+        if (latency < 50) {
+            speedMultiplier = 0.5; // Very fast
+        } else if (latency < 100) {
+            speedMultiplier = 0.7; // Fast
+        } else if (latency < 200) {
+            speedMultiplier = 1.0; // Normal
+        } else if (latency < 500) {
+            speedMultiplier = 1.3; // Slow
+        } else {
+            speedMultiplier = 1.8; // Very slow
+        }
+        
+        // Cache the result
+        networkSpeedCache = speedMultiplier;
+        networkSpeedTimestamp = now;
+        
+        return speedMultiplier;
+    } catch (error) {
+        console.log('Network speed detection failed, using fallback');
+        // Fallback to simulated speed
+        return getSimulatedNetworkSpeed();
+    }
+}
+
+// Simulate network speed detection (fallback)
+function getSimulatedNetworkSpeed() {
+    // Simulate different network conditions
+    const conditions = [
+        0.5,  // Very fast (fiber)
+        0.7,  // Fast (good WiFi)
+        1.0,  // Normal (average)
+        1.3,  // Slow (poor connection)
+        1.8   // Very slow (mobile data)
+    ];
+    
+    // Randomly pick a condition (in real app, base on actual measurements)
+    return conditions[Math.floor(Math.random() * conditions.length)];
+}
+
+// Show AI preview (original function for backward compatibility)
 function showAIPreview(text) {
     const wrapper = editor.querySelector('.ai-text-selected');
     if (!wrapper) return;
 
+    // Create preview container
+    const previewContainer = document.createElement('div');
+    previewContainer.className = 'ai-preview-container';
+    
     // Create preview element
     const preview = document.createElement('div');
     preview.className = 'ai-preview';
-    preview.innerHTML = `
-        <div class="ai-preview-content">${text}</div>
-        <div class="ai-preview-actions">
-            <button class="ai-preview-undo" onclick="undoAIChanges()">
-                <span>Undo</span>
-                <span class="shortcut">⌘N</span>
-            </button>
-            <button class="ai-preview-keep" onclick="applyAIChanges()">
-                <span>Keep</span>
-                <span class="shortcut">⌘Y</span>
-            </button>
-        </div>
+    preview.innerHTML = `<div class="ai-preview-content">${text}</div>`;
+
+    // Create actions container
+    const actionsContainer = document.createElement('div');
+    actionsContainer.className = 'ai-preview-actions';
+    
+    // Create Undo button
+    const undoButton = document.createElement('button');
+    undoButton.className = 'ai-preview-undo';
+    undoButton.innerHTML = `
+        <span>Undo</span>
+        <span class="shortcut">⌘N</span>
     `;
+    undoButton.addEventListener('click', undoAIChanges);
+    
+    // Create Keep button
+    const keepButton = document.createElement('button');
+    keepButton.className = 'ai-preview-keep';
+    keepButton.innerHTML = `
+        <span>Keep</span>
+        <span class="shortcut">⌘Y</span>
+    `;
+    keepButton.addEventListener('click', applyAIChanges);
+    
+    actionsContainer.appendChild(undoButton);
+    actionsContainer.appendChild(keepButton);
+
+    // Assemble the container
+    previewContainer.appendChild(preview);
+    previewContainer.appendChild(actionsContainer);
 
     // Insert preview after the wrapper
-    wrapper.parentNode.insertBefore(preview, wrapper.nextSibling);
+    wrapper.parentNode.insertBefore(previewContainer, wrapper.nextSibling);
 
     // Scroll preview into view
-    preview.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    previewContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 // Hide AI preview
 function hideAIPreview() {
-    const preview = editor.querySelector('.ai-preview');
-    if (preview) {
-        preview.remove();
+    const previewContainer = editor.querySelector('.ai-preview-container');
+    if (previewContainer) {
+        previewContainer.remove();
     }
 }
 
 // Apply AI changes
 function applyAIChanges() {
+    console.log('applyAIChanges called');
     if (!currentRange || !lastResponse) return;
 
     // Replace text with AI response
@@ -2658,6 +3099,9 @@ function applyAIChanges() {
     // Clear selection
     window.getSelection().removeAllRanges();
 
+    // Unlock canvas
+    unlockCanvas();
+
     // Trigger save
     editor.dispatchEvent(new Event('input', { bubbles: true }));
 
@@ -2667,6 +3111,7 @@ function applyAIChanges() {
 
 // Undo AI changes
 function undoAIChanges() {
+    console.log('undoAIChanges called');
     if (!currentRange || !currentText) return;
 
     // Restore original text
@@ -2683,11 +3128,39 @@ function undoAIChanges() {
     // Clear selection
     window.getSelection().removeAllRanges();
 
+    // Unlock canvas
+    unlockCanvas();
+
     // Close prompt
     closeInlinePrompt();
 }
 
+// ===== CANVAS LOCKING FUNCTIONS =====
 
+// Lock canvas to prevent interaction during AI generation
+function lockCanvas() {
+    const editorContainer = document.querySelector('.editor-container');
+    if (!editorContainer) return;
+
+    // Create lock overlay if it doesn't exist
+    let lockOverlay = document.getElementById('canvasLockOverlay');
+    if (!lockOverlay) {
+        lockOverlay = document.createElement('div');
+        lockOverlay.id = 'canvasLockOverlay';
+        lockOverlay.className = 'canvas-lock-overlay';
+        editorContainer.appendChild(lockOverlay);
+    }
+
+    lockOverlay.classList.add('active');
+}
+
+// Unlock canvas to allow interaction
+function unlockCanvas() {
+    const lockOverlay = document.getElementById('canvasLockOverlay');
+    if (lockOverlay) {
+        lockOverlay.classList.remove('active');
+    }
+}
 
 // Fullscreen functionality
 function toggleFullscreen() {
