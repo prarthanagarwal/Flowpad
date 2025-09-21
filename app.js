@@ -98,6 +98,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             autoSave();
         }
     }, 30000);
+    
+    // Global error handler for UI issues
+    window.addEventListener('error', (event) => {
+        console.error('Global error caught:', event.error);
+        // If it's a UI-related error, try to reset state
+        if (event.error && event.error.message && 
+            (event.error.message.includes('focus') || 
+             event.error.message.includes('selection') || 
+             event.error.message.includes('range'))) {
+            console.log('UI error detected, attempting reset...');
+            setTimeout(() => resetUIState(), 100);
+        }
+    });
 });
 
 // Event Listeners Setup
@@ -1272,16 +1285,77 @@ async function updateNotesWithNewFolderName(folderId, newFolderName) {
 
 // Helper function for consistent editor focus management
 function focusEditor(positionAtEnd = true) {
-    editor.focus();
-    
-    if (positionAtEnd && editor.innerHTML.trim() !== '') {
-        // Position cursor at the end of the content
-        const selection = window.getSelection();
-        const range = document.createRange();
-        range.selectNodeContents(editor);
-        range.collapse(false); // Collapse to end
-        selection.removeAllRanges();
-        selection.addRange(range);
+    try {
+        // Ensure editor exists and is accessible
+        if (!editor || editor.isConnected === false) {
+            console.warn('Editor not available for focus');
+            return;
+        }
+        
+        editor.focus();
+        
+        if (positionAtEnd && editor.innerHTML.trim() !== '') {
+            // Position cursor at the end of the content
+            const selection = window.getSelection();
+            if (selection) {
+                const range = document.createRange();
+                try {
+                    range.selectNodeContents(editor);
+                    range.collapse(false); // Collapse to end
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                } catch (rangeError) {
+                    console.warn('Range selection failed:', rangeError);
+                    // Fallback: just focus without positioning
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Focus editor failed:', error);
+        // Emergency fallback: try basic focus
+        try {
+            editor.focus();
+        } catch (fallbackError) {
+            console.error('Emergency focus failed:', fallbackError);
+        }
+    }
+}
+
+// Emergency UI state reset function
+function resetUIState() {
+    try {
+        console.log('Resetting UI state...');
+        
+        // Reset pointer events
+        document.body.style.pointerEvents = 'auto';
+        document.querySelectorAll('*').forEach(el => {
+            if (el.style.pointerEvents === 'none') {
+                el.style.pointerEvents = 'auto';
+            }
+        });
+        
+        // Close any open modals/overlays
+        document.querySelectorAll('.modal, .overlay, .context-menu').forEach(el => {
+            el.style.display = 'none';
+            el.classList.remove('show', 'active');
+        });
+        
+        // Reset z-index conflicts
+        document.querySelectorAll('[style*="z-index"]').forEach(el => {
+            const zIndex = parseInt(el.style.zIndex);
+            if (zIndex > 10000) {
+                el.style.zIndex = '';
+            }
+        });
+        
+        // Force editor focus
+        setTimeout(() => {
+            focusEditor();
+        }, 100);
+        
+        console.log('UI state reset complete');
+    } catch (error) {
+        console.error('UI state reset failed:', error);
     }
 }
 
@@ -1863,22 +1937,43 @@ window.addEventListener('load', () => {
     focusEditor(false);
 });
 
-// Maintain editor focus when window regains focus
+// Maintain editor focus when window regains focus (with conflict prevention)
+let focusTimeout;
 window.addEventListener('focus', () => {
+    // Clear any existing focus timeout to prevent conflicts
+    if (focusTimeout) {
+        clearTimeout(focusTimeout);
+    }
+    
     // Small delay to ensure the window is fully focused
-    setTimeout(() => {
-        if (!sidebar.classList.contains('open')) {
-            focusEditor();
+    focusTimeout = setTimeout(() => {
+        try {
+            if (!sidebar.classList.contains('open') && editor && editor.isConnected) {
+                focusEditor();
+            }
+        } catch (error) {
+            console.warn('Window focus handler failed:', error);
         }
-    }, 100);
+    }, 150); // Slightly longer delay to prevent conflicts
 });
 
-// Handle visibility change to maintain focus
+// Handle visibility change to maintain focus (with conflict prevention)
 document.addEventListener('visibilitychange', () => {
     if (!document.hidden && !sidebar.classList.contains('open')) {
-        setTimeout(() => {
-            focusEditor();
-        }, 100);
+        // Clear any existing focus timeout to prevent conflicts
+        if (focusTimeout) {
+            clearTimeout(focusTimeout);
+        }
+        
+        focusTimeout = setTimeout(() => {
+            try {
+                if (editor && editor.isConnected) {
+                    focusEditor();
+                }
+            } catch (error) {
+                console.warn('Visibility change handler failed:', error);
+            }
+        }, 150);
     }
 });
 
@@ -2744,8 +2839,8 @@ function showAIPreviewWithTypewriter(text) {
     previewContainer.appendChild(preview);
     previewContainer.appendChild(actionsContainer);
 
-    // Insert preview after the wrapper
-    wrapper.parentNode.insertBefore(previewContainer, wrapper.nextSibling);
+    // Insert preview before the wrapper (above the original text)
+    wrapper.parentNode.insertBefore(previewContainer, wrapper);
 
     // Start typewriter effect
     startTypewriterEffect(contentDiv, text, actionsContainer);
@@ -3204,10 +3299,17 @@ function toggleFullscreen() {
     }, 100);
 }
 
-// Listen for ESC key to exit fullscreen
+// Listen for ESC key to exit fullscreen and UI reset shortcut
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape' && document.querySelector('.app-container').classList.contains('fullscreen-mode')) {
         toggleFullscreen();
+    }
+    
+    // Emergency UI reset: Ctrl+Shift+R
+    if (e.ctrlKey && e.shiftKey && e.key === 'R') {
+        e.preventDefault();
+        console.log('Emergency UI reset triggered');
+        resetUIState();
     }
 });
 
