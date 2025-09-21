@@ -2097,7 +2097,7 @@ async function openSettingsModal() {
                 </button>
             </div>
             
-            <p class="gemini-security-message">Your API key is stored securely in your browser's local storage.</p>
+            <p class="gemini-security-message">Your API key is stored securely and encrypted on your local device.</p>
             
             <button id="aiSaveBtn" class="gemini-save-btn">Save API Key</button>
             

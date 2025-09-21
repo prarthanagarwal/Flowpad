@@ -5,6 +5,7 @@ const fs = require('fs').promises;
 const fsSync = require('fs');
 const path = require('path');
 const os = require('os');
+const crypto = require('crypto');
 const Store = require('electron-store');
 const { 
   generateNoteFilename,
@@ -17,6 +18,86 @@ const {
 // ===== CONFIGURATION =====
 // Use Application Support directory to avoid Documents permission issues
 const NOTES_DIR = path.join(os.homedir(), 'Documents', 'Flowpad');
+
+// Encryption configuration for API keys
+const ENCRYPTION_ALGORITHM = 'aes-256-cbc';
+const ENCRYPTION_KEY_LENGTH = 32; // 256 bits
+const IV_LENGTH = 16; // 128 bits
+
+// Generate or retrieve encryption key for API keys
+function getEncryptionKey() {
+  try {
+    // Try to get existing key from store
+    let key = store.get('encryptionKey');
+    
+    if (!key) {
+      // Generate new key if none exists
+      key = crypto.randomBytes(ENCRYPTION_KEY_LENGTH).toString('hex');
+      store.set('encryptionKey', key);
+    }
+    
+    return Buffer.from(key, 'hex');
+  } catch (error) {
+    console.error('Error getting encryption key:', error);
+    // Fallback: generate a new key
+    const key = crypto.randomBytes(ENCRYPTION_KEY_LENGTH).toString('hex');
+    store.set('encryptionKey', key);
+    return Buffer.from(key, 'hex');
+  }
+}
+
+// Encrypt API key
+function encryptApiKey(apiKey) {
+  try {
+    if (!apiKey) return '';
+    
+    const key = getEncryptionKey();
+    const iv = crypto.randomBytes(IV_LENGTH);
+    const cipher = crypto.createCipheriv(ENCRYPTION_ALGORITHM, key, iv);
+    
+    let encrypted = cipher.update(apiKey, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    
+    // Combine IV + encrypted data
+    const combined = iv.toString('hex') + ':' + encrypted;
+    return combined;
+  } catch (error) {
+    console.error('Error encrypting API key:', error);
+    return apiKey; // Return plain text as fallback
+  }
+}
+
+// Decrypt API key
+function decryptApiKey(encryptedApiKey) {
+  try {
+    if (!encryptedApiKey) return '';
+    
+    // Check if it's already plain text (for backward compatibility)
+    if (!encryptedApiKey.includes(':')) {
+      return encryptedApiKey;
+    }
+    
+    const key = getEncryptionKey();
+    const parts = encryptedApiKey.split(':');
+    
+    if (parts.length !== 2) {
+      return encryptedApiKey; // Return as-is if format is wrong
+    }
+    
+    const iv = Buffer.from(parts[0], 'hex');
+    const encrypted = parts[1];
+    
+    const decipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, key, iv);
+    
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    
+    return decrypted;
+  } catch (error) {
+    console.error('Error decrypting API key:', error);
+    return encryptedApiKey; // Return as-is if decryption fails
+  }
+}
 
 // Initialize electron-store for settings (we still use this for app preferences)
 const store = new Store({
@@ -306,7 +387,7 @@ function saveAppSettings(settings) {
 function getAISettings() {
   const settings = getAppSettings();
   return {
-    aiApiKey: settings.aiApiKey || '',
+    aiApiKey: decryptApiKey(settings.aiApiKey || ''),
     aiEnabled: settings.aiEnabled || false
   };
 }
@@ -316,7 +397,7 @@ function saveAISettings(aiSettings) {
     const currentSettings = getAppSettings();
     const updatedSettings = {
       ...currentSettings,
-      aiApiKey: aiSettings.aiApiKey || '',
+      aiApiKey: encryptApiKey(aiSettings.aiApiKey || ''),
       aiEnabled: aiSettings.aiEnabled || false
     };
     store.set('settings', updatedSettings);
