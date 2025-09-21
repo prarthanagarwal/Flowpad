@@ -23,6 +23,9 @@ const NOTES_DIR = path.join(os.homedir(), 'Documents', 'Flowpad');
 const ENCRYPTION_ALGORITHM = 'aes-256-cbc';
 const ENCRYPTION_KEY_LENGTH = 32; // 256 bits
 const IV_LENGTH = 16; // 128 bits
+const HMAC_ALGORITHM = 'sha256';
+const HMAC_KEY_LENGTH = 32; // 256 bits
+const SALT_LENGTH = 32; // 256 bits for key derivation
 
 // Generate or retrieve encryption key for API keys
 function getEncryptionKey() {
@@ -46,20 +49,90 @@ function getEncryptionKey() {
   }
 }
 
-// Encrypt API key
+// Generate or retrieve HMAC key for authentication
+function getHMACKey() {
+  try {
+    // Try to get existing HMAC key from store
+    let hmacKey = store.get('hmacKey');
+    
+    if (!hmacKey) {
+      // Generate new HMAC key if none exists
+      hmacKey = crypto.randomBytes(HMAC_KEY_LENGTH).toString('hex');
+      store.set('hmacKey', hmacKey);
+    }
+    
+    return Buffer.from(hmacKey, 'hex');
+  } catch (error) {
+    console.error('Error getting HMAC key:', error);
+    // Fallback: generate a new HMAC key
+    const hmacKey = crypto.randomBytes(HMAC_KEY_LENGTH).toString('hex');
+    store.set('hmacKey', hmacKey);
+    return Buffer.from(hmacKey, 'hex');
+  }
+}
+
+// Derive encryption key from password using PBKDF2
+function deriveKeyFromPassword(password, salt) {
+  try {
+    return crypto.pbkdf2Sync(password, salt, 100000, ENCRYPTION_KEY_LENGTH, 'sha256');
+  } catch (error) {
+    console.error('Error deriving key from password:', error);
+    throw error;
+  }
+}
+
+// Generate HMAC signature for data integrity
+function generateHMAC(data, key) {
+  try {
+    const hmac = crypto.createHmac(HMAC_ALGORITHM, key);
+    hmac.update(data);
+    return hmac.digest('hex');
+  } catch (error) {
+    console.error('Error generating HMAC:', error);
+    throw error;
+  }
+}
+
+// Verify HMAC signature
+function verifyHMAC(data, signature, key) {
+  try {
+    const expectedSignature = generateHMAC(data, key);
+    const signatureBuffer = Buffer.from(signature, 'hex');
+    const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+    
+    // Check if buffers have the same length before comparing
+    if (signatureBuffer.length !== expectedBuffer.length) {
+      return false;
+    }
+    
+    return crypto.timingSafeEqual(signatureBuffer, expectedBuffer);
+  } catch (error) {
+    console.error('Error verifying HMAC:', error);
+    return false;
+  }
+}
+
+// Encrypt API key with HMAC authentication
 function encryptApiKey(apiKey) {
   try {
     if (!apiKey) return '';
     
     const key = getEncryptionKey();
+    const hmacKey = getHMACKey();
     const iv = crypto.randomBytes(IV_LENGTH);
     const cipher = crypto.createCipheriv(ENCRYPTION_ALGORITHM, key, iv);
     
     let encrypted = cipher.update(apiKey, 'utf8', 'hex');
     encrypted += cipher.final('hex');
     
-    // Combine IV + encrypted data
-    const combined = iv.toString('hex') + ':' + encrypted;
+    // Create the data to be authenticated (IV + encrypted data)
+    const dataToAuthenticate = iv.toString('hex') + ':' + encrypted;
+    
+    // Generate HMAC signature for integrity verification
+    const signature = generateHMAC(dataToAuthenticate, hmacKey);
+    
+    // Combine IV + encrypted data + HMAC signature
+    const combined = dataToAuthenticate + ':' + signature;
     return combined;
   } catch (error) {
     console.error('Error encrypting API key:', error);
@@ -67,7 +140,7 @@ function encryptApiKey(apiKey) {
   }
 }
 
-// Decrypt API key
+// Decrypt API key with HMAC verification
 function decryptApiKey(encryptedApiKey) {
   try {
     if (!encryptedApiKey) return '';
@@ -78,21 +151,43 @@ function decryptApiKey(encryptedApiKey) {
     }
     
     const key = getEncryptionKey();
+    const hmacKey = getHMACKey();
     const parts = encryptedApiKey.split(':');
     
-    if (parts.length !== 2) {
+    // Handle different formats for backward compatibility
+    if (parts.length === 2) {
+      // Old format without HMAC (IV:encrypted)
+      const iv = Buffer.from(parts[0], 'hex');
+      const encrypted = parts[1];
+      
+      const decipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, key, iv);
+      
+      let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+      decrypted += decipher.final('utf8');
+      
+      return decrypted;
+    } else if (parts.length === 3) {
+      // New format with HMAC (IV:encrypted:signature)
+      const iv = Buffer.from(parts[0], 'hex');
+      const encrypted = parts[1];
+      const signature = parts[2];
+      
+      // Verify HMAC signature
+      const dataToVerify = parts[0] + ':' + parts[1];
+      if (!verifyHMAC(dataToVerify, signature, hmacKey)) {
+        console.error('HMAC verification failed - data may have been tampered with');
+        throw new Error('Data integrity check failed');
+      }
+      
+      const decipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, key, iv);
+      
+      let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+      decrypted += decipher.final('utf8');
+      
+      return decrypted;
+    } else {
       return encryptedApiKey; // Return as-is if format is wrong
     }
-    
-    const iv = Buffer.from(parts[0], 'hex');
-    const encrypted = parts[1];
-    
-    const decipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, key, iv);
-    
-    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    
-    return decrypted;
   } catch (error) {
     console.error('Error decrypting API key:', error);
     return encryptedApiKey; // Return as-is if decryption fails
