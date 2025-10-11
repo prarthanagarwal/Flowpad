@@ -4,8 +4,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-#Markdown files
+#my files
 *.md
+build.txt
+/scripts
 
 # Runtime data
 pids

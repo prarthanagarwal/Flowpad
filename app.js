@@ -256,8 +256,8 @@ function setupEventListeners() {
     });
     
 
-    // Color preset buttons
-    document.querySelectorAll('.color-preset').forEach(preset => {
+    // Color preset buttons and none option
+    document.querySelectorAll('.color-preset, .color-none-option').forEach(preset => {
         preset.addEventListener('click', (e) => {
             const color = e.target.dataset.color;
             setHighlightColor(color);
@@ -266,6 +266,28 @@ function setupEventListeners() {
             if (selection.rangeCount > 0 && !selection.isCollapsed) {
                 applyHighlight();
             }
+            // Close the color picker dialog
+            closeHighlightColorPicker();
+        });
+    });
+
+    // Delayed tooltip functionality for color presets
+    let tooltipTimeout;
+    document.querySelectorAll('.color-preset').forEach(preset => {
+        preset.addEventListener('mouseenter', () => {
+            // Clear any existing timeout
+            clearTimeout(tooltipTimeout);
+            
+            // Set a 2-second delay before showing tooltip
+            tooltipTimeout = setTimeout(() => {
+                preset.classList.add('show-tooltip');
+            }, 2000);
+        });
+
+        preset.addEventListener('mouseleave', () => {
+            // Clear timeout and hide tooltip immediately
+            clearTimeout(tooltipTimeout);
+            preset.classList.remove('show-tooltip');
         });
     });
 }
@@ -1742,10 +1764,27 @@ let currentHighlightColor = '#ffff00';
 function setHighlightColor(color) {
     currentHighlightColor = color;
     
-    // Update active preset
+    // Update active preset for color swatches
     document.querySelectorAll('.color-preset').forEach(preset => {
         preset.classList.toggle('active', preset.dataset.color === color);
     });
+    
+    // Update active state for none option
+    const noneOption = document.querySelector('.color-none-option');
+    if (noneOption) {
+        noneOption.classList.toggle('active', color === 'none');
+    }
+    
+    // Update color indicator
+    const colorIndicator = document.getElementById('highlightColorIndicator');
+    if (colorIndicator) {
+        if (color === 'none') {
+            colorIndicator.style.display = 'none';
+        } else {
+            colorIndicator.style.display = 'block';
+            colorIndicator.style.backgroundColor = color;
+        }
+    }
 }
 
 function findHighlightSpanInRange(range) {

@@ -1079,6 +1079,23 @@ body.light-mode .folder-context-menu {
     color: #fff;
 }
 
+/* Highlight color indicator */
+.highlight-color-indicator {
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 12px;
+    height: 3px;
+    border-radius: 1px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+body.light-mode .highlight-color-indicator {
+    border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
 /* Highlight Color Picker Styles */
 .highlight-color-picker {
     display: none;
@@ -1086,63 +1103,141 @@ body.light-mode .folder-context-menu {
     bottom: 100%;
     left: 0;
     margin-bottom: 5px;
-    padding: 8px;
+    padding: 10px;
     background-color: #2a2a2a;
     border: 1px solid #444;
-    border-radius: 6px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
     z-index: 1001;
-    min-width: 120px;
+    width: max-content;
+    min-width: 200px;
+}
+
+/* Light mode styling for color picker */
+body.light-mode .highlight-color-picker {
+    background-color: #fefae0;
+    border: 1px solid #d0d0d0;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
 }
 
 .highlight-color-picker.show {
     display: block;
 }
 
+/* None option styling */
+.color-none-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    background-color: transparent;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+    color: #e0e0e0;
+}
 
-.color-presets {
+body.light-mode .color-none-option {
+    background-color: transparent;
+    border: none;
+    color: #333;
+}
+
+.color-none-option:hover {
+    background-color: #4a4a4a;
+}
+
+body.light-mode .color-none-option:hover {
+    background-color: #e8e8e8;
+}
+
+.color-none-option.active {
+    background-color: #0066cc;
+    color: #fff;
+}
+
+body.light-mode .color-none-option.active {
+    background-color: #0066cc;
+    color: #fff;
+}
+
+/* Color presets grid */
+.color-presets-grid {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(10, 1fr);
     gap: 3px;
-    max-width: 200px;
+    max-width: 250px;
 }
 
 .color-preset {
-    width: 20px;
-    height: 20px;
-    border-radius: 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
     cursor: pointer;
     border: 1px solid transparent;
-    transition: all 0.2s;
+    transition: all 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
 }
 
 .color-preset:hover {
     border-color: #007bff;
-    transform: scale(1.1);
+    transform: scale(1.15);
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
 }
 
 .color-preset.active {
     border-color: #007bff;
-    box-shadow: 0 0 0 1px #007bff;
+    box-shadow: 0 0 0 2px #007bff, 0 2px 8px rgba(0, 123, 255, 0.4);
+    transform: scale(1.1);
 }
 
-.color-preset.no-color {
-    background-color: #2a2a2a;
-    border: 1px solid #444;
+/* Special handling for white colors to show border */
+.color-preset[data-color="#ffffff"] {
+    border: 2px solid #ccc;
 }
 
-.color-preset.no-color:hover {
+body.light-mode .color-preset[data-color="#ffffff"] {
+    border: 2px solid #999;
+}
+
+.color-preset[data-color="#ffffff"]:hover,
+.color-preset[data-color="#ffffff"].active {
+    border-color: #007bff;
+}
+
+/* Tooltip styling */
+.color-preset::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
     background-color: #333;
-    border-color: #ff4444;
+    color: #fff;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 1002;
+    margin-bottom: 5px;
 }
 
-.color-preset.no-color.active {
-    background-color: #333;
-    border-color: #ff4444;
-    box-shadow: 0 0 0 1px #ff4444;
+body.light-mode .color-preset::after {
+    background-color: #555;
+    color: #fff;
+}
+
+.color-preset.show-tooltip::after {
+    opacity: 1;
 }
 
 /* Todo styles */

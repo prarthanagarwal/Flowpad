@@ -1,6 +1,6 @@
 {
   "name": "flowpad",
-  "version": "1.6.2",
+  "version": "1.7",
   "description": "a minimal notepad for your thoughts to flow",
   "productName": "Flowpad",
   "author": {
@@ -17,6 +17,8 @@
     "build:win": "electron-forge make --platform=win32 --arch=x64",
     "build:mac": "electron-forge make --platform=darwin --arch=arm64",
     "build:mac:intel": "electron-forge make --platform=darwin --arch=x64",
+    "build:notarize": "./scripts/build-and-notarize.sh",
+    "build:quick": "./scripts/quick-build.sh",
     "lint": "echo \"No linting configured yet\"",
     "test": "echo \"No tests configured yet\""
   },

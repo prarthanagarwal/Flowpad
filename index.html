@@ -23,13 +23,13 @@
                 
                 <!-- Custom Window Controls -->
                 <div class="window-controls">
-                    <button class="window-control-btn minimize-btn" id="minimizeBtn" title="Minimize">
+                    <button class="window-control-btn minimize-btn" id="minimizeBtn" data-tooltip="Minimize">
                         <i class="ph ph-minus" style="font-size: 14px;"></i>
                     </button>
-                    <button class="window-control-btn fullscreen-btn" id="fullscreenBtn" title="Toggle Fullscreen">
+                    <button class="window-control-btn fullscreen-btn" id="fullscreenBtn" data-tooltip="Toggle Fullscreen">
                         <i class="ph ph-arrows-out-simple" style="font-size: 14px;"></i>
                     </button>
-                    <button class="window-control-btn close-btn" id="closeBtn" title="Close">
+                    <button class="window-control-btn close-btn" id="closeBtn" data-tooltip="Close">
                         <i class="ph ph-x" style="font-size: 14px;"></i>
                     </button>
                 </div>
@@ -56,7 +56,7 @@
                     <div class="folder-tabs" id="folderTabs">
                         <button class="folder-tab active" data-folder="all">All</button>
                     </div>
-                    <button class="new-folder-btn" id="newFolderBtn" title="Create New Folder">
+                    <button class="new-folder-btn" id="newFolderBtn" data-tooltip="Create New Folder">
                         <i class="ph ph-plus" style="font-size: 12px;"></i>
                     </button>
                 </div>
@@ -78,12 +78,12 @@
         <!-- Bottom Toolbar -->
         <div class="bottom-toolbar">
             <div class="toolbar-left">
-                <button id="surpriseBtn" class="toolbar-btn" title="Surprise">
+                <button id="surpriseBtn" class="toolbar-btn" data-tooltip="Surprise">
                     <i class="ph ph-sparkle" style="font-size: 16px;"></i>
                     <span>Surprise</span>
                 </button>
                 <div class="font-family-dropdown" id="fontDropdown">
-                    <button id="fontBtn" class="toolbar-btn" title="Font Family">
+                    <button id="fontBtn" class="toolbar-btn" data-tooltip="Font Family">
                         <i class="ph ph-textbox" style="font-size: 16px;"></i>
                         <span>Font</span>
                     </button>
@@ -99,7 +99,7 @@
                     </div>
                 </div>
                 <div class="font-size-dropdown" id="fontsizeDropdown">
-                    <button id="fontsizeBtn" class="toolbar-btn" title="Font Size">
+                    <button id="fontsizeBtn" class="toolbar-btn" data-tooltip="Font Size">
                         <i class="ph ph-at" style="font-size: 16px;"></i>
                         <span id="fontsizeDisplay">18px</span>
                     </button>
@@ -116,52 +116,132 @@
                     </div>
                 </div>
                 <div class="formatting-dropdown" id="formattingDropdown">
-                    <button id="formatBtn" class="toolbar-btn" title="Text Formatting">
+                    <button id="formatBtn" class="toolbar-btn" data-tooltip="Text Formatting">
                         <i class="ph ph-text-aa" style="font-size: 16px;"></i>
                     </button>
                     <div class="formatting-dropdown-content" id="formattingDropdownContent">
                         <div class="format-buttons">
-                            <button class="format-btn" data-command="bold" title="Bold" id="boldBtn">
+                            <button class="format-btn" data-command="bold" data-tooltip="Bold" id="boldBtn">
                                 <i class="ph ph-text-b" style="font-size: 14px;"></i>
                             </button>
-                            <button class="format-btn" data-command="italic" title="Italic" id="italicBtn">
+                            <button class="format-btn" data-command="italic" data-tooltip="Italic" id="italicBtn">
                                 <i class="ph ph-text-italic" style="font-size: 14px;"></i>
                             </button>
-                            <button class="format-btn" data-command="underline" title="Underline" id="underlineBtn">
+                            <button class="format-btn" data-command="underline" data-tooltip="Underline" id="underlineBtn">
                                 <i class="ph ph-text-underline" style="font-size: 14px;"></i>
                             </button>
-                            <button class="format-btn" data-command="strikethrough" title="Strikethrough">
+                            <button class="format-btn" data-command="strikethrough" data-tooltip="Strikethrough">
                                 <i class="ph ph-text-strikethrough" style="font-size: 14px;"></i>
                             </button>
-                            <button class="format-btn" data-command="highlight" title="Highlight Text" id="highlightBtn">
+                            <button class="format-btn" data-command="highlight" data-tooltip="Highlight Text" id="highlightBtn">
                                 <i class="ph ph-highlighter" style="font-size: 14px;"></i>
+                                <div class="highlight-color-indicator" id="highlightColorIndicator"></div>
                             </button>
                         </div>
                         <div class="highlight-color-picker" id="highlightColorPicker">
-                            <div class="color-presets">
-                                <div class="color-preset no-color" data-color="none" title="Remove highlight">
-                                    <i class="ph ph-x" style="font-size: 10px; color: #888;"></i>
-                                </div>
-                                <div class="color-preset" data-color="#ffff00" style="background-color: #ffff00;"></div>
-                                <div class="color-preset" data-color="#90ee90" style="background-color: #90ee90;"></div>
-                                <div class="color-preset" data-color="#87ceeb" style="background-color: #87ceeb;"></div>
-                                <div class="color-preset" data-color="#ffb6c1" style="background-color: #ffb6c1;"></div>
-                                <div class="color-preset" data-color="#ffa500" style="background-color: #ffa500;"></div>
-                                <div class="color-preset" data-color="#ff6b6b" style="background-color: #ff6b6b;"></div>
-                                <div class="color-preset" data-color="#4ecdc4" style="background-color: #4ecdc4;"></div>
-                                <div class="color-preset" data-color="#45b7d1" style="background-color: #45b7d1;"></div>
-                                <div class="color-preset" data-color="#96ceb4" style="background-color: #96ceb4;"></div>
-                                <div class="color-preset" data-color="#feca57" style="background-color: #feca57;"></div>
-                                <div class="color-preset" data-color="#ff9ff3" style="background-color: #ff9ff3;"></div>
-                                <div class="color-preset" data-color="#54a0ff" style="background-color: #54a0ff;"></div>
-                                <div class="color-preset" data-color="#5f27cd" style="background-color: #5f27cd;"></div>
-                                <div class="color-preset" data-color="#00d2d3" style="background-color: #00d2d3;"></div>
-                                <div class="color-preset" data-color="#ff9f43" style="background-color: #ff9f43;"></div>
-                                <div class="color-preset" data-color="#ee5a24" style="background-color: #ee5a24;"></div>
-                                <div class="color-preset" data-color="#0984e3" style="background-color: #0984e3;"></div>
-                                <div class="color-preset" data-color="#6c5ce7" style="background-color: #6c5ce7;"></div>
-                                <div class="color-preset" data-color="#a29bfe" style="background-color: #a29bfe;"></div>
-                                <div class="color-preset" data-color="#fd79a8" style="background-color: #fd79a8;"></div>
+                            <!-- None option as text -->
+                            <div class="color-none-option" data-color="none" data-tooltip="Remove highlight">
+                                <i class="ph ph-x" style="font-size: 12px;"></i>
+                                <span>None</span>
+                            </div>
+                            
+                            <!-- Color presets grid (8 rows x 10 columns = 80 colors) -->
+                            <div class="color-presets-grid">
+                                <!-- Row 1: Grayscale (10 colors) -->
+                                <div class="color-preset" data-color="#000000" style="background-color: #000000;" data-tooltip="Black"></div>
+                                <div class="color-preset" data-color="#1a1a1a" style="background-color: #1a1a1a;" data-tooltip="Very Dark Gray"></div>
+                                <div class="color-preset" data-color="#333333" style="background-color: #333333;" data-tooltip="Dark Gray"></div>
+                                <div class="color-preset" data-color="#4d4d4d" style="background-color: #4d4d4d;" data-tooltip="Medium-Dark Gray"></div>
+                                <div class="color-preset" data-color="#666666" style="background-color: #666666;" data-tooltip="Medium Gray"></div>
+                                <div class="color-preset" data-color="#808080" style="background-color: #808080;" data-tooltip="Light Medium Gray"></div>
+                                <div class="color-preset" data-color="#999999" style="background-color: #999999;" data-tooltip="Light Gray"></div>
+                                <div class="color-preset" data-color="#b3b3b3" style="background-color: #b3b3b3;" data-tooltip="Very Light Gray"></div>
+                                <div class="color-preset" data-color="#e6e6e6" style="background-color: #e6e6e6;" data-tooltip="Near White"></div>
+                                <div class="color-preset" data-color="#ffffff" style="background-color: #ffffff;" data-tooltip="Pure White"></div>
+                                
+                                <!-- Row 2: Bright Saturated Hues (10 colors) -->
+                                <div class="color-preset" data-color="#ff3333" style="background-color: #ff3333;" data-tooltip="Bright Red"></div>
+                                <div class="color-preset" data-color="#ff6633" style="background-color: #ff6633;" data-tooltip="Bright Red-Orange"></div>
+                                <div class="color-preset" data-color="#ff9933" style="background-color: #ff9933;" data-tooltip="Bright Orange"></div>
+                                <div class="color-preset" data-color="#ffcc33" style="background-color: #ffcc33;" data-tooltip="Bright Yellow"></div>
+                                <div class="color-preset" data-color="#ccff33" style="background-color: #ccff33;" data-tooltip="Bright Lime"></div>
+                                <div class="color-preset" data-color="#33ff33" style="background-color: #33ff33;" data-tooltip="Bright Green"></div>
+                                <div class="color-preset" data-color="#33ffcc" style="background-color: #33ffcc;" data-tooltip="Bright Cyan"></div>
+                                <div class="color-preset" data-color="#3399ff" style="background-color: #3399ff;" data-tooltip="Bright Blue"></div>
+                                <div class="color-preset" data-color="#6633ff" style="background-color: #6633ff;" data-tooltip="Bright Blue-Violet"></div>
+                                <div class="color-preset" data-color="#ff33cc" style="background-color: #ff33cc;" data-tooltip="Bright Magenta"></div>
+                                
+                                <!-- Row 3: Very Pale Pastels/Tints (10 colors) -->
+                                <div class="color-preset" data-color="#ffe6f0" style="background-color: #ffe6f0;" data-tooltip="Very Pale Pink"></div>
+                                <div class="color-preset" data-color="#ffe6d9" style="background-color: #ffe6d9;" data-tooltip="Very Pale Peach"></div>
+                                <div class="color-preset" data-color="#ffe6cc" style="background-color: #ffe6cc;" data-tooltip="Very Pale Orange"></div>
+                                <div class="color-preset" data-color="#fff2e6" style="background-color: #fff2e6;" data-tooltip="Very Pale Cream"></div>
+                                <div class="color-preset" data-color="#e6ffe6" style="background-color: #e6ffe6;" data-tooltip="Very Pale Mint"></div>
+                                <div class="color-preset" data-color="#e6fff2" style="background-color: #e6fff2;" data-tooltip="Very Pale Seafoam"></div>
+                                <div class="color-preset" data-color="#e6f9ff" style="background-color: #e6f9ff;" data-tooltip="Very Pale Aqua"></div>
+                                <div class="color-preset" data-color="#e6f0ff" style="background-color: #e6f0ff;" data-tooltip="Very Pale Sky"></div>
+                                <div class="color-preset" data-color="#f0e6ff" style="background-color: #f0e6ff;" data-tooltip="Very Pale Periwinkle"></div>
+                                <div class="color-preset" data-color="#f9e6ff" style="background-color: #f9e6ff;" data-tooltip="Very Pale Lavender"></div>
+                                
+                                <!-- Row 4: Light Pastels (10 colors) -->
+                                <div class="color-preset" data-color="#ffb3d9" style="background-color: #ffb3d9;" data-tooltip="Light Pink"></div>
+                                <div class="color-preset" data-color="#ffb3b3" style="background-color: #ffb3b3;" data-tooltip="Light Peach"></div>
+                                <div class="color-preset" data-color="#ffcc99" style="background-color: #ffcc99;" data-tooltip="Light Orange"></div>
+                                <div class="color-preset" data-color="#fff2cc" style="background-color: #fff2cc;" data-tooltip="Light Butter"></div>
+                                <div class="color-preset" data-color="#b3ffb3" style="background-color: #b3ffb3;" data-tooltip="Light Mint"></div>
+                                <div class="color-preset" data-color="#b3e6b3" style="background-color: #b3e6b3;" data-tooltip="Light Sage"></div>
+                                <div class="color-preset" data-color="#99e6ff" style="background-color: #99e6ff;" data-tooltip="Light Turquoise"></div>
+                                <div class="color-preset" data-color="#b3d9ff" style="background-color: #b3d9ff;" data-tooltip="Light Sky Blue"></div>
+                                <div class="color-preset" data-color="#d9b3ff" style="background-color: #d9b3ff;" data-tooltip="Light Periwinkle"></div>
+                                <div class="color-preset" data-color="#e6b3ff" style="background-color: #e6b3ff;" data-tooltip="Light Orchid"></div>
+                                
+                                <!-- Row 5: Medium Light Tones (10 colors) -->
+                                <div class="color-preset" data-color="#ff9999" style="background-color: #ff9999;" data-tooltip="Coral Pink"></div>
+                                <div class="color-preset" data-color="#ff9966" style="background-color: #ff9966;" data-tooltip="Salmon"></div>
+                                <div class="color-preset" data-color="#ffb366" style="background-color: #ffb366;" data-tooltip="Peach Orange"></div>
+                                <div class="color-preset" data-color="#ffd966" style="background-color: #ffd966;" data-tooltip="Soft Yellow"></div>
+                                <div class="color-preset" data-color="#99ff99" style="background-color: #99ff99;" data-tooltip="Light Lime"></div>
+                                <div class="color-preset" data-color="#66cc99" style="background-color: #66cc99;" data-tooltip="Light Sea Green"></div>
+                                <div class="color-preset" data-color="#66ffcc" style="background-color: #66ffcc;" data-tooltip="Aquamarine"></div>
+                                <div class="color-preset" data-color="#6699ff" style="background-color: #6699ff;" data-tooltip="Cornflower Blue"></div>
+                                <div class="color-preset" data-color="#b366ff" style="background-color: #b366ff;" data-tooltip="Medium Lavender"></div>
+                                <div class="color-preset" data-color="#cc99ff" style="background-color: #cc99ff;" data-tooltip="Light Purple"></div>
+                                
+                                <!-- Row 6: Medium Saturated (10 colors) -->
+                                <div class="color-preset" data-color="#ff6666" style="background-color: #ff6666;" data-tooltip="Rose Red"></div>
+                                <div class="color-preset" data-color="#ff8040" style="background-color: #ff8040;" data-tooltip="Coral"></div>
+                                <div class="color-preset" data-color="#ff9933" style="background-color: #ff9933;" data-tooltip="Orange"></div>
+                                <div class="color-preset" data-color="#ffcc00" style="background-color: #ffcc00;" data-tooltip="Golden Yellow"></div>
+                                <div class="color-preset" data-color="#66ff66" style="background-color: #66ff66;" data-tooltip="Lime Green"></div>
+                                <div class="color-preset" data-color="#33cc33" style="background-color: #33cc33;" data-tooltip="Medium Green"></div>
+                                <div class="color-preset" data-color="#33cccc" style="background-color: #33cccc;" data-tooltip="Teal"></div>
+                                <div class="color-preset" data-color="#3399cc" style="background-color: #3399cc;" data-tooltip="Azure Blue"></div>
+                                <div class="color-preset" data-color="#3366cc" style="background-color: #3366cc;" data-tooltip="Royal Blue"></div>
+                                <div class="color-preset" data-color="#9966cc" style="background-color: #9966cc;" data-tooltip="Medium Purple"></div>
+                                
+                                <!-- Row 7: Deep/Dark Saturated (10 colors) -->
+                                <div class="color-preset" data-color="#cc0000" style="background-color: #cc0000;" data-tooltip="Dark Red"></div>
+                                <div class="color-preset" data-color="#cc3300" style="background-color: #cc3300;" data-tooltip="Dark Orange-Red"></div>
+                                <div class="color-preset" data-color="#cc6600" style="background-color: #cc6600;" data-tooltip="Dark Orange"></div>
+                                <div class="color-preset" data-color="#cc9900" style="background-color: #cc9900;" data-tooltip="Dark Gold"></div>
+                                <div class="color-preset" data-color="#666600" style="background-color: #666600;" data-tooltip="Dark Olive"></div>
+                                <div class="color-preset" data-color="#006600" style="background-color: #006600;" data-tooltip="Dark Forest Green"></div>
+                                <div class="color-preset" data-color="#006666" style="background-color: #006666;" data-tooltip="Dark Teal"></div>
+                                <div class="color-preset" data-color="#003366" style="background-color: #003366;" data-tooltip="Dark Blue"></div>
+                                <div class="color-preset" data-color="#330066" style="background-color: #330066;" data-tooltip="Dark Indigo"></div>
+                                <div class="color-preset" data-color="#660066" style="background-color: #660066;" data-tooltip="Dark Purple"></div>
+                                
+                                <!-- Row 8: Very Dark Shades (10 colors) -->
+                                <div class="color-preset" data-color="#800000" style="background-color: #800000;" data-tooltip="Deep Maroon"></div>
+                                <div class="color-preset" data-color="#800033" style="background-color: #800033;" data-tooltip="Dark Brown-Red"></div>
+                                <div class="color-preset" data-color="#663300" style="background-color: #663300;" data-tooltip="Dark Brown"></div>
+                                <div class="color-preset" data-color="#806600" style="background-color: #806600;" data-tooltip="Dark Mustard Brown"></div>
+                                <div class="color-preset" data-color="#333300" style="background-color: #333300;" data-tooltip="Very Dark Olive"></div>
+                                <div class="color-preset" data-color="#003300" style="background-color: #003300;" data-tooltip="Very Dark Forest"></div>
+                                <div class="color-preset" data-color="#003333" style="background-color: #003333;" data-tooltip="Very Dark Teal"></div>
+                                <div class="color-preset" data-color="#001133" style="background-color: #001133;" data-tooltip="Deep Navy"></div>
+                                <div class="color-preset" data-color="#1a0033" style="background-color: #1a0033;" data-tooltip="Deep Indigo"></div>
+                                <div class="color-preset" data-color="#330033" style="background-color: #330033;" data-tooltip="Deep Violet"></div>
                             </div>
                         </div>
 
@@ -177,20 +257,20 @@
             </div>
             
             <div class="toolbar-right">
-                <button id="newNoteBtn" class="toolbar-btn" title="New Note">
+                <button id="newNoteBtn" class="toolbar-btn" data-tooltip="New Note">
                     <i class="ph ph-note-blank" style="font-size: 16px;"></i>
                     <span>New</span>
                 </button>
-                <button id="historyBtn" class="toolbar-btn" title="Toggle History">
+                <button id="historyBtn" class="toolbar-btn" data-tooltip="Toggle History">
                     <i class="ph ph-clock-clockwise" style="font-size: 16px;"></i>
                     <span>History</span>
                 </button>
                 <div class="toolbar-separator">•</div>
-                <button id="themeBtn" class="toolbar-btn" title="Toggle Theme">
+                <button id="themeBtn" class="toolbar-btn" data-tooltip="Toggle Theme">
                     <i class="ph ph-sun"></i>
                     <span>Light Mode</span>
                 </button>
-                <button id="settingsBtn" class="toolbar-btn" title="Settings">
+                <button id="settingsBtn" class="toolbar-btn" data-tooltip="Settings">
                     <i class="ph ph-gear" style="font-size: 16px;"></i>
                     <span>Settings</span>
                 </button>
@@ -252,11 +332,11 @@
             </button>
             <!-- Inline action buttons that appear after prompt submission -->
             <div class="inline-prompt-actions" id="promptActions" style="display: none;">
-                <button class="inline-prompt-reject" id="promptReject" title="Reject (⇧⌘↩)">
+                <button class="inline-prompt-reject" id="promptReject" data-tooltip="Reject (⇧⌘↩)">
                     <span>Reject</span>
                     <span class="shortcut">⇧⌘↩</span>
                 </button>
-                <button class="inline-prompt-accept" id="promptAccept" title="Accept (⌘↩)">
+                <button class="inline-prompt-accept" id="promptAccept" data-tooltip="Accept (⌘↩)">
                     <span>Accept</span>
                     <span class="shortcut">⌘↩</span>
                 </button>
