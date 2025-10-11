@@ -1066,6 +1066,7 @@ body.light-mode .folder-context-menu {
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
 }
 
 .format-btn:hover {
@@ -1076,6 +1077,72 @@ body.light-mode .folder-context-menu {
 .format-btn.active {
     background-color: #0066cc;
     color: #fff;
+}
+
+/* Highlight Color Picker Styles */
+.highlight-color-picker {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    margin-bottom: 5px;
+    padding: 8px;
+    background-color: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    z-index: 1001;
+    min-width: 120px;
+}
+
+.highlight-color-picker.show {
+    display: block;
+}
+
+
+.color-presets {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+    max-width: 200px;
+}
+
+.color-preset {
+    width: 20px;
+    height: 20px;
+    border-radius: 3px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.color-preset:hover {
+    border-color: #007bff;
+    transform: scale(1.1);
+}
+
+.color-preset.active {
+    border-color: #007bff;
+    box-shadow: 0 0 0 1px #007bff;
+}
+
+.color-preset.no-color {
+    background-color: #2a2a2a;
+    border: 1px solid #444;
+}
+
+.color-preset.no-color:hover {
+    background-color: #333;
+    border-color: #ff4444;
+}
+
+.color-preset.no-color.active {
+    background-color: #333;
+    border-color: #ff4444;
+    box-shadow: 0 0 0 1px #ff4444;
 }
 
 /* Todo styles */
@@ -1132,7 +1199,7 @@ body.light-mode .folder-context-menu {
 
 /* Rich text formatting */
 .editor strong {
-    font-weight: 600;
+    font-weight: 2400;
 }
 
 .editor em {

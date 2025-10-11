@@ -232,11 +232,8 @@ async function saveNote(noteData) {
       folderName: noteData.folderName || null
     };
     
-    // Convert HTML content to Markdown for storage
-    const markdownContent = await convertHtmlToMarkdown(note.content);
-    
-    // Create file content with frontmatter
-    const fileContent = createFrontmatter(note) + markdownContent;
+    // Store as JSON for better performance and reliability
+    const jsonContent = JSON.stringify(note, null, 2);
     
     // Generate filename
     const filename = generateNoteFilename(note);
@@ -245,11 +242,16 @@ async function saveNote(noteData) {
     // Check if this is an update to existing note
     const files = await fs.readdir(NOTES_DIR);
     const existingFile = files.find(file => {
-      if (file.endsWith('.md')) {
+      if (file.endsWith('.json') || file.endsWith('.html') || file.endsWith('.md')) {
         try {
           const content = fsSync.readFileSync(path.join(NOTES_DIR, file), 'utf8');
-          const { metadata } = parseFrontmatter(content);
-          return metadata.id === noteId;
+          if (file.endsWith('.json')) {
+            const note = JSON.parse(content);
+            return note.id === noteId;
+          } else {
+            const { metadata } = parseFrontmatter(content);
+            return metadata.id === noteId;
+          }
         } catch (error) {
           return false;
         }
@@ -264,7 +266,7 @@ async function saveNote(noteData) {
     }
     
     // Write the new/updated note
-    await fs.writeFile(filepath, fileContent, 'utf8');
+    await fs.writeFile(filepath, jsonContent, 'utf8');
     
     return { success: true, note };
   } catch (error) {
@@ -281,31 +283,43 @@ async function loadNotes() {
     const notes = [];
     
     for (const file of files) {
-      if (file.endsWith('.md')) {
+      if (file.endsWith('.json') || file.endsWith('.html') || file.endsWith('.md')) {
         try {
           const filepath = path.join(NOTES_DIR, file);
           const content = await fs.readFile(filepath, 'utf8');
-          const { metadata, content: markdownContent } = parseFrontmatter(content);
           
-          // Convert Markdown back to HTML for the editor
-          const htmlContent = await convertMarkdownToHtml(markdownContent);
-          
-          const note = {
-            id: metadata.id || Date.now().toString(),
-            title: metadata.title || 'New Note',
-            content: htmlContent,
-            createdAt: metadata.createdAt || new Date().toISOString(),
-            updatedAt: metadata.updatedAt || new Date().toISOString(),
-            tags: metadata.tags || [],
-            fontSize: metadata.fontSize || 16,
-            fontFamily: metadata.fontFamily || 'Aeonik',
-            folder: metadata.folder || null,
-            folderName: metadata.folderName || null
-          };
+          let note;
+          if (file.endsWith('.json')) {
+            // Load JSON file directly
+            note = JSON.parse(content);
+          } else {
+            // Load markdown/HTML file with frontmatter
+            const { metadata, content: fileContent } = parseFrontmatter(content);
+            
+            // Use content directly (HTML for .html files, convert markdown for .md files)
+            let htmlContent = fileContent;
+            if (file.endsWith('.md')) {
+              // Convert markdown to HTML for backward compatibility
+              htmlContent = await convertMarkdownToHtml(fileContent);
+            }
+            
+            note = {
+              id: metadata.id || Date.now().toString(),
+              title: metadata.title || 'New Note',
+              content: htmlContent,
+              createdAt: metadata.createdAt || new Date().toISOString(),
+              updatedAt: metadata.updatedAt || new Date().toISOString(),
+              tags: metadata.tags || [],
+              fontSize: metadata.fontSize || 16,
+              fontFamily: metadata.fontFamily || 'Aeonik',
+              folder: metadata.folder || null,
+              folderName: metadata.folderName || null
+            };
+          }
           
           // Debug font loading for non-default fonts
-          if (metadata.fontSize !== 16 || (metadata.fontFamily && metadata.fontFamily !== 'Aeonik')) {
-            console.log(`Storage: Loading note with custom fonts - fontSize: ${metadata.fontSize}, fontFamily: "${metadata.fontFamily}" for note: "${note.title}"`);
+          if (note.fontSize !== 16 || (note.fontFamily && note.fontFamily !== 'Aeonik')) {
+            console.log(`Storage: Loading note with custom fonts - fontSize: ${note.fontSize}, fontFamily: "${note.fontFamily}" for note: "${note.title}"`);
           }
           
           notes.push(note);
@@ -331,11 +345,16 @@ async function deleteNote(noteId) {
     
     const files = await fs.readdir(NOTES_DIR);
     const targetFile = files.find(file => {
-      if (file.endsWith('.md')) {
+      if (file.endsWith('.json') || file.endsWith('.html') || file.endsWith('.md')) {
         try {
           const content = fsSync.readFileSync(path.join(NOTES_DIR, file), 'utf8');
-          const { metadata } = parseFrontmatter(content);
-          return metadata.id === noteId;
+          if (file.endsWith('.json')) {
+            const note = JSON.parse(content);
+            return note.id === noteId;
+          } else {
+            const { metadata } = parseFrontmatter(content);
+            return metadata.id === noteId;
+          }
         } catch (error) {
           return false;
         }
@@ -441,11 +460,11 @@ async function migrateNote(note) {
     fontFamily: note.fontFamily || 'Aeonik'
   };
   
-  // Convert HTML content to Markdown
-  const markdownContent = await convertHtmlToMarkdown(noteWithFonts.content);
+  // Store HTML content directly (no conversion needed)
+  const htmlContent = noteWithFonts.content;
   
   // Create file content with frontmatter
-  const fileContent = createFrontmatter(noteWithFonts) + markdownContent;
+  const fileContent = createFrontmatter(noteWithFonts) + htmlContent;
   
   // Generate filename
   const filename = generateNoteFilename(noteWithFonts);

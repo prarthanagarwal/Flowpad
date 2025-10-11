@@ -27,6 +27,10 @@ function updateTooltips() {
     if (italicBtn) italicBtn.title = `Italic (${modKey}+I)`;
     if (underlineBtn) underlineBtn.title = `Underline (${modKey}+U)`;
     
+    // Highlight button
+    const highlightBtn = document.getElementById('highlightBtn');
+    if (highlightBtn) highlightBtn.title = `Highlight (${modKey}+Shift+H)`;
+    
     // Other buttons with shortcuts
     const newNoteBtn = document.getElementById('newNoteBtn');
     const historyBtn = document.getElementById('historyBtn');
@@ -82,6 +86,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Apply initial global settings (before any note is loaded)
     applySettings();
+    
+    // Initialize highlight color picker
+    setHighlightColor('#ffff00');
     
     // Create initial note if no notes exist or no current note
     if (allNotes.length === 0 || !currentNote) {
@@ -190,10 +197,13 @@ function setupEventListeners() {
         btn.addEventListener('click', (e) => {
             e.preventDefault();
             
-                const command = btn.dataset.command;
-                if (command) {
-                    executeCommand(command);
-                    updateFormatButtonStates();
+            const command = btn.dataset.command;
+            if (command === 'highlight') {
+                // Toggle color picker for highlight button
+                toggleHighlightColorPicker();
+            } else if (command) {
+                executeCommand(command);
+                updateFormatButtonStates();
             }
         });
     });
@@ -240,6 +250,23 @@ function setupEventListeners() {
         if (!e.target.closest('.formatting-dropdown')) {
             closeFormattingDropdown();
         }
+        if (!e.target.closest('#highlightBtn') && !e.target.closest('.highlight-color-picker')) {
+            closeHighlightColorPicker();
+        }
+    });
+    
+
+    // Color preset buttons
+    document.querySelectorAll('.color-preset').forEach(preset => {
+        preset.addEventListener('click', (e) => {
+            const color = e.target.dataset.color;
+            setHighlightColor(color);
+            // Apply highlight with new color if text is selected
+            const selection = window.getSelection();
+            if (selection.rangeCount > 0 && !selection.isCollapsed) {
+                applyHighlight();
+            }
+        });
     });
 }
 
@@ -614,7 +641,7 @@ async function loadNote(note) {
     editor.innerHTML = noteContent;
     
     // Store original content for change detection (must match editor content)
-    currentNote.originalContent = noteContent;
+    currentNote.originalContent = editor.innerHTML;
     
     // Ensure current content is up to date
     currentNote.content = noteContent;
@@ -1401,10 +1428,13 @@ function debouncedAutoSave() {
     }, 1500); // Reduced to 1.5 seconds for better responsiveness
 }
 
-// Editor functionality
+// Optimized editor functionality with debouncing
+let wordCountTimeout;
+let titleUpdateTimeout;
+
 function handleEditorInput(e) {
+    // Immediate UI updates only (lightweight)
     updatePlaceholder();
-    updateWordCount();
     
     // Check for dash list auto-activation when space is typed
     if (e && e.inputType === 'insertText' && e.data === ' ') {
@@ -1415,8 +1445,12 @@ function handleEditorInput(e) {
         // Always update the current note content
         currentNote.content = editor.innerHTML;
         
-        // Update title based on first line of content (includes sidebar update)
-        updateTitleFromContent();
+        // Debounced expensive operations
+        clearTimeout(wordCountTimeout);
+        wordCountTimeout = setTimeout(updateWordCount, 100);
+        
+        clearTimeout(titleUpdateTimeout);
+        titleUpdateTimeout = setTimeout(updateTitleFromContent, 200);
         
         // Trigger debounced auto-save only if content actually changed
         if (currentNote.originalContent !== editor.innerHTML) {
@@ -1455,7 +1489,8 @@ function updatePlaceholder() {
 }
 
 function updateWordCount() {
-    const text = editor.textContent || editor.innerText;
+    // Use textContent for better performance (no styling calculations)
+    const text = editor.textContent;
     const words = text.trim() ? text.trim().split(/\s+/).length : 0;
     wordCount.textContent = `${words} word${words !== 1 ? 's' : ''}`;
 }
@@ -1625,6 +1660,14 @@ function handleKeyDown(e) {
         return;
     }
     
+    // Highlight shortcut (Cmd+Shift+H / Ctrl+Shift+H)
+    if ((isMac ? e.metaKey : e.ctrlKey) && e.shiftKey && e.key === 'h') {
+        e.preventDefault();
+        applyHighlight();
+        closeHighlightColorPicker();
+        return;
+    }
+    
     // Toggle history shortcut
     if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'h') {
         e.preventDefault();
@@ -1685,8 +1728,321 @@ function handleKeyDown(e) {
 
 // Formatting commands
 function executeCommand(command) {
-    document.execCommand(command, false, null);
+    if (command === 'highlight') {
+        applyHighlight();
+    } else {
+        document.execCommand(command, false, null);
+    }
     editor.focus();
+}
+
+// Highlight functionality
+let currentHighlightColor = '#ffff00';
+
+function setHighlightColor(color) {
+    currentHighlightColor = color;
+    
+    // Update active preset
+    document.querySelectorAll('.color-preset').forEach(preset => {
+        preset.classList.toggle('active', preset.dataset.color === color);
+    });
+}
+
+function findHighlightSpanInRange(range) {
+    // Get all highlight spans in the editor
+    const allHighlightSpans = editor.querySelectorAll('span[style*="background-color"]');
+    
+    // Check if any highlight span contains or intersects with the range
+    for (const span of allHighlightSpans) {
+        if (range.intersectsNode(span)) {
+            return span;
+        }
+    }
+    
+    return null;
+}
+
+function applyHighlight() {
+    const selection = window.getSelection();
+    if (selection.rangeCount === 0 || selection.isCollapsed) return;
+    
+    const range = selection.getRangeAt(0);
+    
+    // If no color is selected, remove all highlights
+    if (currentHighlightColor === 'none') {
+        removeAllHighlights();
+        return;
+    }
+    
+    // Remove any existing highlights in the selection first
+    removeExistingHighlights(range);
+    
+    // Create new highlight span
+    const span = document.createElement('span');
+    span.style.backgroundColor = currentHighlightColor;
+    span.style.padding = '1px 2px';
+    span.style.borderRadius = '2px';
+    
+    try {
+        // Try to surround contents with the span
+        range.surroundContents(span);
+    } catch (e) {
+        // Handle case where selection spans multiple elements
+        const contents = range.extractContents();
+        span.appendChild(contents);
+        range.insertNode(span);
+    }
+    
+    // Normalize to clean up any text node issues
+    editor.normalize();
+}
+
+function removeHighlight(range) {
+    // Find all highlight spans that intersect with the range
+    const container = range.commonAncestorContainer;
+    const walker = document.createTreeWalker(
+        container,
+        NodeFilter.SHOW_ELEMENT,
+        null,
+        false
+    );
+    
+    const highlightsToRemove = [];
+    let node;
+    
+    // Find all highlight spans
+    while (node = walker.nextNode()) {
+        if (node.tagName === 'SPAN' && node.style.backgroundColor) {
+            // Check if this span intersects with our range
+            if (range.intersectsNode(node)) {
+                highlightsToRemove.push(node);
+            }
+        }
+    }
+    
+    // Remove highlights from deepest to shallowest to avoid DOM issues
+    highlightsToRemove.sort((a, b) => {
+        const aDepth = getElementDepth(a);
+        const bDepth = getElementDepth(b);
+        return bDepth - aDepth; // Deeper elements first
+    });
+    
+    // Remove the highlight spans and preserve their content
+    highlightsToRemove.forEach(span => {
+        removeHighlightSpan(span);
+    });
+    
+    // Update button states after removal
+    updateFormatButtonStates();
+}
+
+// Enhanced function to remove entire highlight spans when partially selected
+function removeEntireHighlightSpans(range) {
+    // Get all highlight spans in the document
+    const allHighlightSpans = editor.querySelectorAll('span[style*="background-color"]');
+    const highlightsToRemove = [];
+    
+    // Find all highlight spans that intersect with our range
+    allHighlightSpans.forEach(span => {
+        if (range.intersectsNode(span)) {
+            highlightsToRemove.push(span);
+        }
+    });
+    
+    // Remove highlights from deepest to shallowest to avoid DOM issues
+    highlightsToRemove.sort((a, b) => {
+        const aDepth = getElementDepth(a);
+        const bDepth = getElementDepth(b);
+        return bDepth - aDepth;
+    });
+    
+    // Remove entire highlight spans (not just the selected part)
+    highlightsToRemove.forEach(span => {
+        removeHighlightSpan(span);
+    });
+    
+    // Unwrap any remaining nested highlights
+    unwrapNestedHighlights(editor);
+    
+    // Normalize the entire editor to clean up any text node gaps
+    editor.normalize();
+    
+    updateFormatButtonStates();
+}
+
+// Simple and robust highlight removal function
+function removeAllHighlights() {
+    // Get all highlight spans (including nested ones)
+    const allHighlightSpans = editor.querySelectorAll('span[style*="background-color"]');
+    
+    console.log(`Removing ${allHighlightSpans.length} highlight spans`);
+    
+    // Convert to array and sort by depth (deepest first) to handle nesting
+    const spansArray = Array.from(allHighlightSpans);
+    spansArray.sort((a, b) => {
+        const aDepth = getElementDepth(a);
+        const bDepth = getElementDepth(b);
+        return bDepth - aDepth; // Deeper elements first
+    });
+    
+    // Remove all highlight spans
+    spansArray.forEach((span, index) => {
+        // Only process if the span still exists (might have been removed by previous iteration)
+        if (span.parentNode) {
+            console.log(`Removing highlight span ${index + 1}/${spansArray.length}, depth: ${getElementDepth(span)}`);
+            const parent = span.parentNode;
+            const fragment = document.createDocumentFragment();
+            
+            // Move all child nodes to fragment
+            while (span.firstChild) {
+                fragment.appendChild(span.firstChild);
+            }
+            
+            // Replace span with its contents
+            parent.replaceChild(fragment, span);
+        }
+    });
+    
+    // Normalize to clean up text nodes
+    editor.normalize();
+    updateFormatButtonStates();
+    
+    // Verify removal
+    const remainingSpans = editor.querySelectorAll('span[style*="background-color"]');
+    console.log(`Highlight removal complete. Remaining spans: ${remainingSpans.length}`);
+}
+
+function removeExistingHighlights(range) {
+    // Get all highlight spans in the editor
+    const allHighlightSpans = editor.querySelectorAll('span[style*="background-color"]');
+    const highlightsToRemove = [];
+    
+    // Find all highlight spans that intersect with our range
+    allHighlightSpans.forEach(span => {
+        if (range.intersectsNode(span)) {
+            highlightsToRemove.push(span);
+        }
+    });
+    
+    // Remove highlights from deepest to shallowest to avoid DOM issues
+    highlightsToRemove.sort((a, b) => {
+        const aDepth = getElementDepth(a);
+        const bDepth = getElementDepth(b);
+        return bDepth - aDepth; // Deeper elements first
+    });
+    
+    // Remove the highlight spans and preserve their content
+    highlightsToRemove.forEach(span => {
+        if (span.parentNode) {
+            const parent = span.parentNode;
+            const fragment = document.createDocumentFragment();
+            
+            // Move all child nodes to fragment
+            while (span.firstChild) {
+                fragment.appendChild(span.firstChild);
+            }
+            
+            // Replace span with its contents
+            parent.replaceChild(fragment, span);
+        }
+    });
+    
+    // Normalize to clean up any text node gaps
+    editor.normalize();
+}
+
+function getElementDepth(element) {
+    let depth = 0;
+    let parent = element.parentNode;
+    while (parent && parent !== document.body) {
+        depth++;
+        parent = parent.parentNode;
+    }
+    return depth;
+}
+
+function removeHighlightSpan(span) {
+    if (!span || !span.parentNode) return;
+    
+    const parent = span.parentNode;
+    
+    // Create a document fragment to hold all child nodes
+    const fragment = document.createDocumentFragment();
+    
+    // Move all child nodes to the fragment
+    while (span.firstChild) {
+        fragment.appendChild(span.firstChild);
+    }
+    
+    // Replace the span with its contents
+    parent.replaceChild(fragment, span);
+    
+    // Clean up any empty parent spans that might be left
+    if (parent.tagName === 'SPAN' && 
+        parent.style.backgroundColor && 
+        parent.children.length === 0 && 
+        parent.textContent.trim() === '') {
+        removeHighlightSpan(parent);
+    }
+    
+    // Normalize text nodes to prevent gaps
+    parent.normalize();
+}
+
+// Recursive function to unwrap nested highlight spans
+function unwrapNestedHighlights(element) {
+    if (!element || !element.hasChildNodes()) return;
+    
+    let child = element.firstChild;
+    while (child) {
+        let nextChild = child.nextSibling;
+        
+        // If the child is a highlight span, unwrap it
+        if (child.nodeType === Node.ELEMENT_NODE && 
+            child.tagName === 'SPAN' && 
+            child.style.backgroundColor) {
+            
+            // Move all child nodes of the highlight span to the parent
+            while (child.firstChild) {
+                element.insertBefore(child.firstChild, child);
+            }
+            
+            // Remove the empty highlight span
+            element.removeChild(child);
+        } else if (child.nodeType === Node.ELEMENT_NODE) {
+            // Recursively process child elements
+            unwrapNestedHighlights(child);
+        }
+        
+        child = nextChild;
+    }
+}
+
+function toggleHighlightColorPicker() {
+    const colorPicker = document.getElementById('highlightColorPicker');
+    if (colorPicker) {
+        colorPicker.classList.toggle('show');
+    }
+}
+
+function closeHighlightColorPicker() {
+    const colorPicker = document.getElementById('highlightColorPicker');
+    if (colorPicker) {
+        colorPicker.classList.remove('show');
+    }
+}
+
+// No cleanup needed - direct HTML storage preserves all formatting perfectly!
+
+// Performance monitoring (development only)
+function logPerformanceMetrics() {
+    if (process.env.NODE_ENV === 'development') {
+        console.log('🚀 Performance Metrics:');
+        console.log('✅ Direct HTML storage - no conversion overhead');
+        console.log('✅ Debounced input handling - reduced DOM queries');
+        console.log('✅ Optimized word count - textContent only');
+        console.log('✅ Perfect formatting preservation');
+    }
 }
 
 // Update format button active states
@@ -1708,6 +2064,29 @@ function updateFormatButtonStates() {
             }
         }
     });
+    
+    // Check for highlight state
+    const highlightBtn = document.getElementById('highlightBtn');
+    if (highlightBtn) {
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0 && !selection.isCollapsed) {
+            const range = selection.getRangeAt(0);
+            const highlightSpan = findHighlightSpanInRange(range);
+            
+            if (highlightSpan) {
+                highlightBtn.classList.add('active');
+                // Update current color to match selection
+                currentHighlightColor = highlightSpan.style.backgroundColor;
+                setHighlightColor(currentHighlightColor);
+            } else {
+                highlightBtn.classList.remove('active');
+                // Set to no color if no highlight is found
+                setHighlightColor('none');
+            }
+        } else {
+            highlightBtn.classList.remove('active');
+        }
+    }
 }
 
 // Dash list functionality

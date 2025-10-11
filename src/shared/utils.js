@@ -23,7 +23,7 @@ function generateNoteFilename(note) {
   const timePrefix = `${hours}${minutes}${seconds}`;
   
   const sanitizedTitle = sanitizeFilename(note.title);
-  return `${datePrefix}_${timePrefix}_${sanitizedTitle}.md`;
+  return `${datePrefix}_${timePrefix}_${sanitizedTitle}.json`;
 }
 
 // ===== DATE/TIME UTILITIES =====
@@ -34,7 +34,8 @@ function formatDateTime(isoString) {
   return `${dateStr} ${timeStr}`;
 }
 
-// ===== MARKDOWN CONVERSION =====
+// ===== HTML/MARKDOWN CONVERSION =====
+// Conversion functions for backward compatibility with existing .md files
 async function convertHtmlToMarkdown(htmlContent) {
   // Simple HTML to Markdown conversion
   return htmlContent
@@ -44,6 +45,8 @@ async function convertHtmlToMarkdown(htmlContent) {
     .replace(/<i>(.*?)<\/i>/g, '*$1*')
     .replace(/<u>(.*?)<\/u>/g, '__$1__')
     .replace(/<s>(.*?)<\/s>/g, '~~$1~~')
+    // Handle highlight spans - convert to custom markdown syntax
+    .replace(/<span[^>]*style="[^"]*background-color:\s*([^;"]+)[^"]*"[^>]*>(.*?)<\/span>/g, '==$2==')
     .replace(/<br\s*\/?>/g, '\n')
     .replace(/<div>/g, '\n')
     .replace(/<\/div>/g, '')
@@ -61,6 +64,8 @@ async function convertMarkdownToHtml(markdownContent) {
     .replace(/__(.*?)__/g, '<u>$1</u>')
     .replace(/~~(.*?)~~/g, '<s>$1</s>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    // Handle highlight markdown - convert back to HTML spans
+    .replace(/==(.*?)==/g, '<span style="background-color: #ffff00; padding: 1px 2px; border-radius: 2px;">$1</span>')
     .replace(/\n/g, '<br>');
 }
 

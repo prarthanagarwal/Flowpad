@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs').promises;
 const storage = require('./storage');
 const { aiService } = require('./ai-service');
-const { sanitizeFilename, convertHtmlToMarkdown, createFrontmatter } = require('../shared/utils');
+const { sanitizeFilename, createFrontmatter } = require('../shared/utils');
 
 // ===== NOTE OPERATIONS =====
 function setupNoteHandlers() {
@@ -54,8 +54,9 @@ function setupNoteHandlers() {
     try {
       const { filePath } = await dialog.showSaveDialog(null, {
         title: 'Export Note',
-        defaultPath: `${sanitizeFilename(note.title)}.md`,
+        defaultPath: `${sanitizeFilename(note.title)}.html`,
         filters: [
+          { name: 'HTML Files', extensions: ['html'] },
           { name: 'Markdown Files', extensions: ['md'] },
           { name: 'Text Files', extensions: ['txt'] },
           { name: 'All Files', extensions: ['*'] }
@@ -66,12 +67,14 @@ function setupNoteHandlers() {
         let exportContent;
         
         if (filePath.endsWith('.md')) {
-          // Export as markdown with frontmatter
-          const markdownContent = await convertHtmlToMarkdown(note.content);
-          exportContent = createFrontmatter(note) + markdownContent;
+          // Export as HTML with frontmatter (preserves all formatting)
+          exportContent = createFrontmatter(note) + note.content;
+        } else if (filePath.endsWith('.html')) {
+          // Export as pure HTML
+          exportContent = note.content;
         } else {
-          // Export as plain text
-          exportContent = await convertHtmlToMarkdown(note.content);
+          // Export as plain text (strip HTML tags)
+          exportContent = note.content.replace(/<[^>]*>/g, '');
         }
         
         await fs.writeFile(filePath, exportContent, 'utf8');
