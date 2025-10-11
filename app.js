@@ -1559,6 +1559,12 @@ function updateTime() {
 
 // Keyboard shortcuts
 function handleKeyDown(e) {
+    // Don't handle shortcuts if the prompt input is focused
+    const promptInput = document.getElementById('promptInput');
+    if (promptInput && document.activeElement === promptInput) {
+        return;
+    }
+    
     // Handle Enter key for dash list continuation
     if (e.key === 'Enter') {
         if (isDashListMode) {
@@ -2394,14 +2400,38 @@ function setupAIPromptBarListeners() {
     const promptSubmit = document.getElementById('promptSubmit');
 
     if (promptInput) {
+        // Handle Enter key for prompt submission
         promptInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
+                e.stopPropagation(); // Prevent event from bubbling to main editor
                 const prompt = promptInput.value.trim();
                 if (prompt) {
                     handlePromptSubmit(prompt);
                 }
             }
+            // Handle Shift+Enter for multi-line input (if needed in future)
+            if (e.key === 'Enter' && e.shiftKey) {
+                // Allow default behavior for multi-line input
+                e.stopPropagation();
+            }
+            // Handle Escape key to close prompt
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                closeInlinePrompt();
+            }
+        });
+        
+        // Handle paste events in prompt input
+        promptInput.addEventListener('paste', (e) => {
+            // Allow paste to work normally in the prompt input
+            e.stopPropagation();
+        });
+        
+        // Handle input events to make the prompt input more responsive
+        promptInput.addEventListener('input', (e) => {
+            e.stopPropagation();
         });
     }
 
@@ -2675,6 +2705,8 @@ function openInlinePrompt(range, text) {
         setTimeout(() => {
             inlinePrompt.classList.add('show');
             promptInput.focus();
+            // Ensure the prompt input is ready for editing
+            promptInput.select();
         }, 10);
 
         // Hide any existing preview
@@ -2695,6 +2727,8 @@ function openInlinePrompt(range, text) {
         setTimeout(() => {
             inlinePrompt.classList.add('show');
             promptInput.focus();
+            // Ensure the prompt input is ready for editing
+            promptInput.select();
         }, 10);
     }
 }
@@ -2742,7 +2776,22 @@ async function handlePromptSubmit(prompt) {
     const promptActions = document.getElementById('promptActions');
     const submitIcon = promptSubmit.querySelector('i');
     
-    if (!prompt.trim() || !currentText) return;
+    if (!prompt.trim()) return;
+    
+    // If no currentText is set, use the selected text or all editor content
+    if (!currentText) {
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0 && !selection.isCollapsed) {
+            currentText = selection.toString();
+        } else {
+            currentText = editor.textContent || editor.innerText || '';
+        }
+    }
+    
+    if (!currentText.trim()) {
+        alert('Please select some text to edit with AI, or ensure there is content in the editor.');
+        return;
+    }
 
     // Add to history
     addToPromptHistory(prompt);
@@ -2849,58 +2898,30 @@ function showAIPreviewWithTypewriter(text) {
     previewContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-// Typewriter effect for AI generation with dynamic speed
+// Typewriter effect for AI generation with fast line-by-line display
 async function startTypewriterEffect(element, text, actionsContainer) {
     // Clear loading message and add typing class for cursor effect
     element.innerHTML = '';
     element.classList.add('typing');
     
-    // Determine typing mode based on content
-    const typingMode = determineTypingMode(text);
-    const baseSpeed = await calculateDynamicSpeed(text);
-    
-    if (typingMode === 'word') {
-        await startWordByWordTyping(element, text, actionsContainer, baseSpeed);
-    } else {
-        await startCharByCharTyping(element, text, actionsContainer, baseSpeed);
-    }
+    // Use fast line-by-line generation for all content
+    await startLineByLineTyping(element, text, actionsContainer);
 }
 
-// Determine whether to use word-by-word or character-by-character typing
-function determineTypingMode(text) {
-    const wordCount = text.split(/\s+/).length;
-    const hasCode = /[{}();]/.test(text);
-    const hasLongWords = text.split(/\s+/).some(word => word.length > 10);
-    const hasNewlines = text.includes('\n');
+// Fast line-by-line typing for AI generation
+async function startLineByLineTyping(element, text, actionsContainer) {
+    const lines = text.split('\n');
+    let lineIndex = 0;
     
-    // Use word-by-word for:
-    // - Short texts (< 20 words)
-    // - Code-heavy content
-    // - Multi-line content
-    // - Texts with many long words
-    if (wordCount < 20 || hasCode || hasNewlines || hasLongWords) {
-        return 'word';
-    }
-    
-    // Use character-by-character for longer, flowing text
-    return 'char';
-}
-
-// Character-by-character typing
-async function startCharByCharTyping(element, text, actionsContainer, baseSpeed) {
-    let index = 0;
-    let currentSpeed = baseSpeed;
-    
-    function typeNextChar() {
-        if (index < text.length) {
-            const char = text[index];
-            element.textContent = text.substring(0, index + 1);
-            index++;
+    function typeNextLine() {
+        if (lineIndex < lines.length) {
+            // Display all lines up to current line
+            const currentContent = lines.slice(0, lineIndex + 1).join('\n');
+            element.textContent = currentContent;
+            lineIndex++;
             
-            // Adjust speed based on current character and position
-            currentSpeed = getAdjustedSpeed(char, index, text.length, baseSpeed);
-            
-            setTimeout(typeNextChar, currentSpeed);
+            // Fast timing - 50ms per line for quick display
+            setTimeout(typeNextLine, 50);
         } else {
             // Remove typing class and show action buttons when complete
             element.classList.remove('typing');
@@ -2909,213 +2930,11 @@ async function startCharByCharTyping(element, text, actionsContainer, baseSpeed)
     }
     
     // Start typing
-    typeNextChar();
+    typeNextLine();
 }
 
-// Word-by-word typing
-async function startWordByWordTyping(element, text, actionsContainer, baseSpeed) {
-    const words = text.split(/(\s+)/); // Split but keep spaces
-    let wordIndex = 0;
-    let currentSpeed = baseSpeed;
-    
-    function typeNextWord() {
-        if (wordIndex < words.length) {
-            const word = words[wordIndex];
-            element.textContent = words.slice(0, wordIndex + 1).join('');
-            wordIndex++;
-            
-            // Adjust speed based on word characteristics
-            currentSpeed = getWordAdjustedSpeed(word, wordIndex, words.length, baseSpeed);
-            
-            setTimeout(typeNextWord, currentSpeed);
-        } else {
-            // Remove typing class and show action buttons when complete
-            element.classList.remove('typing');
-            actionsContainer.style.display = 'flex';
-        }
-    }
-    
-    // Start typing
-    typeNextWord();
-}
 
-// Get adjusted speed for word-by-word typing
-function getWordAdjustedSpeed(word, position, totalWords, baseSpeed) {
-    let speed = baseSpeed * 3; // Base word speed (3x character speed)
-    
-    // Adjust for word length
-    if (word.length > 10) {
-        speed *= 1.5; // Slower for long words
-    } else if (word.length < 3) {
-        speed *= 0.7; // Faster for short words
-    }
-    
-    // Adjust for word type
-    if (/[.!?]/.test(word)) {
-        speed *= 2; // Slower for sentences ending
-    } else if (/[,;:]/.test(word)) {
-        speed *= 1.5; // Slower for commas/semicolons
-    } else if (/^\s+$/.test(word)) {
-        speed *= 0.3; // Much faster for spaces
-    }
-    
-    // Speed up as we get closer to the end
-    const progress = position / totalWords;
-    if (progress > 0.8) {
-        speed *= 0.6; // 40% faster in last 20%
-    } else if (progress > 0.6) {
-        speed *= 0.8; // 20% faster in last 40%
-    }
-    
-    // Add randomness
-    const randomness = 0.7 + (Math.random() * 0.6); // 0.7 to 1.3
-    speed *= randomness;
-    
-    return Math.max(20, Math.round(speed)); // Minimum 20ms for words
-}
 
-// Calculate dynamic base speed based on content type and length
-async function calculateDynamicSpeed(text) {
-    const textLength = text.length;
-    const hasNewlines = text.includes('\n');
-    const hasPunctuation = /[.!?]/.test(text);
-    const hasCode = /[{}();]/.test(text);
-    
-    // Base speed calculation
-    let baseSpeed = 25; // Default 25ms per character
-    
-    // Adjust for content length (shorter = faster)
-    if (textLength < 50) {
-        baseSpeed = 15; // Very fast for short responses
-    } else if (textLength < 200) {
-        baseSpeed = 20; // Fast for medium responses
-    } else if (textLength > 1000) {
-        baseSpeed = 35; // Slower for very long responses
-    }
-    
-    // Adjust for content type
-    if (hasCode) {
-        baseSpeed += 10; // Slower for code
-    }
-    if (hasNewlines) {
-        baseSpeed -= 5; // Faster for multi-line content
-    }
-    if (hasPunctuation) {
-        baseSpeed += 5; // Slightly slower for formal text
-    }
-    
-    // Use real network speed detection
-    const networkSpeed = await getNetworkSpeed();
-    baseSpeed = Math.max(10, baseSpeed * networkSpeed);
-    
-    return Math.round(baseSpeed);
-}
-
-// Get adjusted speed for current character
-function getAdjustedSpeed(char, position, totalLength, baseSpeed) {
-    let speed = baseSpeed;
-    
-    // Faster for spaces (natural reading pause)
-    if (char === ' ') {
-        speed *= 0.3;
-    }
-    // Slower for punctuation (natural pause)
-    else if (/[.!?]/.test(char)) {
-        speed *= 2.5;
-    }
-    // Slower for commas and semicolons
-    else if (/[,;:]/.test(char)) {
-        speed *= 1.8;
-    }
-    // Faster for common letters
-    else if (/[aeiou]/.test(char.toLowerCase())) {
-        speed *= 0.8;
-    }
-    // Slower for numbers and special chars
-    else if (/[0-9@#$%&*]/.test(char)) {
-        speed *= 1.3;
-    }
-    
-    // Speed up as we get closer to the end (build excitement)
-    const progress = position / totalLength;
-    if (progress > 0.8) {
-        speed *= 0.7; // 30% faster in last 20%
-    } else if (progress > 0.6) {
-        speed *= 0.85; // 15% faster in last 40%
-    }
-    
-    // Add some randomness to make it feel more natural
-    const randomness = 0.8 + (Math.random() * 0.4); // 0.8 to 1.2
-    speed *= randomness;
-    
-    return Math.max(5, Math.round(speed)); // Minimum 5ms
-}
-
-// Real network speed detection
-let networkSpeedCache = null;
-let networkSpeedTimestamp = 0;
-
-async function getNetworkSpeed() {
-    const now = Date.now();
-    
-    // Use cached speed if it's less than 30 seconds old
-    if (networkSpeedCache && (now - networkSpeedTimestamp) < 30000) {
-        return networkSpeedCache;
-    }
-    
-    try {
-        // Measure network speed by timing a small request
-        const startTime = performance.now();
-        
-        // Use a small image or API endpoint to measure latency
-        const response = await fetch('data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', {
-            method: 'HEAD',
-            cache: 'no-cache'
-        });
-        
-        const endTime = performance.now();
-        const latency = endTime - startTime;
-        
-        // Convert latency to speed multiplier
-        let speedMultiplier;
-        if (latency < 50) {
-            speedMultiplier = 0.5; // Very fast
-        } else if (latency < 100) {
-            speedMultiplier = 0.7; // Fast
-        } else if (latency < 200) {
-            speedMultiplier = 1.0; // Normal
-        } else if (latency < 500) {
-            speedMultiplier = 1.3; // Slow
-        } else {
-            speedMultiplier = 1.8; // Very slow
-        }
-        
-        // Cache the result
-        networkSpeedCache = speedMultiplier;
-        networkSpeedTimestamp = now;
-        
-        return speedMultiplier;
-    } catch (error) {
-        console.log('Network speed detection failed, using fallback');
-        // Fallback to simulated speed
-        return getSimulatedNetworkSpeed();
-    }
-}
-
-// Simulate network speed detection (fallback)
-function getSimulatedNetworkSpeed() {
-    // Simulate different network conditions
-    const conditions = [
-        0.5,  // Very fast (fiber)
-        0.7,  // Fast (good WiFi)
-        1.0,  // Normal (average)
-        1.3,  // Slow (poor connection)
-        1.8   // Very slow (mobile data)
-    ];
-    
-    // Randomly pick a condition (in real app, base on actual measurements)
-    return conditions[Math.floor(Math.random() * conditions.length)];
-}
 
 // Show AI preview (original function for backward compatibility)
 function showAIPreview(text) {
