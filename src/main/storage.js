@@ -287,9 +287,7 @@ function getAppSettings() {
     fontFamily: 'Aeonik',
     theme: 'dark',
     autoSave: true,
-    wordWrap: true,
-    aiApiKey: '',
-    aiEnabled: false
+    wordWrap: true
   });
 }
 
@@ -302,29 +300,6 @@ function saveAppSettings(settings) {
   }
 }
 
-// ===== AI SETTINGS MANAGEMENT =====
-function getAISettings() {
-  const settings = getAppSettings();
-  return {
-    aiApiKey: settings.aiApiKey || '',
-    aiEnabled: settings.aiEnabled || false
-  };
-}
-
-function saveAISettings(aiSettings) {
-  try {
-    const currentSettings = getAppSettings();
-    const updatedSettings = {
-      ...currentSettings,
-      aiApiKey: aiSettings.aiApiKey || '',
-      aiEnabled: aiSettings.aiEnabled || false
-    };
-    store.set('settings', updatedSettings);
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-}
 
 // ===== WINDOW STATE MANAGEMENT =====
 function getWindowBounds() {
@@ -430,10 +405,6 @@ module.exports = {
   // Settings
   getAppSettings,
   saveAppSettings,
-
-  // AI Settings
-  getAISettings,
-  saveAISettings,
 
   // Window state
   getWindowBounds,
