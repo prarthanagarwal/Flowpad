@@ -175,6 +175,14 @@ body.light-mode .note-item.active .note-item-time {
     color: #666;
 }
 
+body.light-mode .note-item-preview {
+    color: #888;
+}
+
+body.light-mode .note-item-meta {
+    color: #888;
+}
+
 body.light-mode .note-action-btn {
     color: #666;
 }
@@ -265,7 +273,8 @@ body.light-mode .format-btn.active {
     color: #fff;
 }
 
-body.light-mode .format-divider {
+body.light-mode .format-divider,
+body.light-mode .format-section-divider {
     background-color: #d0d0d0;
 }
 
@@ -283,6 +292,22 @@ body.light-mode .todo-checkbox.checked {
 }
 
 body.light-mode .todo-text.completed {
+    color: #666;
+}
+
+body.light-mode .circular-checkbox.unchecked::before {
+    color: #999;
+}
+
+body.light-mode .circular-checkbox.checked::before {
+    color: #007acc;
+}
+
+body.light-mode .checklist-text.completed {
+    color: #999;
+}
+
+body.light-mode .editor .list-marker {
     color: #666;
 }
 
@@ -610,6 +635,36 @@ body.light-mode .notes-list::-webkit-scrollbar-thumb:hover {
     margin: 4px 0;
 }
 
+/* Editor Context Menu */
+.editor-context-menu {
+    position: fixed;
+    background-color: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 6px;
+    padding: 4px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 10000;
+    display: none;
+    min-width: 140px;
+}
+
+body.light-mode .editor-context-menu {
+    background-color: #fff;
+    border-color: #d0d0d0;
+}
+
+body.light-mode .editor-context-menu .context-menu-item {
+    color: #2d2d2d;
+}
+
+body.light-mode .editor-context-menu .context-menu-item:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+body.light-mode .editor-context-menu .context-menu-separator {
+    background-color: #d0d0d0;
+}
+
 /* Notes List */
 .notes-list {
     padding: 10px 0;
@@ -640,9 +695,7 @@ body.light-mode .notes-list::-webkit-scrollbar-thumb:hover {
     margin-bottom: 4px;
 }
 
-.category-notes {
-    /* Container for notes in each category */
-}
+/* .category-notes is a semantic container for notes in each category */
 
 .note-item {
     padding: 8px 20px;
@@ -680,13 +733,22 @@ body.light-mode .notes-list::-webkit-scrollbar-thumb:hover {
 
 .note-item-title {
     font-size: 14px;
-    font-weight: 400;
+    font-weight: 600;
     color: #e0e0e0;
-    margin-bottom: 2px;
+    margin-bottom: 3px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     line-height: 1.3;
+}
+
+.note-item-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: #888;
+    overflow: hidden;
 }
 
 .note-item-time {
@@ -696,6 +758,17 @@ body.light-mode .notes-list::-webkit-scrollbar-thumb:hover {
     display: flex;
     align-items: center;
     gap: 2px;
+    flex-shrink: 0;
+}
+
+.note-item-preview {
+    color: #666;
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
 }
 
 .time-text {
@@ -802,7 +875,7 @@ body.light-mode .notes-list::-webkit-scrollbar-thumb:hover {
     padding: 40px 250px 60px 250px;
     background-color: #1a1a1a;
     color: #e0e0e0;
-    font-size: 16px;
+    font-size: 18px;
     font-family: 'Aeonik', sans-serif;
     line-height: 1.6;
     outline: none;
@@ -819,13 +892,22 @@ body.light-mode .notes-list::-webkit-scrollbar-thumb:hover {
     transform: translate(-50%, -50%);
     color: #666;
     pointer-events: none;
-    font-size: 16px;
+    font-size: 18px;
     transition: opacity 0.2s;
     text-align: center;
 }
 
 .editor-placeholder.hidden {
     opacity: 0;
+}
+
+/* First line title styling - Apple Notes style */
+/* Only applies when user hasn't explicitly set body style on first line */
+/* The .title-override class disables automatic title styling */
+
+.editor:not(.title-override)::first-line {
+    font-size: 32px;
+    font-weight: bold;
 }
 
 /* Custom scrollbar */
@@ -1008,6 +1090,39 @@ body.light-mode .notes-list::-webkit-scrollbar-thumb:hover {
     gap: 4px;
 }
 
+.size-options.horizontal {
+    flex-direction: row;
+    gap: 6px;
+}
+
+.size-options.horizontal .size-option {
+    padding: 8px 14px;
+    min-width: auto;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.style-option .style-label,
+.size-option .style-label {
+    font-family: 'Gilroy', sans-serif;
+}
+
+.style-option[data-style="title"] .style-label {
+    font-weight: 700;
+    font-size: 14px;
+}
+
+.style-option[data-style="heading"] .style-label {
+    font-weight: 600;
+    font-size: 12px;
+}
+
+/* Size-only options (16, 18, 20) */
+.size-option:not(.style-option) .style-label {
+    font-weight: 400;
+    font-size: 11px;
+}
+
 .size-option {
     background: none;
     border: none;
@@ -1063,16 +1178,28 @@ body.light-mode .notes-list::-webkit-scrollbar-thumb:hover {
     z-index: 1000;
     margin-bottom: 17px;
     width: max-content;
+    min-width: 200px;
 }
 
 .formatting-dropdown-content.show {
     display: block;
 }
 
+.format-section {
+    margin-bottom: 8px;
+}
+
+.format-section-divider {
+    height: 1px;
+    background-color: #444;
+    margin: 8px 0;
+}
+
 .format-buttons {
     display: flex;
     gap: 5px;
     align-items: center;
+    flex-wrap: wrap;
 }
 
 .format-divider {
@@ -1155,6 +1282,104 @@ body.light-mode .notes-list::-webkit-scrollbar-thumb:hover {
 .todo-text.completed {
     text-decoration: line-through;
     color: #888;
+}
+
+/* Circular Checklist Styles */
+.checklist-icon {
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 1;
+}
+
+.circular-checklist-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 4px 0;
+    line-height: 1.6;
+}
+
+.circular-checkbox {
+    cursor: pointer;
+    font-size: 16px;
+    user-select: none;
+    flex-shrink: 0;
+    line-height: 1.6;
+    transition: transform 0.15s ease;
+}
+
+.circular-checkbox:hover {
+    transform: scale(1.1);
+}
+
+.circular-checkbox.unchecked::before {
+    content: '○';
+    color: #888;
+}
+
+.circular-checkbox.checked::before {
+    content: '●';
+    color: #0066cc;
+}
+
+.checklist-text {
+    flex: 1;
+    outline: none;
+}
+
+.checklist-text.completed {
+    text-decoration: line-through;
+    color: #666;
+}
+
+/* First Line Title Styles */
+.editor .title-line {
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.3;
+    margin-bottom: 8px;
+}
+
+/* Text Style Classes for the editor */
+.editor .text-title {
+    font-size: 32px;
+    line-height: 1.3;
+}
+
+.editor .text-heading {
+    font-size: 24px;
+    line-height: 1.4;
+}
+
+.editor .text-body {
+    font-size: 18px;
+    line-height: 1.6;
+}
+
+/* Bullet and numbered list improvements */
+.editor .bullet-list,
+.editor .numbered-list {
+    margin: 8px 0;
+    padding-left: 0;
+}
+
+.editor .list-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 2px 0;
+    line-height: 1.6;
+}
+
+.editor .list-marker {
+    flex-shrink: 0;
+    color: #888;
+    min-width: 16px;
+}
+
+.editor .list-content {
+    flex: 1;
+    outline: none;
 }
 
 /* Rich text formatting */
