@@ -1,0 +1,59 @@
+----------------------------------------------------------
+
+export APPLE_ID="prarthanagarwal007@gmail.com" 
+export APPLE_APP_SPECIFIC_PASSWORD="frex-ddtp-rpxf-elev"
+export APPLE_TEAM_ID="NYTQ72PV9X" 
+export CSC_LINK="certificates/don.p12"
+export CSC_KEY_PASSWORD="don10"
+npm run build:mac
+
+----------------------------------------------------------
+
+// Sign the DMG file itself
+codesign --sign "Developer ID Application: Prarthan Agarwal (NYTQ72PV9X)" \
+  --options runtime \
+  --timestamp \
+  "out/make/Flowpad-1.7-arm64.dmg"
+
+----------------------------------------------------------
+
+// Notarization after Build
+
+xcrun notarytool submit "out/make/Flowpad-1.7-arm64.dmg" \
+  --apple-id "prarthanagarwal007@gmail.com" \
+  --password "frex-ddtp-rpxf-elev" \
+  --team-id "NYTQ72PV9X"
+
+----------------------------------------------------------
+
+// Check Notarization status with the ID <> (SABSE IMP)
+
+xcrun notarytool wait 43cae1f2-c3d9-4e9f-9eb1-816e1889f7c1 \
+  --apple-id "prarthanagarwal007@gmail.com" \
+  --password "frex-ddtp-rpxf-elev" \
+  --team-id "NYTQ72PV9X"
+
+----------------------------------------------------------
+
+// Staple the Notarization Ticket
+xcrun stapler staple "out/make/Flowpad-1.7-arm64.dmg"
+
+----------------------------------------------------------
+
+// After stapling, verify everything works:
+
+# Mount and test the app
+hdiutil attach "out/make/Flowpad-1.7-arm64.dmg"
+
+# Check the actual app bundle
+spctl --assess --type exec "/Volumes/Flowpad/Flowpad.app"
+
+# Unmount the disk
+hdiutil detach "/Volumes/Flowpad"
+
+----------------------------------------------------------
+
+// Optional
+
+# Check if app is now accepted 
+spctl --assess --type exec "out/make/Flowpad-1.7-arm64.dmg"
