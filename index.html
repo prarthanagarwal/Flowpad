@@ -94,28 +94,25 @@
                         </div>
                     </div>
                 </div>
-                <div class="font-size-dropdown" id="fontsizeDropdown">
-                    <button id="fontsizeBtn" class="toolbar-btn" title="Font Size">
-                        <i class="ph ph-at" style="font-size: 16px;"></i>
-                        <span id="fontsizeDisplay">18px</span>
-                    </button>
-                    <div class="font-size-dropdown-content" id="fontsizeDropdownContent">
-                        <div class="size-options">
-                            <button class="size-option" data-size="16">16px</button>
-                            <button class="size-option" data-size="18" class="active">18px</button>
-                            <button class="size-option" data-size="20">20px</button>
-                            <button class="size-option" data-size="22">22px</button>
-                            <button class="size-option" data-size="24">24px</button>
-                            <button class="size-option" data-size="26">26px</button>
-                            <button class="size-option" data-size="28">28px</button>
-                        </div>
-                    </div>
-                </div>
                 <div class="formatting-dropdown" id="formattingDropdown">
                     <button id="formatBtn" class="toolbar-btn" title="Text Formatting">
                         <i class="ph ph-text-aa" style="font-size: 16px;"></i>
                     </button>
                     <div class="formatting-dropdown-content" id="formattingDropdownContent">
+                        <div class="format-section">
+                            <div class="size-options horizontal">
+                                <button class="size-option style-option" data-size="32" data-style="title" title="Title (32px)">
+                                    <span class="style-label">Title</span>
+                                </button>
+                                <button class="size-option style-option" data-size="24" data-style="heading" title="Heading (24px)">
+                                    <span class="style-label">Heading</span>
+                                </button>
+                                <button class="size-option style-option active" data-size="18" data-style="body" title="Body (18px)">
+                                    <span class="style-label">Body</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="format-section-divider"></div>
                         <div class="format-buttons">
                             <button class="format-btn" data-command="bold" title="Bold" id="boldBtn">
                                 <i class="ph ph-text-b" style="font-size: 14px;"></i>
@@ -129,10 +126,19 @@
                             <button class="format-btn" data-command="strikethrough" title="Strikethrough">
                                 <i class="ph ph-text-strikethrough" style="font-size: 14px;"></i>
                             </button>
+                            <div class="format-divider"></div>
+                            <button class="format-btn" id="bulletListBtn" title="Bullet List">
+                                <i class="ph ph-list-bullets" style="font-size: 14px;"></i>
+                            </button>
+                            <button class="format-btn" id="numberedListBtn" title="Numbered List">
+                                <i class="ph ph-list-numbers" style="font-size: 14px;"></i>
+                            </button>
                         </div>
-
                     </div>
                 </div>
+                <button id="checklistBtn" class="toolbar-btn" title="Checklist">
+                    <i class="ph ph-list-checks" style="font-size: 16px;"></i>
+                </button>
             </div>
             
             <div class="toolbar-center">
@@ -164,7 +170,25 @@
         </div>
     </div>
 
-
+    <!-- Context Menu for Editor -->
+    <div class="editor-context-menu" id="editorContextMenu">
+        <div class="context-menu-item" data-action="copy">
+            <i class="ph ph-copy" style="font-size: 12px;"></i>
+            Copy
+        </div>
+        <div class="context-menu-item" data-action="paste">
+            <i class="ph ph-clipboard-text" style="font-size: 12px;"></i>
+            Paste
+        </div>
+        <div class="context-menu-item" data-action="cut">
+            <i class="ph ph-scissors" style="font-size: 12px;"></i>
+            Cut
+        </div>
+        <div class="context-menu-item" data-action="select-all">
+            <i class="ph ph-selection-all" style="font-size: 12px;"></i>
+            Select All
+        </div>
+    </div>
 
     <script src="src/shared/utils.js"></script>
     <script src="app.js"></script>
