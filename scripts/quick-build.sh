@@ -48,7 +48,7 @@ main() {
     
     VERSION=$(get_version)
     ARCH=$(get_architecture)
-    DMG_PATH="out/make/Flowpad-${VERSION}-${ARCH}.dmg"
+    DMG_PATH="out/make/flowpad-${VERSION}-${ARCH}.dmg"
     
     print_status "Version: $VERSION, Architecture: $ARCH"
     print_status "DMG Path: $DMG_PATH"
@@ -88,7 +88,7 @@ main() {
     # Verify
     print_status "Verifying final result..."
     hdiutil attach "$DMG_PATH"
-    spctl --assess --type exec "/Volumes/Flowpad/Flowpad.app" || true
+    spctl --assess --type exec "/Volumes/flowpad/flowpad.app" || true
     hdiutil detach "/Volumes/Flowpad"
     
     print_success "Process completed successfully!"

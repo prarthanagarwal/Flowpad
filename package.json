@@ -1,8 +1,8 @@
 {
   "name": "flowpad",
-  "version": "1.6.2",
+  "version": "1.7.0",
   "description": "a minimal notepad for your thoughts to flow",
-  "productName": "Flowpad",
+  "productName": "flowpad",
   "author": {
     "name": "Prarthan Agarwal",
     "email": "developer@flowpad.com"

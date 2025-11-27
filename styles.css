@@ -885,6 +885,10 @@ body.light-mode .editor-context-menu .context-menu-separator {
     word-wrap: break-word;
 }
 
+.editor.hovering-checkbox {
+    cursor: pointer;
+}
+
 .editor-placeholder {
     position: absolute;
     top: 50%;

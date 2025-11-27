@@ -6,12 +6,12 @@ module.exports = {
   packagerConfig: {
     asar: true,
     // App metadata
-    name: 'Flowpad',
-    productName: 'Flowpad',
-    executableName: 'Flowpad',
+    name: 'flowpad',
+    productName: 'flowpad',
+    executableName: 'flowpad',
     appBundleId: 'com.flowpad.app',
     appCategoryType: 'public.app-category.productivity',
-    appCopyright: 'Copyright © 2025 Prarthan Agarwal',
+    appCopyright: 'Copyright © 2025 Prarthan Agarwal and contributors',
     
     // Icons
     icon: 'assets/icon',
@@ -20,9 +20,9 @@ module.exports = {
     win32metadata: {
       CompanyName: 'Prarthan Agarwal',
       FileDescription: 'a minimal notepad for your thoughts to flow',
-      OriginalFilename: 'Flowpad.exe',
-      ProductName: 'Flowpad',
-      InternalName: 'Flowpad',
+      OriginalFilename: 'flowpad.exe',
+      ProductName: 'flowpad',
+      InternalName: 'flowpad',
       RequestedExecutionLevel: 'asInvoker',
     },
     
@@ -79,7 +79,7 @@ module.exports = {
       config: {
         repository: {
           owner: 'PrarthanAgarwal',
-          name: 'Flowpad'
+          name: 'flowpad'
         },
         draft: true,
         prerelease: false,

@@ -140,7 +140,13 @@ function setupEventListeners() {
     editor.addEventListener('paste', handlePaste);
     editor.addEventListener('keydown', handleKeyDown);
     editor.addEventListener('keyup', updateFormatButtonStates);
-    editor.addEventListener('mouseup', updateFormatButtonStates);
+    editor.addEventListener('mouseup', () => {
+        updateFormatButtonStates();
+        // Prevent cursor in list marker space after mouse interaction
+        setTimeout(() => {
+            preventCursorInListSpace();
+        }, 0);
+    });
     editor.addEventListener('focus', updateFormatButtonStates);
     editor.addEventListener('click', () => {
         // Ensure editor maintains focus when clicked
@@ -175,7 +181,16 @@ function setupEventListeners() {
     });
     
     // Update format button states on selection change
-    document.addEventListener('selectionchange', updateFormatButtonStates);
+    document.addEventListener('selectionchange', () => {
+        updateFormatButtonStates();
+        // Prevent cursor in list marker space on any selection change
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0 && selection.isCollapsed) {
+            setTimeout(() => {
+                preventCursorInListSpace();
+            }, 0);
+        }
+    });
     
     // Font family controls
     document.querySelectorAll('.font-option').forEach(option => {
@@ -212,13 +227,151 @@ function setupEventListeners() {
     // Handle click on circular checkboxes in the editor
     editor.addEventListener('click', (e) => {
         const text = e.target.textContent || '';
-        // Check if clicked on a circular checkbox character
-        if (text.includes('○') || text.includes('●')) {
+        // Check if clicked on a circular checkbox character (◯ = unchecked, ⬤ = checked)
+        if (text.includes('◯') || text.includes('⬤')) {
             const clickedChar = getClickedCharacter(e);
-            if (clickedChar === '○' || clickedChar === '●') {
+            if (clickedChar === '◯' || clickedChar === '⬤') {
                 toggleCircularCheckboxAtCursor();
             }
         }
+        
+        // Prevent cursor in the space after list markers
+        preventCursorInListSpace();
+    });
+    
+    // Prevent cursor placement in space after list markers (checklist, bullet, dash, numbered)
+    function preventCursorInListSpace() {
+        const selection = window.getSelection();
+        if (selection.rangeCount === 0) return;
+        
+        const range = selection.getRangeAt(0);
+        if (!range.collapsed) return; // Only handle collapsed selections (cursor)
+        
+        const node = range.startContainer;
+        if (node.nodeType !== Node.TEXT_NODE) return;
+        
+        const text = node.textContent;
+        const offset = range.startOffset;
+        
+        // Check if cursor is in the space right after a list marker
+        // We need to check both: cursor ON the space, and cursor AFTER the space
+        if (offset >= 0 && offset <= text.length) {
+            const charAtCursor = offset < text.length ? text[offset] : null;
+            const charBefore = offset > 0 ? text[offset - 1] : null;
+            const charBeforeBefore = offset > 1 ? text[offset - 2] : null;
+            
+            let shouldMove = false;
+            let targetOffset = offset;
+            
+            // Case 1: Cursor is ON the space character (between marker and text)
+            // Check if we're at the space after checkbox (◯ or ⬤)
+            if (charAtCursor === ' ' || charAtCursor === '\u00A0') {
+                if (charBefore === '◯' || charBefore === '⬤' || 
+                    charBefore === '•' || charBefore === '-') {
+                    shouldMove = true;
+                    targetOffset = offset + 1; // Move past the space
+                } else if (charBefore === '.') {
+                    // Check for numbered list (1., 2., etc.)
+                    const beforePeriod = text.substring(Math.max(0, offset - 4), offset - 1);
+                    const numberMatch = beforePeriod.match(/(\d+)$/);
+                    if (numberMatch) {
+                        shouldMove = true;
+                        targetOffset = offset + 1;
+                    }
+                }
+            }
+            // Case 2: Cursor is AFTER the space (we're in the space position)
+            // Check if we're right after the space after checkbox (◯ or ⬤)
+            else if ((charBefore === ' ' || charBefore === '\u00A0') && 
+                     (charBeforeBefore === '◯' || charBeforeBefore === '⬤')) {
+                shouldMove = true;
+                targetOffset = offset + 1; // Move past the space
+            }
+            // Check if we're right after the space after bullet (•)
+            else if ((charBefore === ' ' || charBefore === '\u00A0') && charBeforeBefore === '•') {
+                shouldMove = true;
+                targetOffset = offset + 1;
+            }
+            // Check if we're right after the space after dash (-)
+            else if ((charBefore === ' ' || charBefore === '\u00A0') && charBeforeBefore === '-') {
+                shouldMove = true;
+                targetOffset = offset + 1;
+            }
+            // Check if we're right after the space after numbered list (1., 2., etc.)
+            else if (charBefore === ' ' || charBefore === '\u00A0') {
+                const beforeSpace = text.substring(Math.max(0, offset - 5), offset - 1);
+                const numberMatch = beforeSpace.match(/(\d+)\.$/);
+                if (numberMatch) {
+                    shouldMove = true;
+                    targetOffset = offset + 1;
+                }
+            }
+            
+            if (shouldMove) {
+                // Move cursor past the space to the text area
+                const newRange = document.createRange();
+                // Ensure we don't go beyond the text node
+                const safeOffset = Math.min(targetOffset, text.length);
+                newRange.setStart(node, safeOffset);
+                newRange.collapse(true);
+                selection.removeAllRanges();
+                selection.addRange(newRange);
+            }
+        }
+    }
+    
+    // Handle hover over circular checkboxes - change cursor to pointer
+    editor.addEventListener('mousemove', (e) => {
+        let range;
+        
+        // Try to get range from point (modern browsers)
+        if (document.caretRangeFromPoint) {
+            range = document.caretRangeFromPoint(e.clientX, e.clientY);
+        } else if (document.caretPositionFromPoint) {
+            const pos = document.caretPositionFromPoint(e.clientX, e.clientY);
+            if (pos) {
+                range = document.createRange();
+                range.setStart(pos.offsetNode, pos.offset);
+                range.collapse(true);
+            }
+        }
+        
+        if (!range) {
+            editor.classList.remove('hovering-checkbox');
+            return;
+        }
+        
+        const node = range.startContainer;
+        let text = '';
+        let offset = 0;
+        
+        if (node.nodeType === Node.TEXT_NODE) {
+            text = node.textContent;
+            offset = range.startOffset;
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+            // Get text from element
+            text = node.textContent || '';
+            offset = 0;
+        }
+        
+        // Check if we're on or near a circle character (within 2 characters for precision)
+        const nearbyText = text.substring(Math.max(0, offset - 2), Math.min(text.length, offset + 2));
+        
+        // Check if cursor is directly on the circle or the space right after it
+        const isOnCircle = offset > 0 && (text[offset - 1] === '◯' || text[offset - 1] === '⬤');
+        const isAfterCircle = offset > 1 && (text[offset - 2] === '◯' || text[offset - 2] === '⬤') && 
+                            (text[offset - 1] === ' ' || text[offset - 1] === '\u00A0');
+        
+        if (isOnCircle || isAfterCircle || nearbyText.includes('◯') || nearbyText.includes('⬤')) {
+            editor.classList.add('hovering-checkbox');
+        } else {
+            editor.classList.remove('hovering-checkbox');
+        }
+    });
+    
+    // Remove pointer cursor when mouse leaves editor
+    editor.addEventListener('mouseleave', () => {
+        editor.classList.remove('hovering-checkbox');
     });
     
     // Menu event listeners
@@ -1382,20 +1535,22 @@ function checkForListActivation() {
     
     const currentLineText = getCurrentLineText();
     
-    // Check for dash list activation (- or * followed by space)
-    if (currentLineText === '- ' || currentLineText === '* ' || currentLineText === '• ') {
+    // Check for dash list activation (- or * followed by space or non-breaking space)
+    const normalizedDashLine = currentLineText.replace(/\u00A0/g, ' ');
+    if (normalizedDashLine === '- ' || normalizedDashLine === '* ' || normalizedDashLine === '• ') {
         isDashListMode = true;
         isNumberedListMode = false;
         isCircularChecklistMode = false;
         
         // Replace * with bullet point for consistency
-        if (currentLineText === '* ') {
-            replaceCurrentLineStart('* ', '• ');
+        if (normalizedDashLine === '* ') {
+            replaceCurrentLineStart('* ', '•\u00A0');
         }
     }
     
-    // Check for numbered list activation (1. followed by space)
-    const numberedMatch = currentLineText.match(/^(\d+)\.\s$/);
+    // Check for numbered list activation (1. followed by space or non-breaking space)
+    const normalizedNumberedLine = currentLineText.replace(/\u00A0/g, ' ');
+    const numberedMatch = normalizedNumberedLine.match(/^(\d+)\.\s$/);
     if (numberedMatch) {
         currentListNumber = parseInt(numberedMatch[1]);
         isNumberedListMode = true;
@@ -1403,8 +1558,9 @@ function checkForListActivation() {
         isCircularChecklistMode = false;
     }
     
-    // Check for circular checklist activation (○ followed by space)
-    if (currentLineText === '○ ' || currentLineText === '● ') {
+    // Check for circular checklist activation (◯/⬤ followed by space or non-breaking space)
+    const normalizedLine = currentLineText.replace(/\u00A0/g, ' ');
+    if (normalizedLine === '◯ ' || normalizedLine === '⬤ ') {
         isCircularChecklistMode = true;
         isDashListMode = false;
         isNumberedListMode = false;
@@ -1645,21 +1801,229 @@ function updateTime() {
 
 // Keyboard shortcuts
 function handleKeyDown(e) {
+    // Handle arrow keys and other navigation - prevent cursor in list marker space
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Home') {
+        // Use setTimeout to check after the key has moved the cursor
+        setTimeout(() => {
+            preventCursorInListSpace();
+        }, 0);
+    }
+    
+    // Prevent typing in the space after list markers
+    // Check for regular typing keys (not special keys)
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && e.key !== 'Enter' && e.key !== 'Backspace') {
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            if (range.collapsed) {
+                const node = range.startContainer;
+                if (node.nodeType === Node.TEXT_NODE) {
+                    const text = node.textContent;
+                    const offset = range.startOffset;
+                    
+                    // Check if we're about to type in the forbidden space
+                    const charAtCursor = offset < text.length ? text[offset] : null;
+                    const charBefore = offset > 0 ? text[offset - 1] : null;
+                    const charBeforeBefore = offset > 1 ? text[offset - 2] : null;
+                    let isInForbiddenSpace = false;
+                    
+                    // Case 1: Cursor is ON the space character
+                    if (charAtCursor === ' ' || charAtCursor === '\u00A0') {
+                        if (charBefore === '◯' || charBefore === '⬤' || 
+                            charBefore === '•' || charBefore === '-') {
+                            isInForbiddenSpace = true;
+                        } else if (charBefore === '.') {
+                            // Check for numbered list
+                            const beforePeriod = text.substring(Math.max(0, offset - 4), offset - 1);
+                            if (beforePeriod.match(/\d+$/)) {
+                                isInForbiddenSpace = true;
+                            }
+                        }
+                    }
+                    // Case 2: Cursor is right after the space
+                    else if (offset > 0 && (charBefore === ' ' || charBefore === '\u00A0')) {
+                        if (charBeforeBefore === '◯' || charBeforeBefore === '⬤' || 
+                            charBeforeBefore === '•' || charBeforeBefore === '-') {
+                            isInForbiddenSpace = true;
+                        } else {
+                            // Check for numbered list
+                            const beforeSpace = text.substring(Math.max(0, offset - 5), offset - 1);
+                            if (beforeSpace.match(/(\d+)\.$/)) {
+                                isInForbiddenSpace = true;
+                            }
+                        }
+                    }
+                    
+                    if (isInForbiddenSpace) {
+                        // Prevent the default typing
+                        e.preventDefault();
+                        
+                        // Move cursor past the space
+                        const newRange = document.createRange();
+                        let targetOffset = offset;
+                        if (charAtCursor === ' ' || charAtCursor === '\u00A0') {
+                            targetOffset = offset + 1; // Move past the space we're on
+                        } else {
+                            targetOffset = offset + 1; // Move past the space we're after
+                        }
+                        const safeOffset = Math.min(targetOffset, text.length);
+                        newRange.setStart(node, safeOffset);
+                        newRange.collapse(true);
+                        selection.removeAllRanges();
+                        selection.addRange(newRange);
+                        
+                        // Insert the character at the new position
+                        document.execCommand('insertText', false, e.key);
+                    }
+                }
+            }
+        }
+    }
+    
+    // Handle Backspace key for list item removal (checklist, bullets, numbered)
+    if (e.key === 'Backspace') {
+        const selection = window.getSelection();
+        if (selection.rangeCount === 0) return;
+        
+        const range = selection.getRangeAt(0);
+        if (range.collapsed && range.startOffset > 0) {
+            const node = range.startContainer;
+            if (node.nodeType === Node.TEXT_NODE) {
+                const text = node.textContent;
+                const offset = range.startOffset;
+                
+                // Check if we're right after a list marker (followed by non-breaking space or regular space)
+                if (offset > 0 && (text[offset - 1] === '\u00A0' || text[offset - 1] === ' ')) {
+                    // Check for checkbox (◯ or ⬤)
+                    if (offset > 1 && (text[offset - 2] === '◯' || text[offset - 2] === '⬤')) {
+                        e.preventDefault();
+                        const newText = text.substring(0, offset - 2) + text.substring(offset);
+                        node.textContent = newText;
+                        const newRange = document.createRange();
+                        newRange.setStart(node, offset - 2);
+                        newRange.collapse(true);
+                        selection.removeAllRanges();
+                        selection.addRange(newRange);
+                        
+                        // Immediately check the line we moved to and reactivate if needed
+                        const lineText = getCurrentLineText();
+                        if (lineText.includes('◯') || lineText.includes('⬤')) {
+                            isCircularChecklistMode = true;
+                        } else {
+                            isCircularChecklistMode = false;
+                        }
+                        return;
+                    }
+                    // Check for bullet (•)
+                    else if (offset > 1 && text[offset - 2] === '•') {
+                        e.preventDefault();
+                        const newText = text.substring(0, offset - 2) + text.substring(offset);
+                        node.textContent = newText;
+                        const newRange = document.createRange();
+                        newRange.setStart(node, offset - 2);
+                        newRange.collapse(true);
+                        selection.removeAllRanges();
+                        selection.addRange(newRange);
+                        
+                        // Immediately check the line we moved to and reactivate if needed
+                        const lineText = getCurrentLineText();
+                        if (lineText.startsWith('•') || lineText.startsWith('-')) {
+                            isDashListMode = true;
+                        } else {
+                            isDashListMode = false;
+                        }
+                        return;
+                    }
+                    // Check for dash (-)
+                    else if (offset > 1 && text[offset - 2] === '-') {
+                        e.preventDefault();
+                        const newText = text.substring(0, offset - 2) + text.substring(offset);
+                        node.textContent = newText;
+                        const newRange = document.createRange();
+                        newRange.setStart(node, offset - 2);
+                        newRange.collapse(true);
+                        selection.removeAllRanges();
+                        selection.addRange(newRange);
+                        
+                        // Immediately check the line we moved to and reactivate if needed
+                        const lineText = getCurrentLineText();
+                        if (lineText.startsWith('•') || lineText.startsWith('-')) {
+                            isDashListMode = true;
+                        } else {
+                            isDashListMode = false;
+                        }
+                        return;
+                    }
+                    // Check for numbered list (1., 2., etc.)
+                    else if (offset > 2) {
+                        // Check if there's a number followed by period before the space
+                        const beforeSpace = text.substring(Math.max(0, offset - 5), offset - 1);
+                        const numberMatch = beforeSpace.match(/(\d+)\.$/);
+                        if (numberMatch) {
+                            e.preventDefault();
+                            const numberLength = numberMatch[1].length;
+                            const removeLength = numberLength + 2; // number + period + space
+                            const newText = text.substring(0, offset - removeLength) + text.substring(offset);
+                            node.textContent = newText;
+                            const newRange = document.createRange();
+                            newRange.setStart(node, offset - removeLength);
+                            newRange.collapse(true);
+                            selection.removeAllRanges();
+                            selection.addRange(newRange);
+                            
+                            // Immediately check the line we moved to and reactivate if needed
+                            const lineText = getCurrentLineText();
+                            const numMatch = lineText.match(/^(\d+)\./);
+                            if (numMatch) {
+                                currentListNumber = parseInt(numMatch[1]);
+                                isNumberedListMode = true;
+                            } else {
+                                isNumberedListMode = false;
+                            }
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
     // Handle Enter key for list continuation
     if (e.key === 'Enter') {
         const currentLineText = getCurrentLineText();
+        
+        // Check if we're on a line with a checkbox - reactivate checklist mode if needed
+        if (!isCircularChecklistMode && (currentLineText.includes('◯') || currentLineText.includes('⬤'))) {
+            isCircularChecklistMode = true;
+        }
+        
+        // Check if we're on a line with a bullet/dash - reactivate list mode if needed
+        if (!isDashListMode && (currentLineText.startsWith('•') || currentLineText.startsWith('-'))) {
+            isDashListMode = true;
+        }
+        
+        // Check if we're on a line with a number - reactivate numbered list mode if needed
+        if (!isNumberedListMode) {
+            const numMatch = currentLineText.match(/^(\d+)\./);
+            if (numMatch) {
+                currentListNumber = parseInt(numMatch[1]);
+                isNumberedListMode = true;
+            }
+        }
         
         // Handle circular checklist mode
         if (isCircularChecklistMode) {
             e.preventDefault();
             
             // Check if current line is just the checkbox (empty item)
-            if (currentLineText.trim() === '○' || currentLineText.trim() === '●' || currentLineText.trim() === '') {
+            // Remove non-breaking space for comparison
+            const cleanLineText = currentLineText.replace(/\u00A0/g, ' ').trim();
+            if (cleanLineText === '◯' || cleanLineText === '⬤' || cleanLineText === '') {
                 isCircularChecklistMode = false;
                 document.execCommand('insertText', false, '\n');
             } else {
-                // Continue checklist
-                document.execCommand('insertText', false, '\n○ ');
+                // Continue checklist with unchecked circle and non-breaking space
+                document.execCommand('insertText', false, '\n◯\u00A0');
             }
             return;
         }
@@ -1668,17 +2032,18 @@ function handleKeyDown(e) {
         if (isNumberedListMode) {
             e.preventDefault();
             
-            // Check if current line has content after the number
-            const numberMatch = currentLineText.match(/^\d+\.\s*/);
-            if (numberMatch && currentLineText.trim() === numberMatch[0].trim()) {
+            // Check if current line has content after the number (handle non-breaking space)
+            const normalizedNumberedLine = currentLineText.replace(/\u00A0/g, ' ');
+            const numberMatch = normalizedNumberedLine.match(/^\d+\.\s*/);
+            if (numberMatch && normalizedNumberedLine.trim() === numberMatch[0].trim()) {
                 // Empty numbered item - exit numbered list mode
                 isNumberedListMode = false;
                 currentListNumber = 1;
                 document.execCommand('insertText', false, '\n');
             } else {
-                // Continue numbered list
+                // Continue numbered list with non-breaking space
                 currentListNumber++;
-                document.execCommand('insertText', false, `\n${currentListNumber}. `);
+                document.execCommand('insertText', false, `\n${currentListNumber}.\u00A0`);
             }
             return;
         }
@@ -1687,14 +2052,15 @@ function handleKeyDown(e) {
         if (isDashListMode) {
             e.preventDefault();
             
-            // Check if current line has content after the dash/bullet
-            if (currentLineText.trim() === '-' || currentLineText.trim() === '•' || currentLineText.trim() === '') {
+            // Check if current line has content after the dash/bullet (handle non-breaking space)
+            const normalizedDashLine = currentLineText.replace(/\u00A0/g, ' ').trim();
+            if (normalizedDashLine === '-' || normalizedDashLine === '•' || normalizedDashLine === '') {
                 // Empty line or just dash - exit dash list mode
                 isDashListMode = false;
                 document.execCommand('insertText', false, '\n');
             } else {
-                // Continue list with same marker
-                const marker = currentLineText.startsWith('•') ? '• ' : '- ';
+                // Continue list with same marker and non-breaking space
+                const marker = currentLineText.startsWith('•') ? '•\u00A0' : '-\u00A0';
                 document.execCommand('insertText', false, '\n' + marker);
             }
             // Reset text style to body on Enter
@@ -1795,8 +2161,8 @@ function insertDashList() {
     const selection = window.getSelection();
     const range = selection.getRangeAt(0);
     
-    // Insert dash and space
-    document.execCommand('insertText', false, '- ');
+    // Insert dash with non-breaking space
+    document.execCommand('insertText', false, '-\u00A0');
     isDashListMode = true;
     
     editor.focus();
@@ -1806,7 +2172,8 @@ function insertBulletList() {
     const selection = window.getSelection();
     if (selection.rangeCount === 0) return;
     
-    document.execCommand('insertText', false, '• ');
+    // Insert bullet with non-breaking space
+    document.execCommand('insertText', false, '•\u00A0');
     isDashListMode = true;
     
     editor.focus();
@@ -1814,38 +2181,47 @@ function insertBulletList() {
 
 function insertNumberedList() {
     currentListNumber = 1;
-    document.execCommand('insertText', false, '1. ');
+    // Insert number with non-breaking space after period
+    document.execCommand('insertText', false, '1.\u00A0');
     isNumberedListMode = true;
     
     editor.focus();
 }
 
 function insertCircularChecklist() {
-    // Insert unchecked circular checkbox
-    document.execCommand('insertText', false, '○ ');
+    // Insert unchecked circular checkbox with non-breaking space (◯ = hollow/unchecked)
+    // Using non-breaking space (U+00A0) so it acts as a single unit
+    document.execCommand('insertText', false, '◯\u00A0');
     isCircularChecklistMode = true;
     
     editor.focus();
 }
 
 // Toggle circular checkbox state
+// ◯ (U+25EF) = hollow/unchecked, ⬤ (U+2B24) = filled/checked (larger circles)
 function toggleCircularCheckbox(element) {
-    const isChecked = element.textContent.includes('●');
+    const isChecked = element.textContent.includes('⬤');
     const line = element.closest('div') || element.parentNode;
     
     if (isChecked) {
-        // Change to unchecked
-        element.textContent = element.textContent.replace('●', '○');
-        if (line) {
-            line.style.textDecoration = 'none';
-            line.style.color = '';
+        // Change to unchecked (hollow) - restore plain text
+        const plainText = line ? line.textContent.replace('⬤', '◯') : element.textContent.replace('⬤', '◯');
+        if (line && line.nodeType === Node.ELEMENT_NODE) {
+            line.innerHTML = plainText;
+        } else {
+            element.textContent = plainText;
         }
     } else {
-        // Change to checked
-        element.textContent = element.textContent.replace('○', '●');
-        if (line) {
-            line.style.textDecoration = 'line-through';
-            line.style.color = '#666';
+        // Change to checked (filled) + strikethrough text only
+        const text = line ? line.textContent : element.textContent;
+        const circleIndex = text.indexOf('◯');
+        if (circleIndex !== -1) {
+            const textAfterCircle = text.substring(circleIndex + 2); // Skip circle and space
+            const textBeforeCircle = text.substring(0, circleIndex);
+            const newContent = textBeforeCircle + '⬤ ' + '<s style="color:#666">' + textAfterCircle + '</s>';
+            if (line && line.nodeType === Node.ELEMENT_NODE) {
+                line.innerHTML = newContent;
+            }
         }
     }
 }
@@ -2065,7 +2441,17 @@ function toggleCircularCheckboxAtCursor() {
     if (selection.rangeCount === 0) return;
     
     const range = selection.getRangeAt(0);
-    const node = range.startContainer;
+    let node = range.startContainer;
+    
+    // Find the parent element that contains this line
+    let lineElement = node;
+    while (lineElement && lineElement !== editor) {
+        if (lineElement.nodeType === Node.ELEMENT_NODE && 
+            (lineElement.tagName === 'DIV' || lineElement.tagName === 'P')) {
+            break;
+        }
+        lineElement = lineElement.parentNode;
+    }
     
     if (node.nodeType === Node.TEXT_NODE) {
         const text = node.textContent;
@@ -2076,21 +2462,51 @@ function toggleCircularCheckboxAtCursor() {
         const actualLineEnd = lineEnd === -1 ? text.length : lineEnd;
         const lineText = text.substring(lineStart, actualLineEnd);
         
-        // Check for unchecked or checked checkbox
-        if (lineText.includes('○')) {
-            // Toggle to checked
-            const newLineText = lineText.replace('○', '●');
-            node.textContent = text.substring(0, lineStart) + newLineText + text.substring(actualLineEnd);
-        } else if (lineText.includes('●')) {
-            // Toggle to unchecked
-            const newLineText = lineText.replace('●', '○');
-            node.textContent = text.substring(0, lineStart) + newLineText + text.substring(actualLineEnd);
+        // Check for unchecked or checked checkbox (◯ = hollow/unchecked, ⬤ = filled/checked)
+        // Handle both regular space and non-breaking space (U+00A0)
+        if (lineText.includes('◯')) {
+            // Toggle to checked (filled) + strikethrough text only (not the circle)
+            const circleIndex = lineText.indexOf('◯');
+            // Check if next char is space or non-breaking space
+            const spaceChar = (circleIndex + 1 < lineText.length && lineText[circleIndex + 1] === '\u00A0') ? '\u00A0' : ' ';
+            const textAfterCircle = lineText.substring(circleIndex + 2); // Skip circle and space
+            const textBeforeCircle = lineText.substring(0, circleIndex);
+            
+            // Create new content: circle + non-breaking space + strikethrough text
+            const newLineText = textBeforeCircle + '⬤\u00A0' + '<s style="color:#666">' + textAfterCircle + '</s>';
+            
+            // We need to use innerHTML for the styled content
+            if (lineElement && lineElement !== editor && lineElement.nodeType === Node.ELEMENT_NODE) {
+                lineElement.innerHTML = newLineText;
+            } else {
+                // Fallback: just replace the circle, preserve space type
+                const replacement = '⬤' + spaceChar;
+                node.textContent = text.substring(0, lineStart) + lineText.replace('◯' + spaceChar, replacement) + text.substring(actualLineEnd);
+            }
+        } else if (lineText.includes('⬤')) {
+            // Toggle to unchecked (hollow) + remove strikethrough
+            // Get the plain text content (strip any HTML)
+            let plainText = lineElement && lineElement !== editor ? lineElement.textContent : lineText;
+            // Preserve non-breaking space if it exists
+            const circleIndex = plainText.indexOf('⬤');
+            const spaceChar = (circleIndex + 1 < plainText.length && plainText[circleIndex + 1] === '\u00A0') ? '\u00A0' : ' ';
+            const newPlainText = plainText.replace('⬤' + spaceChar, '◯\u00A0');
+            
+            if (lineElement && lineElement !== editor && lineElement.nodeType === Node.ELEMENT_NODE) {
+                lineElement.innerHTML = newPlainText;
+            } else {
+                node.textContent = text.substring(0, lineStart) + newPlainText + text.substring(actualLineEnd);
+            }
         }
         
-        // Restore cursor position
-        const newRange = document.createRange();
-        newRange.setStart(node, Math.min(range.startOffset, node.textContent.length));
-        newRange.collapse(true);
+        // Restore cursor to end of line
+        if (lineElement && lineElement !== editor) {
+            const newRange = document.createRange();
+            newRange.selectNodeContents(lineElement);
+            newRange.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+        }
         selection.removeAllRanges();
         selection.addRange(newRange);
     }

@@ -77,10 +77,10 @@ Shortcut.Save
       };
 
       // Create desktop shortcut
-      createShortcut(desktopPath, 'Flowpad');
+      createShortcut(desktopPath, 'flowpad');
       
       // Create Start Menu shortcut directly in Programs folder
-      createShortcut(startMenuPath, 'Flowpad');
+      createShortcut(startMenuPath, 'flowpad');
       
     } catch (error) {
       console.log('Error creating custom shortcuts:', error);
@@ -101,8 +101,8 @@ Shortcut.Save
     case '--squirrel-uninstall':
       // Remove shortcuts
       try {
-        const desktopShortcut = path.join(os.homedir(), 'Desktop', 'Flowpad.lnk');
-        const startMenuShortcut = path.join(os.homedir(), 'AppData', 'Roaming', 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Flowpad.lnk');
+        const desktopShortcut = path.join(os.homedir(), 'Desktop', 'flowpad.lnk');
+        const startMenuShortcut = path.join(os.homedir(), 'AppData', 'Roaming', 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'flowpad.lnk');
         
         if (fs.existsSync(desktopShortcut)) {
           fs.unlinkSync(desktopShortcut);
@@ -142,7 +142,7 @@ let mainWindow;
 if (app.isPackaged) {
   const { updateElectronApp } = require('update-electron-app');
   updateElectronApp({
-    repo: 'PrarthanAgarwal/Flowpad',
+    repo: 'PrarthanAgarwal/flowpad',
     updateInterval: '1 hour',
     logger: console
   });
