@@ -1,6 +1,29 @@
 const { FusesPlugin } = require('@electron-forge/plugin-fuses');
 const { FuseV1Options, FuseVersion } = require('@electron/fuses');
+const crypto = require('crypto');
+const fs = require('fs');
 const path = require('path');
+const pkg = require('./package.json');
+
+const createLatestMacManifest = (artifactPath) => {
+  const fileBuffer = fs.readFileSync(artifactPath);
+  const { size } = fs.statSync(artifactPath);
+  const sha512 = crypto.createHash('sha512').update(fileBuffer).digest('base64');
+  const fileName = path.basename(artifactPath);
+  const manifest = [
+    `version: ${pkg.version}`,
+    'files:',
+    `  - url: ${fileName}`,
+    `    sha512: ${sha512}`,
+    `    size: ${size}`,
+    `path: ${fileName}`,
+    `releaseDate: ${new Date().toISOString()}`
+  ].join('\n');
+
+  const manifestPath = path.join(path.dirname(artifactPath), 'latest-mac.yml');
+  fs.writeFileSync(manifestPath, manifest);
+  return manifestPath;
+};
 
 module.exports = {
   packagerConfig: {
@@ -71,6 +94,10 @@ module.exports = {
       name: '@electron-forge/maker-dmg',
       platforms: ['darwin'],
     },
+    {
+      name: '@electron-forge/maker-zip',
+      platforms: ['darwin'],
+    },
   ],
   
   publishers: [
@@ -105,4 +132,21 @@ module.exports = {
       [FuseV1Options.LoadBrowserProcessSpecificV8Snapshot]: false,
     }),
   ],
+
+  hooks: {
+    postMake: async (_forgeConfig, makeResults) => {
+      makeResults
+        .filter((result) => result.platform === 'darwin')
+        .forEach((result) => {
+          const zipArtifact = result.artifacts.find((artifact) => artifact.endsWith('.zip'));
+          if (!zipArtifact) {
+            console.warn('No macOS zip artifact found; skipping latest-mac.yml generation.');
+            return;
+          }
+
+          const manifestPath = createLatestMacManifest(zipArtifact);
+          console.log(`Generated macOS auto-update manifest at ${manifestPath}`);
+        });
+    },
+  },
 };
