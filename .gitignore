@@ -6,6 +6,7 @@ yarn-error.log*
 
 #Markdown files
 *.md
+docs/
 
 # Runtime data
 pids
