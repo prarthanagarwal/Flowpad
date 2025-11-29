@@ -17,20 +17,20 @@ const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
 // Update tooltips with platform-specific shortcuts
 function updateTooltips() {
     const modKey = isMac ? 'Cmd' : 'Ctrl';
-    
+
     // Format buttons
     const boldBtn = document.getElementById('boldBtn');
     const italicBtn = document.getElementById('italicBtn');
     const underlineBtn = document.getElementById('underlineBtn');
-    
+
     if (boldBtn) boldBtn.title = `Bold (${modKey}+B)`;
     if (italicBtn) italicBtn.title = `Italic (${modKey}+I)`;
     if (underlineBtn) underlineBtn.title = `Underline (${modKey}+U)`;
-    
+
     // Other buttons with shortcuts
     const newNoteBtn = document.getElementById('newNoteBtn');
     const historyBtn = document.getElementById('historyBtn');
-    
+
     if (newNoteBtn) newNoteBtn.title = `New Note (${modKey}+N)`;
     if (historyBtn) historyBtn.title = `Toggle History (${modKey}+H)`;
 }
@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Set random placeholder text on startup
     const randomIndex = Math.floor(Math.random() * placeholderTexts.length);
     editorPlaceholder.textContent = placeholderTexts[randomIndex];
-    
+
     await loadSettings();
     await loadFolders();
     await loadNotes();
@@ -74,10 +74,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateTooltips();
     updateTime();
     setInterval(updateTime, 1000);
-    
+
     // Apply initial global settings (before any note is loaded)
     applySettings();
-    
+
     // Create initial note if no notes exist or no current note
     if (allNotes.length === 0 || !currentNote) {
         await createNewNote();
@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // If we have a current note, apply its font settings
         applyNoteFontSettings();
     }
-    
+
     // Auto-save functionality - backup timer every 30 seconds
     setInterval(() => {
         if (currentNote && editor.innerHTML.trim() && currentNote.originalContent !== editor.innerHTML) {
@@ -101,39 +101,39 @@ function setupEventListeners() {
     document.getElementById('historyBtn').addEventListener('click', toggleSidebar);
     document.getElementById('closeSidebar').addEventListener('click', closeSidebar);
     sidebarOverlay.addEventListener('click', closeSidebar);
-    
+
     // New note
     document.getElementById('newNoteBtn').addEventListener('click', async () => {
         await createNewNote();
     });
-    
+
     // Font dropdown
     document.getElementById('fontBtn').addEventListener('click', toggleFontDropdown);
-    
+
     // Checklist button (now in toolbar)
     document.getElementById('checklistBtn')?.addEventListener('click', insertCircularChecklist);
-    
+
     // Formatting dropdown
     document.getElementById('formatBtn').addEventListener('click', toggleFormattingDropdown);
-    
+
     // Theme toggle
     document.getElementById('themeBtn').addEventListener('click', toggleTheme);
-    
+
     // Fullscreen toggle
     document.getElementById('fullscreenBtn').addEventListener('click', toggleFullscreen);
-    
+
     // Custom window controls
     document.getElementById('minimizeBtn').addEventListener('click', () => {
         window.electronAPI.minimizeWindow();
     });
-    
+
     document.getElementById('closeBtn').addEventListener('click', () => {
         window.electronAPI.closeApp();
     });
-    
+
     // Surprise button
     document.getElementById('surpriseBtn').addEventListener('click', surpriseFont);
-    
+
     // Editor events
     editor.addEventListener('input', handleEditorInput);
     editor.addEventListener('keyup', handleEditorInput);
@@ -154,35 +154,37 @@ function setupEventListeners() {
             focusEditor();
         }
     });
-    
+
     // Reset formatting on Enter key
     editor.addEventListener('keydown', handleFormattingReset);
-    
+
     // Context menu for editor
     editor.addEventListener('contextmenu', showEditorContextMenu);
-    
+
     // Search functionality
     searchNotes.addEventListener('input', handleSearch);
-    
+
     // Folder functionality
     newFolderBtn.addEventListener('click', createNewFolder);
-    
+
     // Formatting toolbar
     document.querySelectorAll('.format-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.preventDefault();
-            
-                const command = btn.dataset.command;
-                if (command) {
-                    executeCommand(command);
-                    updateFormatButtonStates();
+
+            const command = btn.dataset.command;
+            if (command) {
+                executeCommand(command);
+                updateFormatButtonStates();
             }
         });
     });
-    
+
     // Update format button states on selection change
     document.addEventListener('selectionchange', () => {
         updateFormatButtonStates();
+        updateTextStyleUI(); // Also update text style UI (Title/Heading/Body)
+
         // Prevent cursor in list marker space on any selection change
         const selection = window.getSelection();
         if (selection.rangeCount > 0 && selection.isCollapsed) {
@@ -191,7 +193,7 @@ function setupEventListeners() {
             }, 0);
         }
     });
-    
+
     // Font family controls
     document.querySelectorAll('.font-option').forEach(option => {
         option.addEventListener('click', (e) => {
@@ -200,7 +202,7 @@ function setupEventListeners() {
             closeFontDropdown();
         });
     });
-    
+
     // Font size/style controls (now inside formatting dropdown)
     document.querySelectorAll('.size-option').forEach(option => {
         option.addEventListener('click', (e) => {
@@ -211,19 +213,19 @@ function setupEventListeners() {
             closeFormattingDropdown();
         });
     });
-    
+
     // Bullet list button
     document.getElementById('bulletListBtn')?.addEventListener('click', () => {
         insertBulletList();
         closeFormattingDropdown();
     });
-    
+
     // Numbered list button
     document.getElementById('numberedListBtn')?.addEventListener('click', () => {
         insertNumberedList();
         closeFormattingDropdown();
     });
-    
+
     // Handle click on circular checkboxes in the editor
     editor.addEventListener('click', (e) => {
         const text = e.target.textContent || '';
@@ -234,96 +236,63 @@ function setupEventListeners() {
                 toggleCircularCheckboxAtCursor();
             }
         }
-        
+
         // Prevent cursor in the space after list markers
         preventCursorInListSpace();
     });
-    
+
     // Prevent cursor placement in space after list markers (checklist, bullet, dash, numbered)
     function preventCursorInListSpace() {
         const selection = window.getSelection();
         if (selection.rangeCount === 0) return;
-        
+
         const range = selection.getRangeAt(0);
         if (!range.collapsed) return; // Only handle collapsed selections (cursor)
-        
+
         const node = range.startContainer;
         if (node.nodeType !== Node.TEXT_NODE) return;
-        
+
         const text = node.textContent;
         const offset = range.startOffset;
-        
-        // Check if cursor is in the space right after a list marker
-        // We need to check both: cursor ON the space, and cursor AFTER the space
-        if (offset >= 0 && offset <= text.length) {
-            const charAtCursor = offset < text.length ? text[offset] : null;
-            const charBefore = offset > 0 ? text[offset - 1] : null;
-            const charBeforeBefore = offset > 1 ? text[offset - 2] : null;
-            
-            let shouldMove = false;
-            let targetOffset = offset;
-            
-            // Case 1: Cursor is ON the space character (between marker and text)
-            // Check if we're at the space after checkbox (◯ or ⬤)
-            if (charAtCursor === ' ' || charAtCursor === '\u00A0') {
-                if (charBefore === '◯' || charBefore === '⬤' || 
-                    charBefore === '•' || charBefore === '-') {
-                    shouldMove = true;
-                    targetOffset = offset + 1; // Move past the space
-                } else if (charBefore === '.') {
-                    // Check for numbered list (1., 2., etc.)
-                    const beforePeriod = text.substring(Math.max(0, offset - 4), offset - 1);
-                    const numberMatch = beforePeriod.match(/(\d+)$/);
-                    if (numberMatch) {
-                        shouldMove = true;
-                        targetOffset = offset + 1;
-                    }
-                }
-            }
-            // Case 2: Cursor is AFTER the space (we're in the space position)
-            // Check if we're right after the space after checkbox (◯ or ⬤)
-            else if ((charBefore === ' ' || charBefore === '\u00A0') && 
-                     (charBeforeBefore === '◯' || charBeforeBefore === '⬤')) {
-                shouldMove = true;
-                targetOffset = offset + 1; // Move past the space
-            }
-            // Check if we're right after the space after bullet (•)
-            else if ((charBefore === ' ' || charBefore === '\u00A0') && charBeforeBefore === '•') {
-                shouldMove = true;
-                targetOffset = offset + 1;
-            }
-            // Check if we're right after the space after dash (-)
-            else if ((charBefore === ' ' || charBefore === '\u00A0') && charBeforeBefore === '-') {
-                shouldMove = true;
-                targetOffset = offset + 1;
-            }
-            // Check if we're right after the space after numbered list (1., 2., etc.)
-            else if (charBefore === ' ' || charBefore === '\u00A0') {
-                const beforeSpace = text.substring(Math.max(0, offset - 5), offset - 1);
-                const numberMatch = beforeSpace.match(/(\d+)\.$/);
-                if (numberMatch) {
-                    shouldMove = true;
-                    targetOffset = offset + 1;
-                }
-            }
-            
-            if (shouldMove) {
-                // Move cursor past the space to the text area
-                const newRange = document.createRange();
-                // Ensure we don't go beyond the text node
-                const safeOffset = Math.min(targetOffset, text.length);
-                newRange.setStart(node, safeOffset);
-                newRange.collapse(true);
-                selection.removeAllRanges();
-                selection.addRange(newRange);
+
+        // Strict check: Only apply if the text node actually starts with a list marker
+        // This fixes the issue where dashes in the middle of sentences were affecting cursor
+        let markerLength = 0;
+
+        // Check for Bullet/Dash
+        if (text.match(/^[-•]\s/)) {
+            markerLength = 2; // "- " or "• "
+        }
+        // Check for Checklist
+        else if (text.match(/^[◯⬤]\s/)) {
+            markerLength = 2; // "◯ "
+        }
+        // Check for Numbered List
+        else {
+            const numMatch = text.match(/^(\d+)\.\s/);
+            if (numMatch) {
+                markerLength = numMatch[0].length;
             }
         }
+
+        // If not a list marker at start, return immediately
+        if (markerLength === 0) return;
+
+        // If cursor is inside the marker area (including the space)
+        if (offset < markerLength) {
+            // Move cursor to after the marker
+            const newRange = document.createRange();
+            newRange.setStart(node, markerLength);
+            newRange.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+        }
     }
-    
+
     // Handle hover over circular checkboxes - change cursor to pointer
     editor.addEventListener('mousemove', (e) => {
         let range;
-        
+
         // Try to get range from point (modern browsers)
         if (document.caretRangeFromPoint) {
             range = document.caretRangeFromPoint(e.clientX, e.clientY);
@@ -335,16 +304,16 @@ function setupEventListeners() {
                 range.collapse(true);
             }
         }
-        
+
         if (!range) {
             editor.classList.remove('hovering-checkbox');
             return;
         }
-        
+
         const node = range.startContainer;
         let text = '';
         let offset = 0;
-        
+
         if (node.nodeType === Node.TEXT_NODE) {
             text = node.textContent;
             offset = range.startOffset;
@@ -353,37 +322,37 @@ function setupEventListeners() {
             text = node.textContent || '';
             offset = 0;
         }
-        
+
         // Check if we're on or near a circle character (within 2 characters for precision)
         const nearbyText = text.substring(Math.max(0, offset - 2), Math.min(text.length, offset + 2));
-        
+
         // Check if cursor is directly on the circle or the space right after it
         const isOnCircle = offset > 0 && (text[offset - 1] === '◯' || text[offset - 1] === '⬤');
-        const isAfterCircle = offset > 1 && (text[offset - 2] === '◯' || text[offset - 2] === '⬤') && 
-                            (text[offset - 1] === ' ' || text[offset - 1] === '\u00A0');
-        
+        const isAfterCircle = offset > 1 && (text[offset - 2] === '◯' || text[offset - 2] === '⬤') &&
+            (text[offset - 1] === ' ' || text[offset - 1] === '\u00A0');
+
         if (isOnCircle || isAfterCircle || nearbyText.includes('◯') || nearbyText.includes('⬤')) {
             editor.classList.add('hovering-checkbox');
         } else {
             editor.classList.remove('hovering-checkbox');
         }
     });
-    
+
     // Remove pointer cursor when mouse leaves editor
     editor.addEventListener('mouseleave', () => {
         editor.classList.remove('hovering-checkbox');
     });
-    
+
     // Menu event listeners
     window.electronAPI.onNewNote(async () => await createNewNote());
     window.electronAPI.onSaveNote(async () => await saveCurrentNote());
     window.electronAPI.onToggleHistory(() => toggleSidebar());
     window.electronAPI.onToggleFullscreen(() => toggleFullscreen());
-    
 
-    
 
-    
+
+
+
     // Close dropdowns when clicking outside
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.font-family-dropdown')) {
@@ -416,12 +385,12 @@ function applySettings() {
     // Always use 18px as base editor font size (matches Body)
     editor.style.fontSize = '18px';
     editor.style.fontFamily = settings.fontFamily;
-    
+
     // Apply font to placeholder as well
     document.getElementById('editorPlaceholder').style.fontFamily = settings.fontFamily;
     document.getElementById('editorPlaceholder').style.fontSize = '18px';
-    
-    
+
+
     // Update active font family button
     document.querySelectorAll('.font-option').forEach(option => {
         option.classList.remove('active');
@@ -429,7 +398,7 @@ function applySettings() {
             option.classList.add('active');
         }
     });
-    
+
     // Update active font size button to Body
     document.querySelectorAll('.size-option').forEach(option => {
         option.classList.remove('active');
@@ -437,14 +406,14 @@ function applySettings() {
             option.classList.add('active');
         }
     });
-    
+
     // Apply theme
     document.body.className = settings.theme === 'light' ? 'light-mode' : '';
     updateThemeButton();
-    
+
     // Update title bar theme on startup
     window.electronAPI.updateTitleBarTheme(settings.theme);
-    
+
     if (settings.wordWrap) {
         editor.style.whiteSpace = 'pre-wrap';
     } else {
@@ -455,19 +424,19 @@ function applySettings() {
 // Apply per-note font settings to the UI
 function applyNoteFontSettings() {
     if (!currentNote) return;
-    
+
     // Always use 18px as the base editor font size (matches Body)
     // The per-note fontSize is only used for font family now
     editor.style.fontSize = '18px';
     editor.style.fontFamily = currentNote.fontFamily;
-    
+
     // Apply font to placeholder as well
     document.getElementById('editorPlaceholder').style.fontFamily = currentNote.fontFamily;
     document.getElementById('editorPlaceholder').style.fontSize = '18px';
-    
+
     // Reset to Body style
     activeTextStyle = 'body';
-    
+
     // Update active font family button
     document.querySelectorAll('.font-option').forEach(option => {
         option.classList.remove('active');
@@ -475,7 +444,7 @@ function applyNoteFontSettings() {
             option.classList.add('active');
         }
     });
-    
+
     // Update active font size button to Body
     document.querySelectorAll('.size-option').forEach(option => {
         option.classList.remove('active');
@@ -483,7 +452,7 @@ function applyNoteFontSettings() {
             option.classList.add('active');
         }
     });
-    
+
     if (currentNote.fontSize !== 16 || currentNote.fontFamily !== 'Aeonik') {
         console.log(`Font settings applied successfully to editor`);
     }
@@ -502,7 +471,7 @@ async function saveSettings() {
 async function loadNotes() {
     try {
         const result = await window.electronAPI.loadNotes();
-        
+
         if (result.success) {
             allNotes = result.notes;
             renderNotesList();
@@ -520,17 +489,17 @@ function renderNotesList(notesToRender = null) {
     if (!notesToRender) {
         notesToRender = getFilteredNotes();
     }
-    
+
     notesList.innerHTML = '';
-    
+
     if (notesToRender.length === 0) {
         notesList.innerHTML = '<div class="no-notes-message">No notes found</div>';
         return;
     }
-    
+
     // Categorize notes by time periods
     const categories = categorizeNotesByTime(notesToRender);
-    
+
     // Render each category
     Object.entries(categories).forEach(([categoryName, notes]) => {
         if (notes.length > 0) {
@@ -550,7 +519,7 @@ function categorizeNotesByTime(notes) {
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     const thirtyDaysAgo = new Date(today);
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
+
     const categories = {
         'Today': [],
         'Yesterday': [],
@@ -558,11 +527,11 @@ function categorizeNotesByTime(notes) {
         'Last 30 days': [],
         'Older': []
     };
-    
+
     notes.forEach(note => {
         const noteDate = new Date(note.updatedAt);
         const noteDateOnly = new Date(noteDate.getFullYear(), noteDate.getMonth(), noteDate.getDate());
-        
+
         if (noteDateOnly.getTime() === today.getTime()) {
             categories['Today'].push(note);
         } else if (noteDateOnly.getTime() === yesterday.getTime()) {
@@ -575,12 +544,12 @@ function categorizeNotesByTime(notes) {
             categories['Older'].push(note);
         }
     });
-    
+
     // Sort notes within each category by update time (newest first)
     Object.keys(categories).forEach(key => {
         categories[key].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
     });
-    
+
     return categories;
 }
 
@@ -588,22 +557,22 @@ function categorizeNotesByTime(notes) {
 function createCategorySection(categoryName, notes) {
     const section = document.createElement('div');
     section.className = 'category-section';
-    
+
     // Create category header
     const header = document.createElement('div');
     header.className = 'category-header';
     header.textContent = categoryName;
     section.appendChild(header);
-    
+
     // Create notes container
     const notesContainer = document.createElement('div');
     notesContainer.className = 'category-notes';
-    
+
     notes.forEach(note => {
         const noteElement = createNoteListItem(note);
         notesContainer.appendChild(noteElement);
     });
-    
+
     section.appendChild(notesContainer);
     return section;
 }
@@ -616,21 +585,21 @@ function getDisplayTextForNote(note) {
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
     const noteDateOnly = new Date(noteDate.getFullYear(), noteDate.getMonth(), noteDate.getDate());
-    
+
     // Show time for today and yesterday
     if (noteDateOnly.getTime() === today.getTime() || noteDateOnly.getTime() === yesterday.getTime()) {
         return noteDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
-    
+
     // Show date for older entries
     const currentYear = now.getFullYear();
     const noteYear = noteDate.getFullYear();
-    
+
     // If it's the same year, show month and day
     if (noteYear === currentYear) {
         return noteDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
     }
-    
+
     // If it's a different year, show month, day, and year
     return noteDate.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
 }
@@ -640,40 +609,40 @@ function createNoteListItem(note) {
     const div = document.createElement('div');
     div.className = 'note-item';
     div.dataset.noteId = note.id;
-    
+
     if (currentNote && currentNote.id === note.id) {
         div.classList.add('active');
     }
-    
+
     const date = new Date(note.updatedAt);
     const displayText = getDisplayTextForNote(note);
-    
+
     // Extract title and body using centralized logic
     const { title, bodyPreview } = extractTitleAndBodyFromContent(note.content);
-    
+
     // Apply character limit for sidebar title display
     let displayTitle = title;
     if (displayTitle.length > 25) {
         displayTitle = displayTitle.substring(0, 22) + '...';
     }
-    
+
     // Create time display with folder info
     let timeDisplay = displayText;
     let folderInfo = '';
-    
+
     if (note.folder && currentFolder === 'all') {
         const folder = allFolders.find(f => f.id === note.folder);
         if (folder) {
             folderInfo = `<span class="folder-separator">·</span><i class="ph ph-folder-simple note-folder-icon"></i><span class="folder-name">${folder.name}</span>`;
         }
     }
-    
+
     // Build body preview if available
     let bodyPreviewHtml = '';
     if (bodyPreview) {
         bodyPreviewHtml = `<span class="note-item-preview">${escapeHtml(bodyPreview)}</span>`;
     }
-    
+
     div.innerHTML = `
         <div class="note-item-content">
             <div class="note-item-title">${escapeHtml(displayTitle)}</div>
@@ -693,10 +662,10 @@ function createNoteListItem(note) {
             </button>
         </div>
     `;
-    
+
     // Make draggable
     div.draggable = true;
-    
+
     // Add click event to load note (async to handle auto-save)
     div.addEventListener('click', async (e) => {
         if (!e.target.closest('.note-item-actions')) {
@@ -704,35 +673,35 @@ function createNoteListItem(note) {
             closeSidebar(); // Auto-close sidebar when note is clicked
         }
     });
-    
+
     // Add delete event
     div.querySelector('.delete-note').addEventListener('click', (e) => {
         e.stopPropagation();
         deleteNote(note.id);
     });
-    
+
     // Add move note event
     div.querySelector('.move-note').addEventListener('click', (e) => {
         e.stopPropagation();
         showMoveNoteMenu(e, note);
     });
-    
+
     // Add drag events
     div.addEventListener('dragstart', (e) => {
         e.dataTransfer.setData('text/plain', note.id);
         div.classList.add('dragging');
     });
-    
+
     div.addEventListener('dragend', () => {
         div.classList.remove('dragging');
     });
-    
+
     // Add right-click context menu
     div.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         showMoveNoteMenu(e, note);
     });
-    
+
     return div;
 }
 
@@ -746,13 +715,13 @@ async function loadNote(note) {
             await saveCurrentNote();
         }
     }
-    
+
     // Don't reload the same note
     if (currentNote && currentNote.id === note.id) {
         console.log(`Note already loaded: "${note.title}"`);
         return;
     }
-    
+
     // CRITICAL FIX: Always get the most up-to-date version from allNotes cache
     const freshNote = allNotes.find(n => n.id === note.id);
     if (freshNote) {
@@ -762,7 +731,7 @@ async function loadNote(note) {
         currentNote = { ...note }; // Fallback to passed note
         console.log(`Using passed note data (no cache found): "${currentNote.title}"`);
     }
-    
+
     // Handle backward compatibility - add font settings if they don't exist
     if (!currentNote.fontSize) {
         currentNote.fontSize = settings.fontSize;
@@ -770,39 +739,39 @@ async function loadNote(note) {
     if (!currentNote.fontFamily) {
         currentNote.fontFamily = settings.fontFamily;
     }
-    
+
     // Set editor content from the current note's stored content
     const noteContent = currentNote.content || '';
     editor.innerHTML = noteContent;
-    
+
     // Store original content for change detection (must match editor content)
     currentNote.originalContent = noteContent;
-    
+
     // Ensure current content is up to date
     currentNote.content = noteContent;
-    
+
     // Update title from content (this will also update sidebar if needed)
     updateTitleFromContent();
-    
+
     // Apply the note's font settings to editor
     applyNoteFontSettings();
-    
+
     updatePlaceholder();
     updateWordCount();
-    
+
     // Update active state in sidebar
     document.querySelectorAll('.note-item').forEach(item => {
         item.classList.remove('active');
     });
     document.querySelector(`[data-note-id="${note.id}"]`)?.classList.add('active');
-    
+
     // Ensure editor has focus and cursor is positioned properly
     setTimeout(() => {
         focusEditor();
     }, 100); // Small delay to ensure DOM updates are complete
-    
+
     console.log(`Loaded note: "${currentNote.title}" (ID: ${currentNote.id}) - Content length: ${noteContent.length}, fontSize: ${currentNote.fontSize}px, fontFamily: "${currentNote.fontFamily}"`);
-    
+
     // Debug: Check what's in the allNotes cache for this note
     const cachedNote = allNotes.find(n => n.id === note.id);
     if (cachedNote) {
@@ -823,14 +792,14 @@ async function createNewNote() {
             await saveCurrentNote();
         }
     }
-    
+
     // Get folder name if creating in a specific folder
     let folderName = null;
     if (currentFolder !== 'all') {
         const folder = allFolders.find(f => f.id === currentFolder);
         folderName = folder ? folder.name : null;
     }
-    
+
     currentNote = {
         id: Date.now().toString(),
         title: 'New Note',
@@ -843,31 +812,31 @@ async function createNewNote() {
         folder: currentFolder === 'all' ? null : currentFolder,  // Assign current folder
         folderName: folderName  // Assign current folder name
     };
-    
+
     editor.innerHTML = '';
-    
+
     // Set initial content reference for change detection
     currentNote.originalContent = '';
     currentNote.content = '';
-    
+
     // Apply title character limit for display
     let displayTitle = 'New Note';
     if (displayTitle.length > 15) {
         displayTitle = displayTitle.substring(0, 12) + '...';
     }
     currentNoteTitle.textContent = displayTitle;
-    
+
     // Set random placeholder text
     const randomIndex = Math.floor(Math.random() * placeholderTexts.length);
     editorPlaceholder.textContent = placeholderTexts[randomIndex];
-    
+
     // Apply the note's font settings to editor
     applyNoteFontSettings();
-    
+
     focusEditor(false); // Don't position at end for new note
     updatePlaceholder();
     updateWordCount();
-    
+
     // Remove active state from sidebar items
     document.querySelectorAll('.note-item').forEach(item => {
         item.classList.remove('active');
@@ -877,40 +846,40 @@ async function createNewNote() {
 // Save current note
 async function saveCurrentNote() {
     if (!currentNote) return;
-    
+
     try {
         // Check if content has actually changed before updating timestamp
         const contentChanged = currentNote.originalContent !== editor.innerHTML;
-        
+
         const noteData = {
             ...currentNote,
             content: editor.innerHTML,
             // Only update timestamp if content changed
             updatedAt: contentChanged ? new Date().toISOString() : currentNote.updatedAt
         };
-        
+
         const result = await window.electronAPI.saveNote(noteData);
-        
+
         if (result.success) {
             const oldTitle = currentNote.title;
             const wasNewNote = !allNotes.find(note => note.id === currentNote.id);
-            
+
             // Update current note with saved data
             const updatedNote = result.note;
-            
+
             // Preserve editor content reference for consistency
             updatedNote.originalContent = updatedNote.content;
-            
+
             // Update current note reference
             currentNote = updatedNote;
-            
+
             // Apply title character limit for display
             let displayTitle = currentNote.title;
             if (displayTitle.length > 15) {
                 displayTitle = displayTitle.substring(0, 12) + '...';
             }
             currentNoteTitle.textContent = displayTitle;
-            
+
             // Update the note in allNotes array for consistency
             const noteIndex = allNotes.findIndex(note => note.id === currentNote.id);
             if (noteIndex > -1) {
@@ -921,10 +890,10 @@ async function saveCurrentNote() {
                 allNotes.unshift(currentNote); // Add new note to the beginning
                 console.log(`Added new note to cache: "${currentNote.title}"`);
             }
-            
+
             // Check if title changed
             const titleChanged = oldTitle !== currentNote.title;
-            
+
             // Refresh list if it's a new note or title changed significantly
             if (wasNewNote || titleChanged) {
                 await loadNotes();
@@ -932,7 +901,7 @@ async function saveCurrentNote() {
                 // Update sidebar title without full reload for minor changes
                 updateSidebarNoteTitle(currentNote);
             }
-            
+
             console.log(`Note saved successfully: ${currentNote.title}`);
         } else {
             console.error('Save failed:', result.error);
@@ -948,7 +917,7 @@ async function autoSave() {
         // Only save if content has actually changed
         const currentContent = editor.innerHTML;
         const hasContentChanged = currentNote.originalContent !== currentContent;
-        
+
         if (hasContentChanged) {
             console.log(`Auto-save: Content changed for "${currentNote.title}"`);
             await saveCurrentNote();
@@ -961,13 +930,13 @@ async function autoSave() {
 // Export current note
 async function exportCurrentNote() {
     if (!currentNote) return;
-    
+
     try {
         const noteToExport = {
             title: currentNote.title || 'New Note',
             content: editor.textContent || editor.innerText
         };
-        
+
         const result = await window.electronAPI.exportNote(noteToExport);
         if (result.success) {
             console.log('Note exported successfully');
@@ -1001,7 +970,7 @@ function handleSearch(e) {
         renderNotesList();
         return;
     }
-    
+
     // Start with notes from current folder, then filter by search query
     const folderNotes = getFilteredNotes();
     const filteredNotes = folderNotes.filter(note => {
@@ -1009,7 +978,7 @@ function handleSearch(e) {
         const contentText = new DOMParser().parseFromString(note.content, 'text/html').body.textContent.toLowerCase();
         return contentText.includes(query);
     });
-    
+
     renderNotesList(filteredNotes);
 }
 
@@ -1031,7 +1000,7 @@ async function loadFolders() {
 // Render folder tabs
 function renderFolderTabs() {
     folderTabs.innerHTML = '';
-    
+
     // Add "All" tab
     const allTab = document.createElement('button');
     allTab.className = 'folder-tab';
@@ -1041,29 +1010,29 @@ function renderFolderTabs() {
         allTab.classList.add('active');
     }
     allTab.addEventListener('click', () => switchFolder('all'));
-    
+
     // Add drop events for "All" tab (moves note out of any folder)
     allTab.addEventListener('dragover', (e) => {
         e.preventDefault();
         allTab.classList.add('drag-over');
     });
-    
+
     allTab.addEventListener('dragleave', () => {
         allTab.classList.remove('drag-over');
     });
-    
+
     allTab.addEventListener('drop', async (e) => {
         e.preventDefault();
         allTab.classList.remove('drag-over');
-        
+
         const noteId = e.dataTransfer.getData('text/plain');
         if (noteId) {
             await moveNoteToFolder(noteId, null); // null means no folder
         }
     });
-    
+
     folderTabs.appendChild(allTab);
-    
+
     // Add folder tabs
     allFolders.forEach(folder => {
         const tab = document.createElement('button');
@@ -1074,33 +1043,33 @@ function renderFolderTabs() {
             tab.classList.add('active');
         }
         tab.addEventListener('click', () => switchFolder(folder.id));
-        
+
         // Add right-click context menu for folder actions
         tab.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             showFolderContextMenu(e, folder);
         });
-        
+
         // Add drop events for drag & drop note moving
         tab.addEventListener('dragover', (e) => {
             e.preventDefault();
             tab.classList.add('drag-over');
         });
-        
+
         tab.addEventListener('dragleave', () => {
             tab.classList.remove('drag-over');
         });
-        
+
         tab.addEventListener('drop', async (e) => {
             e.preventDefault();
             tab.classList.remove('drag-over');
-            
+
             const noteId = e.dataTransfer.getData('text/plain');
             if (noteId) {
                 await moveNoteToFolder(noteId, folder.id);
             }
         });
-        
+
         folderTabs.appendChild(tab);
     });
 }
@@ -1108,7 +1077,7 @@ function renderFolderTabs() {
 // Switch to a specific folder
 function switchFolder(folderId) {
     currentFolder = folderId;
-    
+
     // Update active tab
     document.querySelectorAll('.folder-tab').forEach(tab => {
         tab.classList.remove('active');
@@ -1116,7 +1085,7 @@ function switchFolder(folderId) {
             tab.classList.add('active');
         }
     });
-    
+
     // Filter and render notes
     renderNotesList();
 }
@@ -1125,20 +1094,20 @@ function switchFolder(folderId) {
 async function createNewFolder() {
     const folderId = Date.now().toString();
     let folderName = 'New Folder';
-    
+
     // Find a unique name if "New Folder" already exists
     let counter = 1;
     while (allFolders.find(f => f.name.toLowerCase() === folderName.toLowerCase())) {
         counter++;
         folderName = `New Folder ${counter}`;
     }
-    
+
     try {
         const result = await window.electronAPI.saveFolder({
             id: folderId,
             name: folderName
         });
-        
+
         if (result.success) {
             await loadFolders();
             // Start editing the newly created folder
@@ -1161,12 +1130,12 @@ function startEditingFolder(tabElement, folder) {
     input.value = folder.name;
     input.className = 'folder-tab editing';
     input.dataset.folder = folder.id;
-    
+
     // Replace the button with input
     tabElement.parentNode.replaceChild(input, tabElement);
     input.focus();
     input.select();
-    
+
     // Handle save on Enter or blur
     const saveEdit = async () => {
         const newName = input.value.trim();
@@ -1179,7 +1148,7 @@ function startEditingFolder(tabElement, folder) {
                 input.select();
                 return;
             }
-            
+
             try {
                 const result = await window.electronAPI.saveFolder({
                     id: folder.id,
@@ -1198,7 +1167,7 @@ function startEditingFolder(tabElement, folder) {
             await loadFolders(); // Revert if no change or empty
         }
     };
-    
+
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -1207,7 +1176,7 @@ function startEditingFolder(tabElement, folder) {
             loadFolders(); // Cancel editing
         }
     });
-    
+
     input.addEventListener('blur', saveEdit);
 }
 
@@ -1218,14 +1187,14 @@ function showFolderContextMenu(event, folder) {
     if (existingMenu) {
         existingMenu.remove();
     }
-    
+
     const menu = document.createElement('div');
     menu.className = 'folder-context-menu';
     menu.style.position = 'fixed';
     menu.style.left = event.clientX + 'px';
     menu.style.top = event.clientY + 'px';
     menu.style.zIndex = '10000';
-    
+
     menu.innerHTML = `
         <div class="context-menu-item" data-action="rename">
             <i class="ph ph-pencil-simple" style="font-size: 12px;"></i>
@@ -1236,12 +1205,12 @@ function showFolderContextMenu(event, folder) {
             Delete
         </div>
     `;
-    
+
     // Add event listeners
     menu.querySelectorAll('.context-menu-item').forEach(item => {
         item.addEventListener('click', async (e) => {
             const action = e.currentTarget.dataset.action;
-            
+
             if (action === 'rename') {
                 const tabElement = document.querySelector(`[data-folder="${folder.id}"]`);
                 if (tabElement) {
@@ -1263,13 +1232,13 @@ function showFolderContextMenu(event, folder) {
                     }
                 }
             }
-            
+
             menu.remove();
         });
     });
-    
+
     document.body.appendChild(menu);
-    
+
     // Remove menu when clicking elsewhere
     setTimeout(() => {
         document.addEventListener('click', function removeMenu() {
@@ -1292,30 +1261,30 @@ async function moveNoteToFolder(noteId, folderId) {
     try {
         const note = allNotes.find(n => n.id === noteId);
         if (!note) return;
-        
+
         // Get folder name if moving to a folder
         let folderName = null;
         if (folderId) {
             const folder = allFolders.find(f => f.id === folderId);
             folderName = folder ? folder.name : null;
         }
-        
+
         // Update note's folder and folderName
         const updatedNote = { ...note, folder: folderId, folderName: folderName };
         const result = await window.electronAPI.saveNote(updatedNote);
-        
+
         if (result.success) {
             // Update local notes array
             const noteIndex = allNotes.findIndex(n => n.id === noteId);
             if (noteIndex > -1) {
                 allNotes[noteIndex] = result.note;
             }
-            
+
             // Update current note if it's the one being moved
             if (currentNote && currentNote.id === noteId) {
                 currentNote = result.note;
             }
-            
+
             // Refresh the notes list
             renderNotesList();
         }
@@ -1331,14 +1300,14 @@ function showMoveNoteMenu(event, note) {
     if (existingMenu) {
         existingMenu.remove();
     }
-    
+
     const menu = document.createElement('div');
     menu.className = 'move-note-menu folder-context-menu';
     menu.style.position = 'fixed';
     menu.style.zIndex = '10000';
-    
+
     let menuItems = '';
-    
+
     // Only show "Remove from folder" if note is currently in a folder
     if (note.folder) {
         const currentFolder = allFolders.find(f => f.id === note.folder);
@@ -1349,13 +1318,13 @@ function showMoveNoteMenu(event, note) {
                 Remove from ${folderName}
             </div>
         `;
-        
+
         // Add separator if there are other folders
         if (allFolders.length > 0) {
             menuItems += '<div class="context-menu-separator"></div>';
         }
     }
-    
+
     allFolders.forEach(folder => {
         const isCurrentFolder = note.folder === folder.id;
         if (!isCurrentFolder) { // Only show folders the note is NOT in
@@ -1367,47 +1336,47 @@ function showMoveNoteMenu(event, note) {
             `;
         }
     });
-    
+
     menu.innerHTML = menuItems;
-    
+
     // Position menu and adjust if it would go off-screen
     document.body.appendChild(menu); // Add to DOM first to get dimensions
-    
+
     const menuRect = menu.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
-    
+
     let left = event.clientX;
     let top = event.clientY;
-    
+
     // Adjust horizontal position if menu would go off right edge
     if (left + menuRect.width > viewportWidth) {
         left = viewportWidth - menuRect.width - 10;
     }
-    
+
     // Adjust vertical position if menu would go off bottom edge
     if (top + menuRect.height > viewportHeight) {
         top = viewportHeight - menuRect.height - 10;
     }
-    
+
     // Ensure menu doesn't go off left or top edge
     left = Math.max(10, left);
     top = Math.max(10, top);
-    
+
     menu.style.left = left + 'px';
     menu.style.top = top + 'px';
-    
+
     // Add event listeners
     menu.querySelectorAll('.context-menu-item').forEach(item => {
         item.addEventListener('click', async (e) => {
             const folderId = e.currentTarget.dataset.folder;
             const targetFolder = folderId === 'null' ? null : folderId;
-            
+
             await moveNoteToFolder(note.id, targetFolder);
             menu.remove();
         });
     });
-    
+
     // Remove menu when clicking elsewhere
     setTimeout(() => {
         document.addEventListener('click', function removeMenu() {
@@ -1421,23 +1390,23 @@ function showMoveNoteMenu(event, note) {
 async function updateNotesWithNewFolderName(folderId, newFolderName) {
     try {
         const notesToUpdate = allNotes.filter(note => note.folder === folderId);
-        
+
         for (const note of notesToUpdate) {
             const updatedNote = { ...note, folderName: newFolderName };
             await window.electronAPI.saveNote(updatedNote);
-            
+
             // Update local notes array
             const noteIndex = allNotes.findIndex(n => n.id === note.id);
             if (noteIndex > -1) {
                 allNotes[noteIndex] = updatedNote;
             }
-            
+
             // Update current note if it's one of the updated notes
             if (currentNote && currentNote.id === note.id) {
                 currentNote = updatedNote;
             }
         }
-        
+
         // Refresh the notes list to show updated folder names
         renderNotesList();
     } catch (error) {
@@ -1448,7 +1417,7 @@ async function updateNotesWithNewFolderName(folderId, newFolderName) {
 // Helper function for consistent editor focus management
 function focusEditor(positionAtEnd = true) {
     editor.focus();
-    
+
     if (positionAtEnd && editor.innerHTML.trim() !== '') {
         // Position cursor at the end of the content
         const selection = window.getSelection();
@@ -1465,7 +1434,7 @@ function toggleSidebar() {
     const isOpening = !sidebar.classList.contains('open');
     sidebar.classList.toggle('open');
     sidebarOverlay.classList.toggle('show');
-    
+
     // If closing sidebar, restore focus to editor after animation
     if (!isOpening) {
         setTimeout(() => {
@@ -1477,7 +1446,7 @@ function toggleSidebar() {
 function closeSidebar() {
     sidebar.classList.remove('open');
     sidebarOverlay.classList.remove('show');
-    
+
     // Restore focus to editor after sidebar closes
     setTimeout(() => {
         focusEditor();
@@ -1493,7 +1462,7 @@ function debouncedAutoSave() {
             // More robust content comparison
             const currentContent = editor.innerHTML;
             const hasContentChanged = currentNote.originalContent !== currentContent;
-            
+
             if (hasContentChanged) {
                 console.log('Auto-save triggered: content changed');
                 autoSave();
@@ -1506,20 +1475,20 @@ function debouncedAutoSave() {
 function handleEditorInput(e) {
     updatePlaceholder();
     updateWordCount();
-    
+
     // Check for list auto-activation when space is typed
     if (e && e.inputType === 'insertText' && e.data === ' ') {
         checkForListActivation();
     }
-    
-    
+
+
     if (currentNote) {
         // Always update the current note content
         currentNote.content = editor.innerHTML;
-        
+
         // Update title based on first line of content (includes sidebar update)
         updateTitleFromContent();
-        
+
         // Trigger debounced auto-save only if content actually changed
         if (currentNote.originalContent !== editor.innerHTML) {
             debouncedAutoSave();
@@ -1532,22 +1501,22 @@ function handleEditorInput(e) {
 function checkForListActivation() {
     const selection = window.getSelection();
     if (selection.rangeCount === 0) return;
-    
+
     const currentLineText = getCurrentLineText();
-    
+
     // Check for dash list activation (- or * followed by space or non-breaking space)
     const normalizedDashLine = currentLineText.replace(/\u00A0/g, ' ');
     if (normalizedDashLine === '- ' || normalizedDashLine === '* ' || normalizedDashLine === '• ') {
         isDashListMode = true;
         isNumberedListMode = false;
         isCircularChecklistMode = false;
-        
+
         // Replace * with bullet point for consistency
         if (normalizedDashLine === '* ') {
             replaceCurrentLineStart('* ', '•\u00A0');
         }
     }
-    
+
     // Check for numbered list activation (1. followed by space or non-breaking space)
     const normalizedNumberedLine = currentLineText.replace(/\u00A0/g, ' ');
     const numberedMatch = normalizedNumberedLine.match(/^(\d+)\.\s$/);
@@ -1557,7 +1526,7 @@ function checkForListActivation() {
         isDashListMode = false;
         isCircularChecklistMode = false;
     }
-    
+
     // Check for circular checklist activation (◯/⬤ followed by space or non-breaking space)
     const normalizedLine = currentLineText.replace(/\u00A0/g, ' ');
     if (normalizedLine === '◯ ' || normalizedLine === '⬤ ') {
@@ -1570,15 +1539,15 @@ function checkForListActivation() {
 function replaceCurrentLineStart(oldStart, newStart) {
     const selection = window.getSelection();
     if (selection.rangeCount === 0) return;
-    
+
     const range = selection.getRangeAt(0);
     const textNode = range.startContainer;
-    
+
     if (textNode.nodeType === Node.TEXT_NODE) {
         const content = textNode.textContent;
         if (content.startsWith(oldStart)) {
             textNode.textContent = newStart + content.substring(oldStart.length);
-            
+
             // Restore cursor position
             const newRange = document.createRange();
             newRange.setStart(textNode, newStart.length);
@@ -1628,7 +1597,7 @@ function escapeHtml(text) {
 // Extract title from content using consistent logic
 function extractTitleFromContent(content) {
     if (!content) return 'New Note';
-    
+
     // Handle both HTML content and plain text
     let textContent;
     if (typeof content === 'string' && content.includes('<')) {
@@ -1639,24 +1608,24 @@ function extractTitleFromContent(content) {
             .replace(/<br\s*\/?>/gi, '\n')
             .replace(/<p>/gi, '\n')
             .replace(/<\/p>/gi, '');
-        
+
         // Parse HTML content to get plain text
         textContent = new DOMParser().parseFromString(processedContent, 'text/html').body.textContent || '';
     } else {
         textContent = content;
     }
-    
+
     const trimmedContent = textContent.trim();
-    
+
     // If content is completely empty, use 'New Note'
     if (!trimmedContent) {
         return 'New Note';
     }
-    
+
     // Get the first line of text (split by newlines)
     const lines = trimmedContent.split('\n').filter(line => line.trim());
     let firstLine = lines.length > 0 ? lines[0].trim() : 'New Note';
-    
+
     // Use the first line as title, or 'New Note' if first line is empty
     return firstLine || 'New Note';
 }
@@ -1666,7 +1635,7 @@ function extractTitleAndBodyFromContent(content) {
     if (!content) {
         return { title: 'New Note', bodyPreview: '' };
     }
-    
+
     // Handle both HTML content and plain text
     let textContent;
     if (typeof content === 'string' && content.includes('<')) {
@@ -1677,27 +1646,27 @@ function extractTitleAndBodyFromContent(content) {
             .replace(/<br\s*\/?>/gi, '\n')
             .replace(/<p>/gi, '\n')
             .replace(/<\/p>/gi, '');
-        
+
         // Parse HTML content to get plain text
         textContent = new DOMParser().parseFromString(processedContent, 'text/html').body.textContent || '';
     } else {
         textContent = content;
     }
-    
+
     const trimmedContent = textContent.trim();
-    
+
     // If content is completely empty
     if (!trimmedContent) {
         return { title: 'New Note', bodyPreview: '' };
     }
-    
+
     // Split into lines and filter out empty lines
     const allLines = trimmedContent.split('\n');
     const nonEmptyLines = allLines.filter(line => line.trim());
-    
+
     // First non-empty line is always the title
     const title = nonEmptyLines.length > 0 ? nonEmptyLines[0].trim() : 'New Note';
-    
+
     // Get body preview from remaining non-empty lines
     let bodyPreview = '';
     if (nonEmptyLines.length > 1) {
@@ -1707,7 +1676,7 @@ function extractTitleAndBodyFromContent(content) {
             bodyPreview = bodyPreview.substring(0, 47) + '...';
         }
     }
-    
+
     return { title, bodyPreview };
 }
 
@@ -1723,15 +1692,15 @@ function debouncedSidebarUpdate() {
 // Update a specific note's title and body preview in the sidebar
 function updateSidebarNoteTitle(note) {
     if (!note) return;
-    
+
     const noteElement = document.querySelector(`[data-note-id="${note.id}"]`);
     if (noteElement) {
         const titleElement = noteElement.querySelector('.note-item-title');
         const metaElement = noteElement.querySelector('.note-item-meta');
-        
+
         // Extract title and body using the new function
         const { title, bodyPreview } = extractTitleAndBodyFromContent(note.content);
-        
+
         if (titleElement) {
             // Apply character limit for sidebar title display
             let displayTitle = title;
@@ -1740,11 +1709,11 @@ function updateSidebarNoteTitle(note) {
             }
             titleElement.textContent = displayTitle;
         }
-        
+
         // Update body preview if meta element exists
         if (metaElement) {
             let previewElement = metaElement.querySelector('.note-item-preview');
-            
+
             if (bodyPreview) {
                 if (!previewElement) {
                     // Create preview element if it doesn't exist
@@ -1764,31 +1733,31 @@ function updateSidebarNoteTitle(note) {
 // Extract title from first line of content and update UI
 function updateTitleFromContent() {
     if (!currentNote) return;
-    
+
     // Get current editor content
     const editorContent = editor.innerHTML;
     const newTitle = extractTitleFromContent(editorContent);
-    
+
     // Update note's full title if it changed
     if (currentNote.title !== newTitle) {
         const oldTitle = currentNote.title;
         currentNote.title = newTitle;
-        
+
         // Limit title bar display to 15 characters max
         let displayTitle = newTitle;
         if (displayTitle.length > 15) {
             displayTitle = displayTitle.substring(0, 12) + '...';
         }
-        
+
         // Update the title bar with shortened title
         currentNoteTitle.textContent = displayTitle;
-        
+
         // Update content for title detection
         currentNote.content = editorContent;
-        
+
         // Update sidebar in real-time with debouncing
         debouncedSidebarUpdate();
-        
+
         console.log(`Title updated: "${oldTitle}" → "${newTitle}"`);
     }
 }
@@ -1808,7 +1777,7 @@ function handleKeyDown(e) {
             preventCursorInListSpace();
         }, 0);
     }
-    
+
     // Prevent typing in the space after list markers
     // Check for regular typing keys (not special keys)
     if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && e.key !== 'Enter' && e.key !== 'Backspace') {
@@ -1820,16 +1789,16 @@ function handleKeyDown(e) {
                 if (node.nodeType === Node.TEXT_NODE) {
                     const text = node.textContent;
                     const offset = range.startOffset;
-                    
+
                     // Check if we're about to type in the forbidden space
                     const charAtCursor = offset < text.length ? text[offset] : null;
                     const charBefore = offset > 0 ? text[offset - 1] : null;
                     const charBeforeBefore = offset > 1 ? text[offset - 2] : null;
                     let isInForbiddenSpace = false;
-                    
+
                     // Case 1: Cursor is ON the space character
                     if (charAtCursor === ' ' || charAtCursor === '\u00A0') {
-                        if (charBefore === '◯' || charBefore === '⬤' || 
+                        if (charBefore === '◯' || charBefore === '⬤' ||
                             charBefore === '•' || charBefore === '-') {
                             isInForbiddenSpace = true;
                         } else if (charBefore === '.') {
@@ -1841,23 +1810,12 @@ function handleKeyDown(e) {
                         }
                     }
                     // Case 2: Cursor is right after the space
-                    else if (offset > 0 && (charBefore === ' ' || charBefore === '\u00A0')) {
-                        if (charBeforeBefore === '◯' || charBeforeBefore === '⬤' || 
-                            charBeforeBefore === '•' || charBeforeBefore === '-') {
-                            isInForbiddenSpace = true;
-                        } else {
-                            // Check for numbered list
-                            const beforeSpace = text.substring(Math.max(0, offset - 5), offset - 1);
-                            if (beforeSpace.match(/(\d+)\.$/)) {
-                                isInForbiddenSpace = true;
-                            }
-                        }
-                    }
-                    
+                    // Logic removed to allow typing immediately after the list marker space
+
                     if (isInForbiddenSpace) {
                         // Prevent the default typing
                         e.preventDefault();
-                        
+
                         // Move cursor past the space
                         const newRange = document.createRange();
                         let targetOffset = offset;
@@ -1871,7 +1829,7 @@ function handleKeyDown(e) {
                         newRange.collapse(true);
                         selection.removeAllRanges();
                         selection.addRange(newRange);
-                        
+
                         // Insert the character at the new position
                         document.execCommand('insertText', false, e.key);
                     }
@@ -1879,19 +1837,19 @@ function handleKeyDown(e) {
             }
         }
     }
-    
+
     // Handle Backspace key for list item removal (checklist, bullets, numbered)
     if (e.key === 'Backspace') {
         const selection = window.getSelection();
         if (selection.rangeCount === 0) return;
-        
+
         const range = selection.getRangeAt(0);
         if (range.collapsed && range.startOffset > 0) {
             const node = range.startContainer;
             if (node.nodeType === Node.TEXT_NODE) {
                 const text = node.textContent;
                 const offset = range.startOffset;
-                
+
                 // Check if we're right after a list marker (followed by non-breaking space or regular space)
                 if (offset > 0 && (text[offset - 1] === '\u00A0' || text[offset - 1] === ' ')) {
                     // Check for checkbox (◯ or ⬤)
@@ -1904,7 +1862,7 @@ function handleKeyDown(e) {
                         newRange.collapse(true);
                         selection.removeAllRanges();
                         selection.addRange(newRange);
-                        
+
                         // Immediately check the line we moved to and reactivate if needed
                         const lineText = getCurrentLineText();
                         if (lineText.includes('◯') || lineText.includes('⬤')) {
@@ -1924,7 +1882,7 @@ function handleKeyDown(e) {
                         newRange.collapse(true);
                         selection.removeAllRanges();
                         selection.addRange(newRange);
-                        
+
                         // Immediately check the line we moved to and reactivate if needed
                         const lineText = getCurrentLineText();
                         if (lineText.startsWith('•') || lineText.startsWith('-')) {
@@ -1944,7 +1902,7 @@ function handleKeyDown(e) {
                         newRange.collapse(true);
                         selection.removeAllRanges();
                         selection.addRange(newRange);
-                        
+
                         // Immediately check the line we moved to and reactivate if needed
                         const lineText = getCurrentLineText();
                         if (lineText.startsWith('•') || lineText.startsWith('-')) {
@@ -1970,7 +1928,7 @@ function handleKeyDown(e) {
                             newRange.collapse(true);
                             selection.removeAllRanges();
                             selection.addRange(newRange);
-                            
+
                             // Immediately check the line we moved to and reactivate if needed
                             const lineText = getCurrentLineText();
                             const numMatch = lineText.match(/^(\d+)\./);
@@ -1987,21 +1945,21 @@ function handleKeyDown(e) {
             }
         }
     }
-    
+
     // Handle Enter key for list continuation
     if (e.key === 'Enter') {
         const currentLineText = getCurrentLineText();
-        
+
         // Check if we're on a line with a checkbox - reactivate checklist mode if needed
         if (!isCircularChecklistMode && (currentLineText.includes('◯') || currentLineText.includes('⬤'))) {
             isCircularChecklistMode = true;
         }
-        
+
         // Check if we're on a line with a bullet/dash - reactivate list mode if needed
         if (!isDashListMode && (currentLineText.startsWith('•') || currentLineText.startsWith('-'))) {
             isDashListMode = true;
         }
-        
+
         // Check if we're on a line with a number - reactivate numbered list mode if needed
         if (!isNumberedListMode) {
             const numMatch = currentLineText.match(/^(\d+)\./);
@@ -2010,11 +1968,11 @@ function handleKeyDown(e) {
                 isNumberedListMode = true;
             }
         }
-        
+
         // Handle circular checklist mode
         if (isCircularChecklistMode) {
             e.preventDefault();
-            
+
             // Check if current line is just the checkbox (empty item)
             // Remove non-breaking space for comparison
             const cleanLineText = currentLineText.replace(/\u00A0/g, ' ').trim();
@@ -2027,11 +1985,11 @@ function handleKeyDown(e) {
             }
             return;
         }
-        
+
         // Handle numbered list mode
         if (isNumberedListMode) {
             e.preventDefault();
-            
+
             // Check if current line has content after the number (handle non-breaking space)
             const normalizedNumberedLine = currentLineText.replace(/\u00A0/g, ' ');
             const numberMatch = normalizedNumberedLine.match(/^\d+\.\s*/);
@@ -2047,11 +2005,11 @@ function handleKeyDown(e) {
             }
             return;
         }
-        
+
         // Handle dash/bullet list mode
         if (isDashListMode) {
             e.preventDefault();
-            
+
             // Check if current line has content after the dash/bullet (handle non-breaking space)
             const normalizedDashLine = currentLineText.replace(/\u00A0/g, ' ').trim();
             if (normalizedDashLine === '-' || normalizedDashLine === '•' || normalizedDashLine === '') {
@@ -2067,60 +2025,105 @@ function handleKeyDown(e) {
             resetTextStyleToBody();
             return;
         }
-        
+
         // Reset text style to body on Enter (for non-list contexts)
         if (activeTextStyle !== 'body') {
             resetTextStyleToBody();
         }
     }
-    
+
     // Save shortcut
     if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 's') {
         e.preventDefault();
         saveCurrentNote();
         return;
     }
-    
+
     // New note shortcut
     if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'n') {
         e.preventDefault();
         createNewNote(); // Fire and forget - async handled internally
         return;
     }
-    
+
     // Bold shortcut
     if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'b') {
         e.preventDefault();
         executeCommand('bold');
         return;
     }
-    
+
     // Italic shortcut
     if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'i') {
         e.preventDefault();
         executeCommand('italic');
         return;
     }
-    
+
     // Underline shortcut
     if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'u') {
         e.preventDefault();
         executeCommand('underline');
         return;
     }
-    
+
     // Toggle history shortcut
     if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'h') {
         e.preventDefault();
         toggleSidebar();
         return;
     }
-    
+
     // Close app with ESC key
     if (e.key === 'Escape') {
         e.preventDefault();
         window.electronAPI.closeApp();
         return;
+    }
+
+    // Handle ArrowLeft at start of list item to jump to previous line
+    if (e.key === 'ArrowLeft') {
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0 && selection.isCollapsed) {
+            const range = selection.getRangeAt(0);
+            const node = range.startContainer;
+
+            if (node.nodeType === Node.TEXT_NODE) {
+                const text = node.textContent;
+                const offset = range.startOffset;
+
+                // Identify marker at start of node
+                let markerLength = 0;
+                if (text.match(/^[-•]\s/)) markerLength = 2;
+                else if (text.match(/^[◯⬤]\s/)) markerLength = 2;
+                else {
+                    const numMatch = text.match(/^(\d+)\.\s/);
+                    if (numMatch) markerLength = numMatch[0].length;
+                }
+
+                // If we are exactly at the start of the text (after marker)
+                if (markerLength > 0 && offset === markerLength) {
+                    e.preventDefault();
+                    // Move back until we leave this "forbidden" start area
+                    // We want to end up at the end of the previous line
+
+                    // Try moving back character by character
+                    for (let i = 0; i < markerLength + 2; i++) {
+                        selection.modify('move', 'backward', 'character');
+
+                        const newRange = selection.getRangeAt(0);
+                        const newNode = newRange.startContainer;
+
+                        // If we changed nodes, we are likely in previous line. Good.
+                        if (newNode !== node) break;
+
+                        // If we are at offset 0, one more move should take us out
+                        if (newRange.startOffset === 0) continue;
+                    }
+                    return;
+                }
+            }
+        }
     }
 }
 
@@ -2136,9 +2139,9 @@ function updateFormatButtonStates() {
     if (document.activeElement !== editor) {
         return;
     }
-    
+
     const commands = ['bold', 'italic', 'underline', 'strikethrough'];
-    
+
     commands.forEach(command => {
         const btn = document.querySelector(`[data-command="${command}"]`);
         if (btn) {
@@ -2160,22 +2163,22 @@ let isCircularChecklistMode = false;
 function insertDashList() {
     const selection = window.getSelection();
     const range = selection.getRangeAt(0);
-    
+
     // Insert dash with non-breaking space
     document.execCommand('insertText', false, '-\u00A0');
     isDashListMode = true;
-    
+
     editor.focus();
 }
 
 function insertBulletList() {
     const selection = window.getSelection();
     if (selection.rangeCount === 0) return;
-    
+
     // Insert bullet with non-breaking space
     document.execCommand('insertText', false, '•\u00A0');
     isDashListMode = true;
-    
+
     editor.focus();
 }
 
@@ -2184,7 +2187,7 @@ function insertNumberedList() {
     // Insert number with non-breaking space after period
     document.execCommand('insertText', false, '1.\u00A0');
     isNumberedListMode = true;
-    
+
     editor.focus();
 }
 
@@ -2193,7 +2196,7 @@ function insertCircularChecklist() {
     // Using non-breaking space (U+00A0) so it acts as a single unit
     document.execCommand('insertText', false, '◯\u00A0');
     isCircularChecklistMode = true;
-    
+
     editor.focus();
 }
 
@@ -2202,7 +2205,7 @@ function insertCircularChecklist() {
 function toggleCircularCheckbox(element) {
     const isChecked = element.textContent.includes('⬤');
     const line = element.closest('div') || element.parentNode;
-    
+
     if (isChecked) {
         // Change to unchecked (hollow) - restore plain text
         const plainText = line ? line.textContent.replace('⬤', '◯') : element.textContent.replace('⬤', '◯');
@@ -2229,22 +2232,22 @@ function toggleCircularCheckbox(element) {
 function getCurrentLineText() {
     const selection = window.getSelection();
     if (selection.rangeCount === 0) return '';
-    
+
     const range = selection.getRangeAt(0);
     let currentNode = range.startContainer;
-    
+
     // If we're in a text node, get its content up to the cursor
     if (currentNode.nodeType === Node.TEXT_NODE) {
         const textContent = currentNode.textContent;
         const cursorPosition = range.startOffset;
-        
+
         // Find the last newline before cursor, or start of text
         const lastNewline = textContent.lastIndexOf('\n', cursorPosition - 1);
         const lineStart = lastNewline === -1 ? 0 : lastNewline + 1;
-        
+
         return textContent.substring(lineStart, cursorPosition);
     }
-    
+
     // For element nodes, try to get text content
     return currentNode.textContent ? currentNode.textContent.trim() : '';
 }
@@ -2252,15 +2255,15 @@ function getCurrentLineText() {
 function getSelectedLineText() {
     const selection = window.getSelection();
     if (selection.rangeCount === 0) return '';
-    
+
     const range = selection.getRangeAt(0);
     let container = range.commonAncestorContainer;
-    
+
     // If it's a text node, get its parent
     if (container.nodeType === Node.TEXT_NODE) {
         container = container.parentNode;
     }
-    
+
     // Try to get meaningful text content
     const text = container.textContent || container.innerText || '';
     return text.trim() || '';
@@ -2288,8 +2291,8 @@ function closeFontDropdown() {
 }
 
 // Font size dropdown removed - sizes now in formatting dropdown
-function toggleFontSizeDropdown() {}
-function closeFontSizeDropdown() {}
+function toggleFontSizeDropdown() { }
+function closeFontSizeDropdown() { }
 
 // Formatting dropdown management
 function toggleFormattingDropdown() {
@@ -2314,62 +2317,80 @@ function updateFontSize(size) {
 let activeTextStyle = 'body';
 
 // Style configurations - just sizes, bold is activated separately
+// Style configurations - using block classes
 const textStyleConfigs = {
-    title: { size: '32px', label: 'Title', activateBold: true },
-    heading: { size: '24px', label: 'Heading', activateBold: true },
-    body: { size: '18px', label: 'Body', activateBold: false }
+    title: { className: 'line-title', label: 'Title', activateBold: false },
+    heading: { className: 'line-heading', label: 'Heading', activateBold: false },
+    body: { className: 'line-body', label: 'Body', activateBold: false }
 };
 
-// Apply text style - applies size and optionally activates bold
-// If text is selected, applies to selection
+// Apply text style - applies block class to the current line
 function applyTextStyle(style, size) {
     const selection = window.getSelection();
+    if (selection.rangeCount === 0) return;
+
     const targetStyle = style || 'body';
     const styleConfig = textStyleConfigs[targetStyle] || textStyleConfigs.body;
-    
-    // If there's a selection, apply formatting to selected text
-    if (selection.rangeCount > 0 && !selection.isCollapsed) {
-        const range = selection.getRangeAt(0);
-        
-        // Create a span with just the font size
-        const span = document.createElement('span');
-        span.style.fontSize = styleConfig.size;
-        span.className = `text-${targetStyle}`;
-        
-        // Extract the selected content and wrap it
-        const fragment = range.extractContents();
-        span.appendChild(fragment);
-        range.insertNode(span);
-        
-        // Move cursor to end of inserted content
-        selection.collapseToEnd();
-        
-        // If Title or Heading, also activate bold (user can unbold if they want)
-        if (styleConfig.activateBold) {
-            // Re-select the span content to apply bold
-            const newRange = document.createRange();
-            newRange.selectNodeContents(span);
-            selection.removeAllRanges();
-            selection.addRange(newRange);
-            document.execCommand('bold', false, null);
-            selection.collapseToEnd();
+
+    const range = selection.getRangeAt(0);
+    let node = range.startContainer;
+
+    // Find the parent block element (div or p)
+    // If we are in the editor root, we might need to wrap the text in a div first
+    while (node && node !== editor) {
+        if (node.nodeType === Node.ELEMENT_NODE && (node.tagName === 'DIV' || node.tagName === 'P')) {
+            break;
+        }
+        node = node.parentNode;
+    }
+
+    // If we couldn't find a block element (e.g. text directly in editor), wrap it
+    if (node === editor || !node) {
+        document.execCommand('formatBlock', false, 'div');
+        // Re-get the selection and node after formatting
+        const newSelection = window.getSelection();
+        if (newSelection.rangeCount > 0) {
+            const newRange = newSelection.getRangeAt(0);
+            node = newRange.startContainer;
+            while (node && node !== editor) {
+                if (node.nodeType === Node.ELEMENT_NODE && (node.tagName === 'DIV' || node.tagName === 'P')) {
+                    break;
+                }
+                node = node.parentNode;
+            }
         }
     }
-    
+
+    if (node && node !== editor && node.nodeType === Node.ELEMENT_NODE) {
+        // Remove all style classes
+        node.classList.remove('line-title', 'line-heading', 'line-body');
+
+        // Add the new style class
+        node.classList.add(styleConfig.className);
+
+        // Remove any inline font-size styles that might conflict
+        node.style.fontSize = '';
+        node.style.fontWeight = '';
+
+        // Also clean up any span wrappers inside that might have old styling
+        const spans = node.querySelectorAll('span[style*="font-size"]');
+        spans.forEach(span => {
+            span.style.fontSize = '';
+            if (span.getAttribute('style') === '') {
+                // Unwrap if style is empty
+                const parent = span.parentNode;
+                while (span.firstChild) parent.insertBefore(span.firstChild, span);
+                parent.removeChild(span);
+            }
+        });
+    }
+
     // Set the active style mode
     activeTextStyle = targetStyle;
-    
-    // If user explicitly selects Body on first line, allow override of title styling
-    if (targetStyle === 'body') {
-        checkFirstLineOverride();
-    } else {
-        // If selecting Title/Heading, remove override
-        editor.classList.remove('title-override');
-    }
-    
+
     // Update UI
     updateTextStyleUI(targetStyle);
-    
+
     editor.focus();
 }
 
@@ -2377,17 +2398,17 @@ function applyTextStyle(style, size) {
 function checkFirstLineOverride() {
     const selection = window.getSelection();
     if (selection.rangeCount === 0) return;
-    
+
     // Check if cursor is on the first line
     const range = selection.getRangeAt(0);
     const editorContent = editor.innerHTML;
-    
+
     // If editor is empty or cursor is at very beginning, apply override
     if (!editorContent || editorContent === '<br>' || editorContent === '') {
         editor.classList.add('title-override');
         return;
     }
-    
+
     // Check if we're in the first block/line
     let node = range.startContainer;
     while (node && node !== editor) {
@@ -2397,36 +2418,81 @@ function checkFirstLineOverride() {
         }
         node = node.parentNode;
     }
-    
+
     // We're on first line, add override
     editor.classList.add('title-override');
 }
 
 // Update the text style UI (display and active button)
 function updateTextStyleUI(style) {
+    // If style is not provided, try to detect it from cursor position
+    let currentStyle = style;
+
+    if (!currentStyle) {
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+            let node = selection.getRangeAt(0).startContainer;
+            while (node && node !== editor) {
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                    if (node.classList.contains('line-title')) currentStyle = 'title';
+                    else if (node.classList.contains('line-heading')) currentStyle = 'heading';
+                    else if (node.classList.contains('line-body')) currentStyle = 'body';
+
+                    if (currentStyle) break;
+                }
+                node = node.parentNode;
+            }
+        }
+    }
+
+    // Default to body if still unknown
+    if (!currentStyle) currentStyle = 'body';
+
     // Update active button in the formatting dropdown
     document.querySelectorAll('.size-option').forEach(option => {
         option.classList.remove('active');
-        if (option.dataset.style === style) {
+        if (option.dataset.style === currentStyle) {
             option.classList.add('active');
         }
     });
+
+    activeTextStyle = currentStyle;
 }
 
 // Reset text style to body (called on Enter key)
-function resetTextStyleToBody() {
-    activeTextStyle = 'body';
-    updateTextStyleUI('body');
+function resetBlockStyleAfterEnter() {
+    const selection = window.getSelection();
+    if (selection.rangeCount === 0) return;
+
+    const range = selection.getRangeAt(0);
+    let node = range.startContainer;
+
+    // Find the current block element
+    while (node && node !== editor) {
+        if (node.nodeType === Node.ELEMENT_NODE && (node.tagName === 'DIV' || node.tagName === 'P')) {
+            // We found the block element for the new line
+            // Remove title/heading classes and add body class
+            node.classList.remove('line-title', 'line-heading');
+            node.classList.add('line-body');
+
+            // Remove any inline styles
+            node.style.fontSize = '';
+            node.style.fontWeight = '';
+
+            return;
+        }
+        node = node.parentNode;
+    }
 }
 
 // Get the character at the click position
 function getClickedCharacter(e) {
     const selection = window.getSelection();
     if (selection.rangeCount === 0) return null;
-    
+
     const range = selection.getRangeAt(0);
     const node = range.startContainer;
-    
+
     if (node.nodeType === Node.TEXT_NODE) {
         const offset = range.startOffset;
         const char = node.textContent.charAt(offset) || node.textContent.charAt(offset - 1);
@@ -2439,29 +2505,29 @@ function getClickedCharacter(e) {
 function toggleCircularCheckboxAtCursor() {
     const selection = window.getSelection();
     if (selection.rangeCount === 0) return;
-    
+
     const range = selection.getRangeAt(0);
     let node = range.startContainer;
-    
+
     // Find the parent element that contains this line
     let lineElement = node;
     while (lineElement && lineElement !== editor) {
-        if (lineElement.nodeType === Node.ELEMENT_NODE && 
+        if (lineElement.nodeType === Node.ELEMENT_NODE &&
             (lineElement.tagName === 'DIV' || lineElement.tagName === 'P')) {
             break;
         }
         lineElement = lineElement.parentNode;
     }
-    
+
     if (node.nodeType === Node.TEXT_NODE) {
         const text = node.textContent;
-        
+
         // Find the checkbox in the current line
         const lineStart = text.lastIndexOf('\n', range.startOffset - 1) + 1;
         const lineEnd = text.indexOf('\n', range.startOffset);
         const actualLineEnd = lineEnd === -1 ? text.length : lineEnd;
         const lineText = text.substring(lineStart, actualLineEnd);
-        
+
         // Check for unchecked or checked checkbox (◯ = hollow/unchecked, ⬤ = filled/checked)
         // Handle both regular space and non-breaking space (U+00A0)
         if (lineText.includes('◯')) {
@@ -2471,10 +2537,10 @@ function toggleCircularCheckboxAtCursor() {
             const spaceChar = (circleIndex + 1 < lineText.length && lineText[circleIndex + 1] === '\u00A0') ? '\u00A0' : ' ';
             const textAfterCircle = lineText.substring(circleIndex + 2); // Skip circle and space
             const textBeforeCircle = lineText.substring(0, circleIndex);
-            
+
             // Create new content: circle + non-breaking space + strikethrough text
             const newLineText = textBeforeCircle + '⬤\u00A0' + '<s style="color:#666">' + textAfterCircle + '</s>';
-            
+
             // We need to use innerHTML for the styled content
             if (lineElement && lineElement !== editor && lineElement.nodeType === Node.ELEMENT_NODE) {
                 lineElement.innerHTML = newLineText;
@@ -2491,14 +2557,14 @@ function toggleCircularCheckboxAtCursor() {
             const circleIndex = plainText.indexOf('⬤');
             const spaceChar = (circleIndex + 1 < plainText.length && plainText[circleIndex + 1] === '\u00A0') ? '\u00A0' : ' ';
             const newPlainText = plainText.replace('⬤' + spaceChar, '◯\u00A0');
-            
+
             if (lineElement && lineElement !== editor && lineElement.nodeType === Node.ELEMENT_NODE) {
                 lineElement.innerHTML = newPlainText;
             } else {
                 node.textContent = text.substring(0, lineStart) + newPlainText + text.substring(actualLineEnd);
             }
         }
-        
+
         // Restore cursor to end of line
         if (lineElement && lineElement !== editor) {
             const newRange = document.createRange();
@@ -2514,18 +2580,18 @@ function toggleCircularCheckboxAtCursor() {
 
 function updateFontFamily(family) {
     if (!currentNote) return;
-    
+
     console.log(`Updating font family from "${currentNote.fontFamily}" to "${family}" for note: "${currentNote.title}"`);
-    
+
     // Update current note's font family
     currentNote.fontFamily = family;
-    
+
     // Apply to editor
     editor.style.fontFamily = family;
-    
+
     // Apply font to placeholder as well
     document.getElementById('editorPlaceholder').style.fontFamily = family;
-    
+
     // Update active button
     document.querySelectorAll('.font-option').forEach(option => {
         option.classList.remove('active');
@@ -2533,7 +2599,7 @@ function updateFontFamily(family) {
             option.classList.add('active');
         }
     });
-    
+
     console.log(`Font family updated successfully. Saving note...`);
     // Auto-save the note with new font settings
     saveCurrentNote();
@@ -2545,7 +2611,7 @@ function toggleTheme() {
     document.body.className = settings.theme === 'light' ? 'light-mode' : '';
     updateThemeButton();
     saveSettings();
-    
+
     // Update title bar colors
     window.electronAPI.updateTitleBarTheme(settings.theme);
 }
@@ -2568,27 +2634,27 @@ function updateThemeButton() {
 // Surprise font functionality
 function surpriseFont() {
     if (!currentNote) return;
-    
+
     const availableFonts = ['Aeonik', 'Baskervville', 'Instrument Serif', 'Neue Regrade', 'Patrick Hand', 'Courier New'];
-    
+
     // Get current font to avoid selecting the same one
     const currentFont = currentNote.fontFamily;
-    
+
     // Filter out current font to ensure we get a different one
     const otherFonts = availableFonts.filter(font => font !== currentFont);
-    
+
     // Select random font from remaining options
     const randomIndex = Math.floor(Math.random() * otherFonts.length);
     const randomFont = otherFonts[randomIndex];
-    
+
     // Update to the new random font
     updateFontFamily(randomFont);
-    
+
     // Add a brief visual feedback effect
     const surpriseBtn = document.getElementById('surpriseBtn');
     surpriseBtn.style.transform = 'scale(0.95)';
     surpriseBtn.style.transition = 'transform 0.1s ease';
-    
+
     setTimeout(() => {
         surpriseBtn.style.transform = 'scale(1)';
         surpriseBtn.style.transition = 'transform 0.2s ease';
@@ -2602,7 +2668,7 @@ function handleFormattingReset(e) {
         setTimeout(() => {
             // Remove any formatting from the current position
             document.execCommand('removeFormat', false, null);
-            
+
             // Also clear any lingering formatting states
             const commands = ['bold', 'italic', 'underline', 'strikethrough'];
             commands.forEach(command => {
@@ -2610,14 +2676,14 @@ function handleFormattingReset(e) {
                     document.execCommand(command, false, null);
                 }
             });
-            
+
             // Reset font size by breaking out of styled spans
             resetFontSizeAfterEnter();
-            
+
             // Reset to body style
             activeTextStyle = 'body';
             updateTextStyleUI('body');
-            
+
             // Update button states
             updateFormatButtonStates();
         }, 10);
@@ -2626,48 +2692,8 @@ function handleFormattingReset(e) {
 
 // Reset font size after Enter to ensure new line is body text
 function resetFontSizeAfterEnter() {
-    const selection = window.getSelection();
-    if (selection.rangeCount === 0) return;
-    
-    const range = selection.getRangeAt(0);
-    let node = range.startContainer;
-    
-    // Find if we're inside a styled span (text-title, text-heading, etc.)
-    while (node && node !== editor) {
-        if (node.nodeType === Node.ELEMENT_NODE) {
-            const element = node;
-            // Check if this is a styled span with custom font-size
-            if (element.style && element.style.fontSize && element.style.fontSize !== '18px') {
-                // We're inside a styled span, need to break out
-                // Insert a zero-width space to break the formatting context
-                const textNode = document.createTextNode('\u200B');
-                
-                // Move cursor after the styled element if possible
-                if (element.nextSibling) {
-                    element.parentNode.insertBefore(textNode, element.nextSibling);
-                } else {
-                    element.parentNode.appendChild(textNode);
-                }
-                
-                // Move cursor to the new position
-                const newRange = document.createRange();
-                newRange.setStartAfter(textNode);
-                newRange.collapse(true);
-                selection.removeAllRanges();
-                selection.addRange(newRange);
-                
-                // Remove the zero-width space after cursor is positioned
-                setTimeout(() => {
-                    if (textNode.parentNode) {
-                        textNode.remove();
-                    }
-                }, 0);
-                
-                return;
-            }
-        }
-        node = node.parentNode;
-    }
+    // This function is replaced by resetBlockStyleAfterEnter
+    resetBlockStyleAfterEnter();
 }
 
 // Focus editor on startup
@@ -2698,13 +2724,13 @@ document.addEventListener('visibilitychange', () => {
 function toggleFullscreen() {
     const appContainer = document.querySelector('.app-container');
     const fullscreenBtn = document.getElementById('fullscreenBtn');
-    
+
     appContainer.classList.toggle('fullscreen-mode');
-    
+
     if (appContainer.classList.contains('fullscreen-mode')) {
         // Don't add active class styling
         fullscreenBtn.querySelector('span').textContent = 'Exit Fullscreen';
-        
+
         // Request fullscreen API if available
         if (document.documentElement.requestFullscreen) {
             document.documentElement.requestFullscreen();
@@ -2715,7 +2741,7 @@ function toggleFullscreen() {
         }
     } else {
         fullscreenBtn.querySelector('span').textContent = 'Fullscreen';
-        
+
         // Exit fullscreen API if available
         if (document.exitFullscreen) {
             document.exitFullscreen();
@@ -2725,7 +2751,7 @@ function toggleFullscreen() {
             document.msExitFullscreen();
         }
     }
-    
+
     // Adjust editor focus
     setTimeout(() => {
         focusEditor();
@@ -2733,7 +2759,7 @@ function toggleFullscreen() {
 }
 
 // Listen for ESC key to exit fullscreen
-document.addEventListener('keydown', function(e) {
+document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && document.querySelector('.app-container').classList.contains('fullscreen-mode')) {
         toggleFullscreen();
     }
@@ -2798,7 +2824,7 @@ document.addEventListener('click', async (e) => {
                 await handleCut(editor);
                 break;
             case 'paste':
-                await handlePaste(editor);
+                await handleContextMenuPaste(editor);
                 break;
             case 'select-all':
                 handleSelectAll(editor);
@@ -2861,7 +2887,7 @@ async function handleCut(editor) {
     }
 }
 
-async function handlePaste(editor) {
+async function handleContextMenuPaste(editor) {
     try {
         const clipboardText = await navigator.clipboard.readText();
         if (clipboardText) {

@@ -1345,19 +1345,31 @@ body.light-mode .editor-context-menu .context-menu-separator {
 }
 
 /* Text Style Classes for the editor */
+.editor .line-title,
 .editor .text-title {
-    font-size: 32px;
+    font-size: 30px;
+    font-weight: bold;
     line-height: 1.3;
+    margin: 8px 0;
+    display: block;
 }
 
+.editor .line-heading,
 .editor .text-heading {
-    font-size: 24px;
+    font-size: 22px;
+    font-weight: bold;
     line-height: 1.4;
+    margin: 6px 0;
+    display: block;
 }
 
+.editor .line-body,
 .editor .text-body {
     font-size: 18px;
+    font-weight: normal;
     line-height: 1.6;
+    margin: 4px 0;
+    display: block;
 }
 
 /* Bullet and numbered list improvements */
