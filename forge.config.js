@@ -25,6 +25,26 @@ const createLatestMacManifest = (artifactPath) => {
   return manifestPath;
 };
 
+const createLatestWindowsManifest = (artifactPath) => {
+  const fileBuffer = fs.readFileSync(artifactPath);
+  const { size } = fs.statSync(artifactPath);
+  const sha512 = crypto.createHash('sha512').update(fileBuffer).digest('base64');
+  const fileName = path.basename(artifactPath);
+  const manifest = [
+    `version: ${pkg.version}`,
+    'files:',
+    `  - url: ${fileName}`,
+    `    sha512: ${sha512}`,
+    `    size: ${size}`,
+    `path: ${fileName}`,
+    `releaseDate: ${new Date().toISOString()}`
+  ].join('\n');
+
+  const manifestPath = path.join(path.dirname(artifactPath), 'latest.yml');
+  fs.writeFileSync(manifestPath, manifest);
+  return manifestPath;
+};
+
 module.exports = {
   packagerConfig: {
     asar: true,
@@ -135,6 +155,7 @@ module.exports = {
 
   hooks: {
     postMake: async (_forgeConfig, makeResults) => {
+      // Generate macOS auto-update manifest
       makeResults
         .filter((result) => result.platform === 'darwin')
         .forEach((result) => {
@@ -146,6 +167,21 @@ module.exports = {
 
           const manifestPath = createLatestMacManifest(zipArtifact);
           console.log(`Generated macOS auto-update manifest at ${manifestPath}`);
+        });
+
+      // Generate Windows auto-update manifest
+      makeResults
+        .filter((result) => result.platform === 'win32')
+        .forEach((result) => {
+          // Squirrel maker creates .exe installer
+          const exeArtifact = result.artifacts.find((artifact) => artifact.endsWith('.exe'));
+          if (!exeArtifact) {
+            console.warn('No Windows .exe artifact found; skipping latest.yml generation.');
+            return;
+          }
+
+          const manifestPath = createLatestWindowsManifest(exeArtifact);
+          console.log(`Generated Windows auto-update manifest at ${manifestPath}`);
         });
     },
   },
