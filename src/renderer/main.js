@@ -77,17 +77,17 @@ async function initialize() {
     // Load settings
     await loadSettings();
 
-    // Load folders and notes
-    await loadFolders();
-    await loadNotesAndRender();
-
-    // Initialize modules
+    // Initialize UI modules FIRST (so DOM refs are ready)
     initTheme();
     initDropdowns();
     initFullscreen();
-    initSidebar();
+    initSidebar();  
     initContextMenu(executeCommand);
     initEditor(editor, editorPlaceholder, wordCount, handleEditorInput);
+
+    // THEN load data and render
+    await loadFolders();
+    await loadNotesAndRender();
 
     // Setup event listeners
     setupEventListeners();
@@ -109,10 +109,9 @@ async function initialize() {
         applyNoteFontSettings();
     }
 
-    // Auto-save timer
+    // Auto-save timer (backup - runs every 30s)
     setInterval(() => {
         if (state.currentNote && editor.innerHTML.trim() && state.currentNote.originalContent !== editor.innerHTML) {
-            console.log('Backup auto-save triggered');
             autoSave();
         }
     }, 30000);
@@ -206,11 +205,15 @@ async function loadFolders() {
 // ===== NOTES =====
 async function loadNotesAndRender() {
     await loadNotes();
+    doRenderNotesList();
+}
+
+function doRenderNotesList() {
     renderNotesList(null, handleLoadNote, handleDeleteNote, showMoveNoteMenu);
 }
 
 async function handleLoadNote(note) {
-    await loadNote(note, editor, currentNoteTitle, handleSaveCurrentNote, applyNoteFontSettings);
+    await loadNote(note, editor, currentNoteTitle, handleSaveCurrentNote, applyNoteFontSettings, editorPlaceholder, wordCount);
 }
 
 async function handleCreateNewNote() {
@@ -218,11 +221,12 @@ async function handleCreateNewNote() {
 }
 
 async function handleSaveCurrentNote() {
-    await saveCurrentNote(editor, currentNoteTitle, loadNotesAndRender);
+    // Pass callbacks for sidebar updates - no full reload needed
+    await saveCurrentNote(editor, currentNoteTitle, { renderList: doRenderNotesList });
 }
 
 async function handleDeleteNote(noteId) {
-    await deleteNoteHandler(noteId, handleCreateNewNote, loadNotesAndRender);
+    await deleteNoteHandler(noteId, handleCreateNewNote, doRenderNotesList);
 }
 
 // ===== AUTO-SAVE =====
@@ -235,7 +239,6 @@ function debouncedAutoSave() {
                 normalizeHtmlForComparison(state.currentNote.originalContent) !== normalizeHtmlForComparison(editor.innerHTML);
 
             if (hasContentChanged) {
-                console.log('Auto-save triggered: content changed');
                 autoSave();
             }
         }
@@ -248,7 +251,6 @@ async function autoSave() {
             normalizeHtmlForComparison(state.currentNote.originalContent) !== normalizeHtmlForComparison(editor.innerHTML);
 
         if (hasContentChanged) {
-            console.log(`Auto-save: Content changed for "${state.currentNote.title}"`);
             await handleSaveCurrentNote();
         }
     }
@@ -332,7 +334,7 @@ function handleKeyDown(e) {
 function handleSearch(e) {
     const query = e.target.value.toLowerCase();
     if (!query) {
-        renderNotesList(null, handleLoadNote, handleDeleteNote, showMoveNoteMenu);
+        doRenderNotesList();
         return;
     }
 
@@ -346,15 +348,12 @@ function handleSearch(e) {
 
 // ===== MOVE NOTE MENU =====
 function showMoveNoteMenu(event, note) {
-    // Implementation would go here - for now we'll keep the inline version
-    console.log('Move note menu for:', note.title);
+    // TODO: Implement move note menu
 }
 
 // ===== FONT MANAGEMENT =====
 function updateFontFamily(family) {
     if (!state.currentNote) return;
-
-    console.log(`Updating font family to "${family}" for note: "${state.currentNote.title}"`);
 
     state.currentNote.fontFamily = family;
     editor.style.fontFamily = family;

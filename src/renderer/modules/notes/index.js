@@ -13,10 +13,12 @@ import {
     setIsNoteDirty,
     resetListModes,
     updateNoteInCache,
-    addNoteToCache
+    addNoteToCache,
+    removeNoteFromCache
 } from '../../state.js';
 import { normalizeHtmlForComparison } from '../../utils/dom.js';
-import { closeSidebar, updateSidebarNoteTitle } from '../sidebar/index.js';
+import { closeSidebar, updateSidebarNoteTitle, renderNotesList } from '../sidebar/index.js';
+import { updatePlaceholder, updateWordCount } from '../editor/index.js';
 
 // Extract title from content
 export function extractTitleFromContent(content) {
@@ -69,8 +71,6 @@ export function updateTitleFromContent(editor, currentNoteTitle) {
 
         // Debounced sidebar update
         debouncedSidebarUpdate(currentNote);
-
-        console.log(`Title updated: "${oldTitle}" → "${newTitle}"`);
     }
 }
 
@@ -84,20 +84,18 @@ function debouncedSidebarUpdate(note) {
 }
 
 // Load a specific note
-export async function loadNote(note, editor, currentNoteTitle, saveCurrentNoteCallback, applyNoteFontSettingsCallback) {
+export async function loadNote(note, editor, currentNoteTitle, saveCurrentNoteCallback, applyNoteFontSettingsCallback, editorPlaceholder, wordCountElement) {
     // Save current note before switching if content has changed
     if (currentNote && editor.innerHTML.trim()) {
         const hasUnsavedChanges = isNoteDirty || 
             normalizeHtmlForComparison(currentNote.originalContent) !== normalizeHtmlForComparison(editor.innerHTML);
         if (hasUnsavedChanges) {
-            console.log(`Auto-saving current note before switch: "${currentNote.title}"`);
             await saveCurrentNoteCallback();
         }
     }
 
     // Don't reload the same note
     if (currentNote && currentNote.id === note.id) {
-        console.log(`Note already loaded: "${note.title}"`);
         return;
     }
 
@@ -109,10 +107,8 @@ export async function loadNote(note, editor, currentNoteTitle, saveCurrentNoteCa
     const freshNote = allNotes.find(n => n.id === note.id);
     if (freshNote) {
         setCurrentNote({ ...freshNote });
-        console.log(`Using fresh cached data for note: "${currentNote.title}"`);
     } else {
         setCurrentNote({ ...note });
-        console.log(`Using passed note data (no cache found): "${currentNote.title}"`);
     }
 
     // Handle backward compatibility
@@ -127,6 +123,14 @@ export async function loadNote(note, editor, currentNoteTitle, saveCurrentNoteCa
     const noteContent = currentNote.content || '';
     editor.innerHTML = noteContent;
     currentNote.content = noteContent;
+
+    // Update placeholder visibility and word count
+    if (editorPlaceholder) {
+        updatePlaceholder(editor, editorPlaceholder);
+    }
+    if (wordCountElement) {
+        updateWordCount(editor, wordCountElement);
+    }
 
     // Update title
     updateTitleFromContent(editor, currentNoteTitle);
@@ -146,7 +150,6 @@ export async function loadNote(note, editor, currentNoteTitle, saveCurrentNoteCa
     queueMicrotask(() => {
         if (currentNote) {
             currentNote.originalContent = editor.innerHTML;
-            console.log(`Original content set after DOM settle for: "${currentNote.title}"`);
         }
     });
 
@@ -154,8 +157,6 @@ export async function loadNote(note, editor, currentNoteTitle, saveCurrentNoteCa
     setTimeout(() => {
         editor.focus();
     }, 100);
-
-    console.log(`Loaded note: "${currentNote.title}" (ID: ${currentNote.id})`);
 }
 
 // Create new note
@@ -168,7 +169,6 @@ export async function createNewNote(editor, currentNoteTitle, saveCurrentNoteCal
         const hasUnsavedChanges = isNoteDirty || 
             normalizeHtmlForComparison(currentNote.originalContent) !== normalizeHtmlForComparison(editor.innerHTML);
         if (hasUnsavedChanges) {
-            console.log(`Auto-saving current note before creating new note: "${currentNote.title}"`);
             await saveCurrentNoteCallback();
         }
     }
@@ -222,8 +222,8 @@ export async function createNewNote(editor, currentNoteTitle, saveCurrentNoteCal
     });
 }
 
-// Save current note
-export async function saveCurrentNote(editor, currentNoteTitle, loadNotesCallback) {
+// Save current note - optimized to update cache directly without reloading all notes
+export async function saveCurrentNote(editor, currentNoteTitle, sidebarCallbacks) {
     if (!currentNote) return;
 
     try {
@@ -239,7 +239,6 @@ export async function saveCurrentNote(editor, currentNoteTitle, loadNotesCallbac
         const result = await window.electronAPI.saveNote(noteData);
 
         if (result.success) {
-            const oldTitle = currentNote.title;
             const wasNewNote = !allNotes.find(note => note.id === currentNote.id);
 
             const updatedNote = result.note;
@@ -255,25 +254,24 @@ export async function saveCurrentNote(editor, currentNoteTitle, loadNotesCallbac
             }
             currentNoteTitle.textContent = displayTitle;
 
-            // Update cache
-            const noteIndex = allNotes.findIndex(note => note.id === currentNote.id);
-            if (noteIndex > -1) {
-                updateNoteInCache(currentNote.id, { ...currentNote });
-                console.log(`Updated cached note: "${currentNote.title}"`);
-            } else if (wasNewNote) {
-                addNoteToCache(currentNote);
-                console.log(`Added new note to cache: "${currentNote.title}"`);
-            }
-
-            // Refresh list if needed
-            const titleChanged = oldTitle !== currentNote.title;
-            if (wasNewNote || titleChanged) {
-                await loadNotesCallback();
+            // Update cache directly - no full reload from disk needed
+            if (wasNewNote) {
+                addNoteToCache({ ...currentNote });
+                // Re-render sidebar for new notes
+                if (sidebarCallbacks && sidebarCallbacks.renderList) {
+                    sidebarCallbacks.renderList();
+                }
+            } else if (contentChanged) {
+                // Content changed - update cache, re-sort, and re-render to move note up
+                updateNoteInCache(currentNote.id, { ...currentNote }, true);
+                if (sidebarCallbacks && sidebarCallbacks.renderList) {
+                    sidebarCallbacks.renderList();
+                }
             } else {
+                // No content change - just update title in place
+                updateNoteInCache(currentNote.id, { ...currentNote });
                 updateSidebarNoteTitle(currentNote);
             }
-
-            console.log(`Note saved successfully: ${currentNote.title}`);
         } else {
             console.error('Save failed:', result.error);
         }
@@ -282,16 +280,24 @@ export async function saveCurrentNote(editor, currentNoteTitle, loadNotesCallbac
     }
 }
 
-// Delete note
-export async function deleteNote(noteId, createNewNoteCallback, loadNotesCallback) {
+// Delete note - optimized to update cache directly without reloading all notes
+export async function deleteNote(noteId, createNewNoteCallback, renderListCallback) {
     if (confirm('Are you sure you want to delete this note?')) {
         try {
             const result = await window.electronAPI.deleteNote(noteId);
             if (result.success) {
+                // Remove from cache directly
+                removeNoteFromCache(noteId);
+                
+                // If we deleted the current note, create a new one
                 if (currentNote && currentNote.id === noteId) {
                     await createNewNoteCallback();
                 }
-                await loadNotesCallback();
+                
+                // Re-render sidebar with updated cache
+                if (renderListCallback) {
+                    renderListCallback();
+                }
             }
         } catch (error) {
             console.error('Error deleting note:', error);

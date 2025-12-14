@@ -66,20 +66,24 @@ async function saveNote(noteData) {
     const filename = generateNoteFilename(note);
     const filepath = path.join(NOTES_DIR, filename);
     
-    // Check if this is an update to existing note
+    // Check if this is an update to existing note (async version)
     const files = await fs.readdir(NOTES_DIR);
-    const existingFile = files.find(file => {
+    let existingFile = null;
+    
+    for (const file of files) {
       if (file.endsWith('.md')) {
         try {
-          const content = fsSync.readFileSync(path.join(NOTES_DIR, file), 'utf8');
+          const content = await fs.readFile(path.join(NOTES_DIR, file), 'utf8');
           const { metadata } = parseFrontmatter(content);
-          return metadata.id === noteId;
+          if (metadata.id === noteId) {
+            existingFile = file;
+            break;
+          }
         } catch (error) {
-          return false;
+          // Continue to next file
         }
       }
-      return false;
-    });
+    }
     
     // If updating existing note, remove old file
     if (existingFile) {
@@ -127,10 +131,10 @@ async function loadNotes() {
             folderName: metadata.folderName || null
           };
           
-          // Debug font loading for non-default fonts
-          if (metadata.fontSize !== 16 || (metadata.fontFamily && metadata.fontFamily !== 'Aeonik')) {
-            console.log(`Storage: Loading note with custom fonts - fontSize: ${metadata.fontSize}, fontFamily: "${metadata.fontFamily}" for note: "${note.title}"`);
-          }
+          // Debug logging removed for performance - uncomment if needed:
+          // if (process.env.DEBUG_FONTS) {
+          //   console.log(`Storage: Loading note - fontSize: ${metadata.fontSize}, fontFamily: "${metadata.fontFamily}" for note: "${note.title}"`);
+          // }
           
           notes.push(note);
         } catch (fileError) {
@@ -154,18 +158,22 @@ async function deleteNote(noteId) {
     await ensureNotesDirectory();
     
     const files = await fs.readdir(NOTES_DIR);
-    const targetFile = files.find(file => {
+    let targetFile = null;
+    
+    for (const file of files) {
       if (file.endsWith('.md')) {
         try {
-          const content = fsSync.readFileSync(path.join(NOTES_DIR, file), 'utf8');
+          const content = await fs.readFile(path.join(NOTES_DIR, file), 'utf8');
           const { metadata } = parseFrontmatter(content);
-          return metadata.id === noteId;
+          if (metadata.id === noteId) {
+            targetFile = file;
+            break;
+          }
         } catch (error) {
-          return false;
+          // Continue to next file
         }
       }
-      return false;
-    });
+    }
     
     if (targetFile) {
       const filepath = path.join(NOTES_DIR, targetFile);

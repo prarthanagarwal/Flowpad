@@ -89,14 +89,24 @@ export function resetListModes() {
     currentListNumber = 1;
 }
 
-// Update a specific note in the allNotes array
-export function updateNoteInCache(noteId, updates) {
+// Update a specific note in the allNotes array and optionally re-sort
+export function updateNoteInCache(noteId, updates, reSort = false) {
     const index = allNotes.findIndex(n => n.id === noteId);
     if (index > -1) {
         allNotes[index] = { ...allNotes[index], ...updates };
+        
+        // Re-sort by updatedAt if requested (for when note moves to top)
+        if (reSort) {
+            sortNotesByUpdatedAt();
+        }
         return true;
     }
     return false;
+}
+
+// Sort notes by updatedAt (newest first)
+export function sortNotesByUpdatedAt() {
+    allNotes.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 }
 
 // Add a note to the beginning of allNotes
