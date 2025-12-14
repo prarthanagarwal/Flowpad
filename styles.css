@@ -397,10 +397,12 @@ body.light-mode .notes-list::-webkit-scrollbar-thumb:hover {
     font-size: 13px;
     color: #fff;
     font-weight: 500;
-    max-width: 300px;
+    max-width: clamp(80px, 25vw, 300px); /* Responsive max-width */
+    min-width: 50px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    flex-shrink: 1; /* Allow shrinking when space is limited */
 }
 
 /* Main Content */
@@ -649,8 +651,9 @@ body.light-mode .notes-list::-webkit-scrollbar-thumb:hover {
 }
 
 body.light-mode .editor-context-menu {
-    background-color: #fff;
+    background-color: #fefae0; /* Match app background */
     border-color: #d0d0d0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 body.light-mode .editor-context-menu .context-menu-item {
@@ -658,7 +661,8 @@ body.light-mode .editor-context-menu .context-menu-item {
 }
 
 body.light-mode .editor-context-menu .context-menu-item:hover {
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: rgba(0, 122, 204, 0.1); /* Subtle blue highlight */
+    color: #007acc;
 }
 
 body.light-mode .editor-context-menu .context-menu-separator {
@@ -1427,6 +1431,7 @@ body.light-mode .editor-context-menu .context-menu-separator {
 
 /* Hide icons in normal view - only show at minimum width */
 #themeBtn i,
+#surpriseBtn i,
 #fullscreenBtn i,
 #fontBtn i,
 #fontsizeBtn i {
@@ -1484,7 +1489,8 @@ body.light-mode .editor-context-menu .context-menu-separator {
 }
 
 .sidebar.open {
-    animation: slideIn 0.3s ease;
+    /* Removed conflicting animation - rely on transform transition only */
+    /* The transform: translateX(0) in .sidebar.open handles the animation */
 }
 
 .modal.show {
