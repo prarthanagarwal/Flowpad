@@ -38,6 +38,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // File operations
   openNotesFolder: () => ipcRenderer.invoke('open-notes-folder'),
+  openExternalLink: (url) => ipcRenderer.invoke('open-external-link', url),
   
   // Remove listeners
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel)

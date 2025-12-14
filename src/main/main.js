@@ -1,7 +1,7 @@
 // ===== MAIN PROCESS - APP LIFECYCLE & WINDOW MANAGEMENT =====
 // Handles Electron app lifecycle, window creation, and menu setup
 
-const { app, BrowserWindow, Menu, shell } = require('electron');
+const { app, BrowserWindow, Menu, shell, Tray, nativeImage } = require('electron');
 const path = require('path');
 const storage = require('./storage');
 const { initializeIpcHandlers } = require('./ipc-handlers');
@@ -136,6 +136,7 @@ if (process.platform === 'win32' && handleSquirrelEvent()) {
 
 // ===== GLOBAL VARIABLES =====
 let mainWindow;
+let tray = null;
 
 // ===== AUTO-UPDATER CONFIGURATION =====
 // Using update-electron-app for simple, automatic updates
@@ -374,6 +375,64 @@ function createMenu() {
   Menu.setApplicationMenu(menu);
 }
 
+// ===== TRAY CREATION =====
+function createTray() {
+  // Get icon path
+  const iconPath = path.join(__dirname, '../../assets/icon.ico');
+  
+  // Create tray icon
+  tray = new Tray(iconPath);
+  tray.setToolTip('flowpad');
+  
+  // Create tray context menu
+  const trayMenu = Menu.buildFromTemplate([
+    {
+      label: 'Open Flowpad',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      }
+    },
+    {
+      label: 'New Note',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+          mainWindow.focus();
+          mainWindow.webContents.send('new-note');
+        }
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Open Notes Folder',
+      click: async () => {
+        await storage.ensureNotesDirectory();
+        shell.openPath(storage.getNotesDirectory());
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit',
+      click: () => {
+        app.quit();
+      }
+    }
+  ]);
+  
+  tray.setContextMenu(trayMenu);
+  
+  // Double-click to show window
+  tray.on('double-click', () => {
+    if (mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+}
+
 // ===== APP LIFECYCLE =====
 app.whenReady().then(async () => {
   // Set Application User Model ID for Windows taskbar grouping and identification
@@ -393,7 +452,10 @@ app.whenReady().then(async () => {
   // Create application menu
   createMenu();
   
-
+  // Create system tray (Windows only for now)
+  if (process.platform === 'win32') {
+    createTray();
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

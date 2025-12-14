@@ -287,7 +287,8 @@ function getAppSettings() {
     fontFamily: 'Aeonik',
     theme: 'dark',
     autoSave: true,
-    wordWrap: true
+    wordWrap: true,
+    openOnStartup: false
   });
 }
 
