@@ -4,11 +4,13 @@
 import { 
     isDashListMode, 
     isNumberedListMode, 
-    isCircularChecklistMode, 
+    isCircularChecklistMode,
+    isQuoteListMode,
     currentListNumber,
     setIsDashListMode,
     setIsNumberedListMode,
     setIsCircularChecklistMode,
+    setIsQuoteListMode,
     setCurrentListNumber
 } from '../../state.js';
 import { getCurrentLineText, replaceCurrentLineStart } from '../../utils/dom.js';
@@ -20,18 +22,27 @@ export function checkForListActivation() {
 
     const lineText = getCurrentLineText();
 
-    // Check for dash list activation (-, *, or > followed by space)
+    // Check for quote list activation (> followed by space) - keep as >
+    const normalizedLine = lineText.replace(/\u00A0/g, ' ');
+    if (normalizedLine === '> ') {
+        setIsQuoteListMode(true);
+        setIsDashListMode(false);
+        setIsNumberedListMode(false);
+        setIsCircularChecklistMode(false);
+        return;
+    }
+
+    // Check for dash list activation (-, * followed by space)
     const normalizedDashLine = lineText.replace(/\u00A0/g, ' ');
-    if (normalizedDashLine === '- ' || normalizedDashLine === '* ' || normalizedDashLine === '• ' || normalizedDashLine === '> ') {
+    if (normalizedDashLine === '- ' || normalizedDashLine === '* ' || normalizedDashLine === '• ') {
         setIsDashListMode(true);
         setIsNumberedListMode(false);
         setIsCircularChecklistMode(false);
+        setIsQuoteListMode(false);
 
-        // Replace * or > with bullet point for consistency
+        // Replace * with bullet point for consistency
         if (normalizedDashLine === '* ') {
             replaceCurrentLineStart('* ', '•\u00A0');
-        } else if (normalizedDashLine === '> ') {
-            replaceCurrentLineStart('> ', '•\u00A0');
         }
     }
 
@@ -43,34 +54,151 @@ export function checkForListActivation() {
         setIsNumberedListMode(true);
         setIsDashListMode(false);
         setIsCircularChecklistMode(false);
+        setIsQuoteListMode(false);
     }
 
     // Check for circular checklist activation (◯/⬤ followed by space)
-    const normalizedLine = lineText.replace(/\u00A0/g, ' ');
-    if (normalizedLine === '◯ ' || normalizedLine === '⬤ ') {
+    const normalizedCheckLine = lineText.replace(/\u00A0/g, ' ');
+    if (normalizedCheckLine === '◯ ' || normalizedCheckLine === '⬤ ') {
         setIsCircularChecklistMode(true);
         setIsDashListMode(false);
         setIsNumberedListMode(false);
+        setIsQuoteListMode(false);
     }
 }
 
-// Insert bullet list
+// Get selected lines as array
+function getSelectedLines() {
+    const selection = window.getSelection();
+    if (selection.rangeCount === 0) return null;
+    
+    const selectedText = selection.toString();
+    if (!selectedText || !selectedText.includes('\n')) return null;
+    
+    return selectedText.split('\n').filter(line => line.trim() !== '');
+}
+
+// Convert selected lines to list format
+function convertSelectionToList(prefix) {
+    const selection = window.getSelection();
+    if (selection.rangeCount === 0) return false;
+    
+    const selectedText = selection.toString();
+    if (!selectedText) return false;
+    
+    // Check if selection spans multiple lines
+    const lines = selectedText.split('\n');
+    if (lines.length <= 1) return false;
+    
+    // Convert each line to list item
+    const convertedLines = lines.map(line => {
+        const trimmedLine = line.trim();
+        if (!trimmedLine) return '';
+        
+        // Remove existing list markers if present
+        const cleanLine = trimmedLine
+            .replace(/^[•\-\*>\d+\.◯⬤]\s*/, '')
+            .trim();
+        
+        return cleanLine ? `${prefix}${cleanLine}` : '';
+    }).filter(line => line !== '');
+    
+    // Replace selection with converted text
+    const range = selection.getRangeAt(0);
+    range.deleteContents();
+    
+    // Insert as HTML with proper line breaks
+    const fragment = document.createDocumentFragment();
+    convertedLines.forEach((line, index) => {
+        if (index > 0) {
+            fragment.appendChild(document.createElement('br'));
+        }
+        fragment.appendChild(document.createTextNode(line));
+    });
+    
+    range.insertNode(fragment);
+    
+    // Move cursor to end
+    selection.collapseToEnd();
+    
+    return true;
+}
+
+// Insert bullet list (supports multi-line selection)
 export function insertBulletList() {
+    // Try to convert selection first
+    if (convertSelectionToList('• ')) {
+        setIsDashListMode(true);
+        return;
+    }
+    
+    // Single line/cursor - just insert bullet
     document.execCommand('insertText', false, '•\u00A0');
     setIsDashListMode(true);
     document.getElementById('editor').focus();
 }
 
-// Insert numbered list
+// Insert numbered list (supports multi-line selection)
 export function insertNumberedList() {
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0) {
+        const selectedText = selection.toString();
+        const lines = selectedText.split('\n');
+        
+        if (lines.length > 1) {
+            // Multi-line selection - number each line
+            let lineNumber = 1;
+            const convertedLines = lines.map(line => {
+                const trimmedLine = line.trim();
+                if (!trimmedLine) return '';
+                
+                // Remove existing list markers
+                const cleanLine = trimmedLine
+                    .replace(/^[•\-\*>\d+\.◯⬤]\s*/, '')
+                    .trim();
+                
+                if (cleanLine) {
+                    return `${lineNumber++}. ${cleanLine}`;
+                }
+                return '';
+            }).filter(line => line !== '');
+            
+            const range = selection.getRangeAt(0);
+            range.deleteContents();
+            
+            const fragment = document.createDocumentFragment();
+            convertedLines.forEach((line, index) => {
+                if (index > 0) {
+                    fragment.appendChild(document.createElement('br'));
+                }
+                fragment.appendChild(document.createTextNode(line));
+            });
+            
+            range.insertNode(fragment);
+            selection.collapseToEnd();
+            
+            setCurrentListNumber(lineNumber);
+            setIsNumberedListMode(true);
+            return;
+        }
+    }
+    
+    // Single line/cursor
     setCurrentListNumber(1);
     document.execCommand('insertText', false, '1.\u00A0');
     setIsNumberedListMode(true);
     document.getElementById('editor').focus();
 }
 
-// Insert circular checklist
+// Insert circular checklist (supports multi-line selection)
 export function insertCircularChecklist() {
+    // Try to convert selection first
+    if (convertSelectionToList('◯ ')) {
+        setIsCircularChecklistMode(true);
+        return;
+    }
+    
+    // Single line/cursor - just insert checkbox
     document.execCommand('insertText', false, '◯\u00A0');
     setIsCircularChecklistMode(true);
     document.getElementById('editor').focus();
@@ -138,39 +266,13 @@ export function toggleCircularCheckboxAtCursor() {
     const range = selection.getRangeAt(0);
     let node = range.startContainer;
     const editor = document.getElementById('editor');
-
-    let lineElement = node;
-    while (lineElement && lineElement !== editor) {
-        if (lineElement.nodeType === Node.ELEMENT_NODE &&
-            (lineElement.tagName === 'DIV' || lineElement.tagName === 'P')) {
-            break;
-        }
-        lineElement = lineElement.parentNode;
-    }
-
-    if (!lineElement || lineElement === editor) {
-        lineElement = null;
-    }
-
+    
+    // We need to find the SPECIFIC checkbox that was clicked
+    // First, check if we clicked directly on a text node with a checkbox
     let targetTextNode = null;
     let isChecked = false;
     
-    if (lineElement) {
-        const walker = document.createTreeWalker(lineElement, NodeFilter.SHOW_TEXT, null, false);
-        let textNode;
-        while ((textNode = walker.nextNode())) {
-            if (textNode.textContent.includes('⬤')) {
-                targetTextNode = textNode;
-                isChecked = true;
-                break;
-            }
-            if (textNode.textContent.includes('◯')) {
-                targetTextNode = textNode;
-                isChecked = false;
-                break;
-            }
-        }
-    } else if (node.nodeType === Node.TEXT_NODE) {
+    if (node.nodeType === Node.TEXT_NODE) {
         const text = node.textContent;
         if (text.includes('⬤')) {
             targetTextNode = node;
@@ -180,21 +282,75 @@ export function toggleCircularCheckboxAtCursor() {
             isChecked = false;
         }
     }
+    
+    // If not found in the clicked node, look in immediate parent only
+    if (!targetTextNode && node.nodeType === Node.ELEMENT_NODE) {
+        // Only check direct children, not the whole subtree
+        for (const child of node.childNodes) {
+            if (child.nodeType === Node.TEXT_NODE) {
+                if (child.textContent.includes('⬤')) {
+                    targetTextNode = child;
+                    isChecked = true;
+                    break;
+                } else if (child.textContent.includes('◯')) {
+                    targetTextNode = child;
+                    isChecked = false;
+                    break;
+                }
+            }
+        }
+    }
 
     if (!targetTextNode) return;
 
+    // Find the line container for this specific checkbox
+    // Walk up from the text node to find the nearest div/p, but stop at br boundaries
+    let lineContainer = targetTextNode.parentNode;
+    while (lineContainer && lineContainer !== editor) {
+        if (lineContainer.nodeType === Node.ELEMENT_NODE &&
+            (lineContainer.tagName === 'DIV' || lineContainer.tagName === 'P')) {
+            break;
+        }
+        lineContainer = lineContainer.parentNode;
+    }
+    
+    // If no div/p found, we need to work with just the content around this checkbox
+    // Find content between previous <br> and next <br>
+    const useLineContainer = lineContainer && lineContainer !== editor;
+
     if (isChecked) {
+        // Unchecking: replace filled circle with empty, remove strikethrough
         targetTextNode.textContent = targetTextNode.textContent.replace('⬤', '◯');
         
-        if (lineElement) {
-            const strikeTags = lineElement.querySelectorAll('s');
+        if (useLineContainer) {
+            // Remove all strikethrough elements in the container
+            const strikeTags = lineContainer.querySelectorAll('s');
             strikeTags.forEach(s => {
-                const textContent = s.textContent;
-                s.replaceWith(document.createTextNode(textContent));
+                const parent = s.parentNode;
+                while (s.firstChild) {
+                    parent.insertBefore(s.firstChild, s);
+                }
+                parent.removeChild(s);
             });
-            lineElement.normalize();
+            lineContainer.normalize();
+        } else {
+            // No line container - remove strikethrough siblings only
+            let sibling = targetTextNode.nextSibling;
+            while (sibling && sibling.nodeName !== 'BR' && sibling.nodeName !== 'DIV') {
+                const next = sibling.nextSibling;
+                if (sibling.nodeName === 'S') {
+                    const parent = sibling.parentNode;
+                    while (sibling.firstChild) {
+                        parent.insertBefore(sibling.firstChild, sibling);
+                    }
+                    parent.removeChild(sibling);
+                }
+                sibling = next;
+            }
+            targetTextNode.parentNode.normalize();
         }
     } else {
+        // Checking: replace empty circle with filled, add strikethrough to rest
         const text = targetTextNode.textContent;
         const circleIndex = text.indexOf('◯');
         if (circleIndex === -1) return;
@@ -204,7 +360,8 @@ export function toggleCircularCheckboxAtCursor() {
         
         targetTextNode.textContent = beforeCircle + '⬤\u00A0';
         
-        if (afterCircle) {
+        // Wrap remaining text content in strikethrough
+        if (afterCircle.trim()) {
             const strikeElem = document.createElement('s');
             strikeElem.style.color = '#666';
             strikeElem.textContent = afterCircle;
@@ -216,13 +373,30 @@ export function toggleCircularCheckboxAtCursor() {
                 parent.appendChild(strikeElem);
             }
         }
+        
+        // Also wrap any existing text sibling content after the checkbox (until BR or DIV)
+        let sibling = targetTextNode.nextSibling;
+        // Skip the strikethrough we just added
+        if (sibling && sibling.nodeName === 'S') {
+            sibling = sibling.nextSibling;
+        }
+        while (sibling && sibling.nodeName !== 'BR' && sibling.nodeName !== 'DIV') {
+            const next = sibling.nextSibling;
+            if (sibling.nodeType === Node.TEXT_NODE && sibling.textContent.trim()) {
+                const strikeElem = document.createElement('s');
+                strikeElem.style.color = '#666';
+                strikeElem.textContent = sibling.textContent;
+                sibling.parentNode.replaceChild(strikeElem, sibling);
+            }
+            sibling = next;
+        }
     }
 
-    const cursorTarget = lineElement || targetTextNode.parentNode;
-    if (cursorTarget) {
+    // Move cursor after the checkbox
+    if (targetTextNode.parentNode) {
         const newRange = document.createRange();
-        newRange.selectNodeContents(cursorTarget);
-        newRange.collapse(false);
+        newRange.setStartAfter(targetTextNode);
+        newRange.collapse(true);
         selection.removeAllRanges();
         selection.addRange(newRange);
     }
@@ -240,6 +414,11 @@ export function handleListEnter(e) {
     // Reactivate bullet mode if on a bullet line
     if (!isDashListMode && (lineText.startsWith('•') || lineText.startsWith('-'))) {
         setIsDashListMode(true);
+    }
+
+    // Reactivate quote mode if on a quote line
+    if (!isQuoteListMode && lineText.startsWith('>')) {
+        setIsQuoteListMode(true);
     }
 
     // Reactivate numbered mode if on a numbered line
@@ -261,6 +440,20 @@ export function handleListEnter(e) {
             document.execCommand('insertText', false, '\n');
         } else {
             document.execCommand('insertText', false, '\n◯\u00A0');
+        }
+        return true;
+    }
+
+    // Handle quote list mode (>)
+    if (isQuoteListMode) {
+        e.preventDefault();
+
+        const normalizedQuoteLine = lineText.replace(/\u00A0/g, ' ').trim();
+        if (normalizedQuoteLine === '>' || normalizedQuoteLine === '') {
+            setIsQuoteListMode(false);
+            document.execCommand('insertText', false, '\n');
+        } else {
+            document.execCommand('insertText', false, '\n>\u00A0');
         }
         return true;
     }

@@ -20,6 +20,7 @@ export let isNoteDirty = false;
 export let isDashListMode = false;
 export let isNumberedListMode = false;
 export let isCircularChecklistMode = false;
+export let isQuoteListMode = false;
 export let currentListNumber = 1;
 
 // Current active text style mode (title, heading, body)
@@ -69,6 +70,10 @@ export function setIsCircularChecklistMode(mode) {
     isCircularChecklistMode = mode;
 }
 
+export function setIsQuoteListMode(mode) {
+    isQuoteListMode = mode;
+}
+
 export function setCurrentListNumber(num) {
     currentListNumber = num;
 }
@@ -86,6 +91,7 @@ export function resetListModes() {
     isDashListMode = false;
     isNumberedListMode = false;
     isCircularChecklistMode = false;
+    isQuoteListMode = false;
     currentListNumber = 1;
 }
 

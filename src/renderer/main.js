@@ -70,9 +70,10 @@ async function initialize() {
     searchNotes = document.getElementById('searchNotes');
     newNoteBtn = document.getElementById('newNoteBtn');
 
-    // Set random placeholder text
+    // Set random placeholder text and ensure it's visible initially
     const randomIndex = Math.floor(Math.random() * placeholderTexts.length);
     editorPlaceholder.textContent = placeholderTexts[randomIndex];
+    editorPlaceholder.classList.remove('hidden');
 
     // Load settings
     await loadSettings();

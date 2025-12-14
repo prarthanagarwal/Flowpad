@@ -35,8 +35,8 @@ export function updatePlaceholder(editor, editorPlaceholder) {
 export function updateWordCount(editor, wordCountElement) {
     let text = editor.textContent || editor.innerText;
     
-    // Remove list markers before counting
-    text = text.replace(/[•◯⬤]/g, '');
+    // Remove list markers before counting (bullets, checkboxes, quotes)
+    text = text.replace(/[•◯⬤>]/g, '');
     text = text.replace(/^\d+\.\s*/gm, '');
     text = text.replace(/^-\s+/gm, '');
     
@@ -82,6 +82,49 @@ export function preventCursorInListSpace() {
     }
 }
 
+// Check if click is directly on a checkbox character (◯ or ⬤)
+function isClickOnCheckbox(e) {
+    // Get the click position
+    let range;
+    if (document.caretRangeFromPoint) {
+        range = document.caretRangeFromPoint(e.clientX, e.clientY);
+    } else if (document.caretPositionFromPoint) {
+        const pos = document.caretPositionFromPoint(e.clientX, e.clientY);
+        if (pos) {
+            range = document.createRange();
+            range.setStart(pos.offsetNode, pos.offset);
+            range.collapse(true);
+        }
+    }
+    
+    if (!range) return false;
+    
+    const node = range.startContainer;
+    if (node.nodeType !== Node.TEXT_NODE) return false;
+    
+    const text = node.textContent;
+    const offset = range.startOffset;
+    
+    // Check if click is at or near a checkbox character
+    // Check the character at offset and one before (in case of nbsp after checkbox)
+    const checkboxChars = ['◯', '⬤'];
+    
+    // Check character at current offset
+    if (offset > 0 && checkboxChars.includes(text[offset - 1])) {
+        return true;
+    }
+    // Check character at offset
+    if (checkboxChars.includes(text[offset])) {
+        return true;
+    }
+    // Check if we're in the space right after the checkbox
+    if (offset > 1 && checkboxChars.includes(text[offset - 2]) && (text[offset - 1] === ' ' || text[offset - 1] === '\u00A0')) {
+        return true;
+    }
+    
+    return false;
+}
+
 // Handle paste events
 export function handlePaste(e) {
     e.preventDefault();
@@ -121,8 +164,9 @@ export function initEditor(editor, editorPlaceholder, wordCountElement, handleIn
     editor.addEventListener('focus', updateFormatButtonStates);
 
     editor.addEventListener('click', (e) => {
-        const text = e.target.textContent || '';
-        if (text.includes('◯') || text.includes('⬤')) {
+        // Only toggle checkbox if clicking directly on the checkbox character
+        const clickedOnCheckbox = isClickOnCheckbox(e);
+        if (clickedOnCheckbox) {
             toggleCircularCheckboxAtCursor();
         }
         preventCursorInListSpace();

@@ -203,10 +203,11 @@ export async function createNewNote(editor, currentNoteTitle, saveCurrentNoteCal
     // Update title display
     currentNoteTitle.textContent = 'New Note';
 
-    // Set random placeholder text
+    // Set random placeholder text and make it visible
     if (placeholderTexts && editorPlaceholder) {
         const randomIndex = Math.floor(Math.random() * placeholderTexts.length);
         editorPlaceholder.textContent = placeholderTexts[randomIndex];
+        editorPlaceholder.classList.remove('hidden');
     }
 
     // Apply font settings
