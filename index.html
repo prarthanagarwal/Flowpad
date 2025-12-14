@@ -75,7 +75,7 @@
         <div class="bottom-toolbar">
             <div class="toolbar-left">
                 <button id="surpriseBtn" class="toolbar-btn" title="Surprise">
-                    <i class="ph ph-sparkle" style="font-size: 16px;"></i>
+                    <i class="ph ph-sparkle"></i>
                     <span>Surprise</span>
                 </button>
                 <div class="font-family-dropdown" id="fontDropdown">
@@ -170,6 +170,10 @@
 
     <!-- Context Menu for Editor -->
     <div class="editor-context-menu" id="editorContextMenu">
+        <div class="context-menu-item" data-action="cut">
+            <i class="ph ph-scissors" style="font-size: 12px;"></i>
+            Cut
+        </div>
         <div class="context-menu-item" data-action="copy">
             <i class="ph ph-copy" style="font-size: 12px;"></i>
             Copy
@@ -178,13 +182,28 @@
             <i class="ph ph-clipboard-text" style="font-size: 12px;"></i>
             Paste
         </div>
-        <div class="context-menu-item" data-action="cut">
-            <i class="ph ph-scissors" style="font-size: 12px;"></i>
-            Cut
-        </div>
+        <div class="context-menu-separator"></div>
         <div class="context-menu-item" data-action="select-all">
             <i class="ph ph-selection-all" style="font-size: 12px;"></i>
             Select All
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" data-action="bold">
+            <i class="ph ph-text-b" style="font-size: 12px;"></i>
+            Bold
+        </div>
+        <div class="context-menu-item" data-action="italic">
+            <i class="ph ph-text-italic" style="font-size: 12px;"></i>
+            Italic
+        </div>
+        <div class="context-menu-item" data-action="underline">
+            <i class="ph ph-text-underline" style="font-size: 12px;"></i>
+            Underline
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" data-action="google-search">
+            <i class="ph ph-magnifying-glass" style="font-size: 12px;"></i>
+            Search Google
         </div>
     </div>
 
