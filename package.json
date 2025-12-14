@@ -11,6 +11,8 @@
   "scripts": {
     "start": "electron-forge start",
     "dev": "electronmon .",
+    "dev:vite": "vite",
+    "build:vite": "vite build",
     "package": "electron-forge package",
     "make": "electron-forge make",
     "publish": "electron-forge publish",
@@ -44,10 +46,14 @@
     "@electron/fuses": "^1.8.0",
     "cross-env": "^7.0.3",
     "electron": "^36.5.0",
-    "electronmon": "^2.0.3"
+    "electronmon": "^2.0.3",
+    "vite": "^7.2.7",
+    "vite-plugin-electron": "^0.29.0",
+    "vite-plugin-electron-renderer": "^0.14.6"
   },
   "dependencies": {
     "@phosphor-icons/web": "^2.1.2",
+    "auto-launch": "^5.0.6",
     "electron-squirrel-startup": "^1.0.1",
     "electron-store": "^8.1.0",
     "update-electron-app": "^3.1.1"
