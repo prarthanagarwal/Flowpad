@@ -3,6 +3,7 @@ let currentNote = null;
 let allNotes = [];
 let allFolders = [];
 let currentFolder = 'all'; // 'all' means show all notes, otherwise folder ID
+let isNoteDirty = false; // Explicit dirty flag for change tracking
 let settings = {
     fontSize: 18,
     fontFamily: 'Aeonik',
@@ -10,6 +11,17 @@ let settings = {
     autoSave: true,
     wordWrap: true
 };
+
+// Normalize HTML for comparison (handles browser rendering differences)
+function normalizeHtmlForComparison(html) {
+    if (!html) return '';
+    return html
+        .replace(/\s+/g, ' ')           // Normalize whitespace
+        .replace(/>\s+</g, '><')        // Remove whitespace between tags
+        .replace(/\s*\/>/g, '/>')       // Normalize self-closing tags
+        .replace(/&nbsp;/g, '\u00A0')   // Normalize non-breaking spaces
+        .trim();
+}
 
 // Platform detection
 const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
@@ -709,7 +721,8 @@ function createNoteListItem(note) {
 async function loadNote(note) {
     // CRITICAL: Save current note before switching if content has changed
     if (currentNote && editor.innerHTML.trim()) {
-        const hasUnsavedChanges = currentNote.originalContent !== editor.innerHTML;
+        const hasUnsavedChanges = isNoteDirty || 
+            normalizeHtmlForComparison(currentNote.originalContent) !== normalizeHtmlForComparison(editor.innerHTML);
         if (hasUnsavedChanges) {
             console.log(`Auto-saving current note before switch: "${currentNote.title}"`);
             await saveCurrentNote();
@@ -721,6 +734,15 @@ async function loadNote(note) {
         console.log(`Note already loaded: "${note.title}"`);
         return;
     }
+
+    // Reset dirty flag for new note
+    isNoteDirty = false;
+
+    // Reset list mode flags when switching notes
+    isDashListMode = false;
+    isNumberedListMode = false;
+    isCircularChecklistMode = false;
+    currentListNumber = 1;
 
     // CRITICAL FIX: Always get the most up-to-date version from allNotes cache
     const freshNote = allNotes.find(n => n.id === note.id);
@@ -744,9 +766,6 @@ async function loadNote(note) {
     const noteContent = currentNote.content || '';
     editor.innerHTML = noteContent;
 
-    // Store original content for change detection (must match editor content)
-    currentNote.originalContent = noteContent;
-
     // Ensure current content is up to date
     currentNote.content = noteContent;
 
@@ -764,6 +783,15 @@ async function loadNote(note) {
         item.classList.remove('active');
     });
     document.querySelector(`[data-note-id="${note.id}"]`)?.classList.add('active');
+
+    // Store original content AFTER DOM has settled (microtask)
+    // This ensures browser normalization is captured
+    queueMicrotask(() => {
+        if (currentNote) {
+            currentNote.originalContent = editor.innerHTML;
+            console.log(`Original content set after DOM settle for: "${currentNote.title}"`);
+        }
+    });
 
     // Ensure editor has focus and cursor is positioned properly
     setTimeout(() => {
@@ -784,14 +812,27 @@ async function loadNote(note) {
 
 // Create new note (with auto-save protection)
 async function createNewNote() {
+    // Close sidebar when creating a new note
+    closeSidebar();
+
     // CRITICAL: Save current note before creating new one if content has changed
     if (currentNote && editor.innerHTML.trim()) {
-        const hasUnsavedChanges = currentNote.originalContent !== editor.innerHTML;
+        const hasUnsavedChanges = isNoteDirty || 
+            normalizeHtmlForComparison(currentNote.originalContent) !== normalizeHtmlForComparison(editor.innerHTML);
         if (hasUnsavedChanges) {
             console.log(`Auto-saving current note before creating new note: "${currentNote.title}"`);
             await saveCurrentNote();
         }
     }
+
+    // Reset dirty flag for new note
+    isNoteDirty = false;
+
+    // Reset list mode flags when creating new note
+    isDashListMode = false;
+    isNumberedListMode = false;
+    isCircularChecklistMode = false;
+    currentListNumber = 1;
 
     // Get folder name if creating in a specific folder
     let folderName = null;
@@ -849,7 +890,8 @@ async function saveCurrentNote() {
 
     try {
         // Check if content has actually changed before updating timestamp
-        const contentChanged = currentNote.originalContent !== editor.innerHTML;
+        const contentChanged = isNoteDirty || 
+            normalizeHtmlForComparison(currentNote.originalContent) !== normalizeHtmlForComparison(editor.innerHTML);
 
         const noteData = {
             ...currentNote,
@@ -867,11 +909,14 @@ async function saveCurrentNote() {
             // Update current note with saved data
             const updatedNote = result.note;
 
-            // Preserve editor content reference for consistency
-            updatedNote.originalContent = updatedNote.content;
+            // Set original content to current editor content (post-save baseline)
+            updatedNote.originalContent = editor.innerHTML;
 
             // Update current note reference
             currentNote = updatedNote;
+
+            // Reset dirty flag after successful save
+            isNoteDirty = false;
 
             // Apply title character limit for display
             let displayTitle = currentNote.title;
@@ -914,9 +959,9 @@ async function saveCurrentNote() {
 // Auto-save functionality
 async function autoSave() {
     if (currentNote && editor.innerHTML.trim()) {
-        // Only save if content has actually changed
-        const currentContent = editor.innerHTML;
-        const hasContentChanged = currentNote.originalContent !== currentContent;
+        // Only save if content has actually changed (use dirty flag or normalized comparison)
+        const hasContentChanged = isNoteDirty || 
+            normalizeHtmlForComparison(currentNote.originalContent) !== normalizeHtmlForComparison(editor.innerHTML);
 
         if (hasContentChanged) {
             console.log(`Auto-save: Content changed for "${currentNote.title}"`);
@@ -1459,9 +1504,9 @@ function debouncedAutoSave() {
     clearTimeout(autoSaveTimeout);
     autoSaveTimeout = setTimeout(() => {
         if (currentNote && editor.innerHTML.trim()) {
-            // More robust content comparison
-            const currentContent = editor.innerHTML;
-            const hasContentChanged = currentNote.originalContent !== currentContent;
+            // More robust content comparison using dirty flag and normalization
+            const hasContentChanged = isNoteDirty || 
+                normalizeHtmlForComparison(currentNote.originalContent) !== normalizeHtmlForComparison(editor.innerHTML);
 
             if (hasContentChanged) {
                 console.log('Auto-save triggered: content changed');
@@ -1489,8 +1534,11 @@ function handleEditorInput(e) {
         // Update title based on first line of content (includes sidebar update)
         updateTitleFromContent();
 
-        // Trigger debounced auto-save only if content actually changed
-        if (currentNote.originalContent !== editor.innerHTML) {
+        // Mark as dirty and trigger debounced auto-save if content actually changed
+        const hasChanged = normalizeHtmlForComparison(currentNote.originalContent) !== 
+                          normalizeHtmlForComparison(editor.innerHTML);
+        if (hasChanged) {
+            isNoteDirty = true;
             debouncedAutoSave();
         }
     }
@@ -1504,16 +1552,18 @@ function checkForListActivation() {
 
     const currentLineText = getCurrentLineText();
 
-    // Check for dash list activation (- or * followed by space or non-breaking space)
+    // Check for dash list activation (-, *, or > followed by space or non-breaking space)
     const normalizedDashLine = currentLineText.replace(/\u00A0/g, ' ');
-    if (normalizedDashLine === '- ' || normalizedDashLine === '* ' || normalizedDashLine === '• ') {
+    if (normalizedDashLine === '- ' || normalizedDashLine === '* ' || normalizedDashLine === '• ' || normalizedDashLine === '> ') {
         isDashListMode = true;
         isNumberedListMode = false;
         isCircularChecklistMode = false;
 
-        // Replace * with bullet point for consistency
+        // Replace * or > with bullet point for consistency
         if (normalizedDashLine === '* ') {
             replaceCurrentLineStart('* ', '•\u00A0');
+        } else if (normalizedDashLine === '> ') {
+            replaceCurrentLineStart('> ', '•\u00A0');
         }
     }
 
@@ -1580,8 +1630,17 @@ function updatePlaceholder() {
 }
 
 function updateWordCount() {
-    const text = editor.textContent || editor.innerText;
-    const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+    let text = editor.textContent || editor.innerText;
+    
+    // Remove list markers before counting words
+    // Remove bullet markers: •, -, ◯, ⬤
+    text = text.replace(/[•◯⬤]/g, '');
+    // Remove numbered list markers at start of lines (e.g., "1. ", "12. ")
+    text = text.replace(/^\d+\.\s*/gm, '');
+    // Remove standalone dashes that are list markers (at start of line)
+    text = text.replace(/^-\s+/gm, '');
+    
+    const words = text.trim() ? text.trim().split(/\s+/).filter(w => w.length > 0).length : 0;
     wordCount.textContent = `${words} word${words !== 1 ? 's' : ''}`;
 }
 
@@ -2129,6 +2188,43 @@ function handleKeyDown(e) {
 
 // Formatting commands
 function executeCommand(command) {
+    // Preserve list markers by adjusting selection if needed
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0 && !selection.isCollapsed) {
+        const range = selection.getRangeAt(0);
+        const startNode = range.startContainer;
+        
+        // Check if selection starts with a list marker
+        if (startNode.nodeType === Node.TEXT_NODE) {
+            const text = startNode.textContent;
+            const startOffset = range.startOffset;
+            
+            // Check if we're selecting from the start of a list marker
+            if (startOffset === 0) {
+                let markerLength = 0;
+                
+                // Check for bullet/dash markers
+                if (text.match(/^[•◯⬤\-]\s/)) {
+                    markerLength = 2; // marker + space
+                }
+                // Check for numbered list markers
+                else {
+                    const numMatch = text.match(/^(\d+)\.\s/);
+                    if (numMatch) {
+                        markerLength = numMatch[0].length;
+                    }
+                }
+                
+                // Adjust selection to exclude marker
+                if (markerLength > 0 && markerLength < text.length) {
+                    range.setStart(startNode, markerLength);
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                }
+            }
+        }
+    }
+    
     document.execCommand(command, false, null);
     editor.focus();
 }
@@ -2202,28 +2298,63 @@ function insertCircularChecklist() {
 
 // Toggle circular checkbox state
 // ◯ (U+25EF) = hollow/unchecked, ⬤ (U+2B24) = filled/checked (larger circles)
+// Uses DOM manipulation instead of innerHTML to prevent content reset
 function toggleCircularCheckbox(element) {
-    const isChecked = element.textContent.includes('⬤');
     const line = element.closest('div') || element.parentNode;
-
-    if (isChecked) {
-        // Change to unchecked (hollow) - restore plain text
-        const plainText = line ? line.textContent.replace('⬤', '◯') : element.textContent.replace('⬤', '◯');
-        if (line && line.nodeType === Node.ELEMENT_NODE) {
-            line.innerHTML = plainText;
-        } else {
-            element.textContent = plainText;
+    if (!line || line.nodeType !== Node.ELEMENT_NODE) return;
+    
+    // Find the text node containing the checkbox
+    const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT, null, false);
+    let textNode;
+    let isChecked = false;
+    
+    while ((textNode = walker.nextNode())) {
+        if (textNode.textContent.includes('⬤')) {
+            isChecked = true;
+            break;
         }
+        if (textNode.textContent.includes('◯')) {
+            isChecked = false;
+            break;
+        }
+    }
+    
+    if (!textNode) return;
+    
+    if (isChecked) {
+        // Unchecking: Replace ⬤ with ◯ and remove strikethrough
+        textNode.textContent = textNode.textContent.replace('⬤', '◯');
+        
+        // Remove any <s> tags by replacing with their text content
+        const strikeTags = line.querySelectorAll('s');
+        strikeTags.forEach(s => {
+            const textContent = s.textContent;
+            s.replaceWith(document.createTextNode(textContent));
+        });
     } else {
-        // Change to checked (filled) + strikethrough text only
-        const text = line ? line.textContent : element.textContent;
+        // Checking: Replace ◯ with ⬤ and add strikethrough to text after
+        const text = textNode.textContent;
         const circleIndex = text.indexOf('◯');
-        if (circleIndex !== -1) {
-            const textAfterCircle = text.substring(circleIndex + 2); // Skip circle and space
-            const textBeforeCircle = text.substring(0, circleIndex);
-            const newContent = textBeforeCircle + '⬤ ' + '<s style="color:#666">' + textAfterCircle + '</s>';
-            if (line && line.nodeType === Node.ELEMENT_NODE) {
-                line.innerHTML = newContent;
+        if (circleIndex === -1) return;
+        
+        // Split the text node: before circle, circle+space, after circle
+        const beforeCircle = text.substring(0, circleIndex);
+        const afterCircle = text.substring(circleIndex + 2); // Skip ◯ and space
+        
+        // Update text node to just before + checked circle + space
+        textNode.textContent = beforeCircle + '⬤\u00A0';
+        
+        // Create strikethrough element for text after
+        if (afterCircle) {
+            const strikeElem = document.createElement('s');
+            strikeElem.style.color = '#666';
+            strikeElem.textContent = afterCircle;
+            
+            // Insert after the text node
+            if (textNode.nextSibling) {
+                line.insertBefore(strikeElem, textNode.nextSibling);
+            } else {
+                line.appendChild(strikeElem);
             }
         }
     }
@@ -2502,6 +2633,7 @@ function getClickedCharacter(e) {
 }
 
 // Toggle circular checkbox at cursor position
+// Uses DOM manipulation instead of innerHTML to prevent content reset
 function toggleCircularCheckboxAtCursor() {
     const selection = window.getSelection();
     if (selection.rangeCount === 0) return;
@@ -2519,60 +2651,98 @@ function toggleCircularCheckboxAtCursor() {
         lineElement = lineElement.parentNode;
     }
 
-    if (node.nodeType === Node.TEXT_NODE) {
+    // If we couldn't find a line element, use the editor itself for direct text
+    if (!lineElement || lineElement === editor) {
+        lineElement = null;
+    }
+
+    // Find the text node containing the checkbox character
+    let targetTextNode = null;
+    let isChecked = false;
+    
+    if (lineElement) {
+        // Search within the line element
+        const walker = document.createTreeWalker(lineElement, NodeFilter.SHOW_TEXT, null, false);
+        let textNode;
+        while ((textNode = walker.nextNode())) {
+            if (textNode.textContent.includes('⬤')) {
+                targetTextNode = textNode;
+                isChecked = true;
+                break;
+            }
+            if (textNode.textContent.includes('◯')) {
+                targetTextNode = textNode;
+                isChecked = false;
+                break;
+            }
+        }
+    } else if (node.nodeType === Node.TEXT_NODE) {
+        // Direct text node case
         const text = node.textContent;
+        if (text.includes('⬤')) {
+            targetTextNode = node;
+            isChecked = true;
+        } else if (text.includes('◯')) {
+            targetTextNode = node;
+            isChecked = false;
+        }
+    }
 
-        // Find the checkbox in the current line
-        const lineStart = text.lastIndexOf('\n', range.startOffset - 1) + 1;
-        const lineEnd = text.indexOf('\n', range.startOffset);
-        const actualLineEnd = lineEnd === -1 ? text.length : lineEnd;
-        const lineText = text.substring(lineStart, actualLineEnd);
+    if (!targetTextNode) return;
 
-        // Check for unchecked or checked checkbox (◯ = hollow/unchecked, ⬤ = filled/checked)
-        // Handle both regular space and non-breaking space (U+00A0)
-        if (lineText.includes('◯')) {
-            // Toggle to checked (filled) + strikethrough text only (not the circle)
-            const circleIndex = lineText.indexOf('◯');
-            // Check if next char is space or non-breaking space
-            const spaceChar = (circleIndex + 1 < lineText.length && lineText[circleIndex + 1] === '\u00A0') ? '\u00A0' : ' ';
-            const textAfterCircle = lineText.substring(circleIndex + 2); // Skip circle and space
-            const textBeforeCircle = lineText.substring(0, circleIndex);
-
-            // Create new content: circle + non-breaking space + strikethrough text
-            const newLineText = textBeforeCircle + '⬤\u00A0' + '<s style="color:#666">' + textAfterCircle + '</s>';
-
-            // We need to use innerHTML for the styled content
-            if (lineElement && lineElement !== editor && lineElement.nodeType === Node.ELEMENT_NODE) {
-                lineElement.innerHTML = newLineText;
+    // Perform the toggle using DOM manipulation
+    if (isChecked) {
+        // Unchecking: Replace ⬤ with ◯ and remove strikethrough
+        targetTextNode.textContent = targetTextNode.textContent.replace('⬤', '◯');
+        
+        // Remove any <s> tags in the line by replacing with their text content
+        if (lineElement) {
+            const strikeTags = lineElement.querySelectorAll('s');
+            strikeTags.forEach(s => {
+                const textContent = s.textContent;
+                s.replaceWith(document.createTextNode(textContent));
+            });
+            // Normalize to merge adjacent text nodes
+            lineElement.normalize();
+        }
+    } else {
+        // Checking: Replace ◯ with ⬤ and add strikethrough to text after
+        const text = targetTextNode.textContent;
+        const circleIndex = text.indexOf('◯');
+        if (circleIndex === -1) return;
+        
+        // Determine the space character used (regular or non-breaking)
+        const spaceChar = (circleIndex + 1 < text.length && text[circleIndex + 1] === '\u00A0') ? '\u00A0' : ' ';
+        
+        // Split: text before circle, and text after circle+space
+        const beforeCircle = text.substring(0, circleIndex);
+        const afterCircle = text.substring(circleIndex + 2); // Skip ◯ and space
+        
+        // Update text node to just before + checked circle + space
+        targetTextNode.textContent = beforeCircle + '⬤\u00A0';
+        
+        // Create strikethrough element for text after
+        if (afterCircle) {
+            const strikeElem = document.createElement('s');
+            strikeElem.style.color = '#666';
+            strikeElem.textContent = afterCircle;
+            
+            // Insert after the text node
+            const parent = targetTextNode.parentNode;
+            if (targetTextNode.nextSibling) {
+                parent.insertBefore(strikeElem, targetTextNode.nextSibling);
             } else {
-                // Fallback: just replace the circle, preserve space type
-                const replacement = '⬤' + spaceChar;
-                node.textContent = text.substring(0, lineStart) + lineText.replace('◯' + spaceChar, replacement) + text.substring(actualLineEnd);
-            }
-        } else if (lineText.includes('⬤')) {
-            // Toggle to unchecked (hollow) + remove strikethrough
-            // Get the plain text content (strip any HTML)
-            let plainText = lineElement && lineElement !== editor ? lineElement.textContent : lineText;
-            // Preserve non-breaking space if it exists
-            const circleIndex = plainText.indexOf('⬤');
-            const spaceChar = (circleIndex + 1 < plainText.length && plainText[circleIndex + 1] === '\u00A0') ? '\u00A0' : ' ';
-            const newPlainText = plainText.replace('⬤' + spaceChar, '◯\u00A0');
-
-            if (lineElement && lineElement !== editor && lineElement.nodeType === Node.ELEMENT_NODE) {
-                lineElement.innerHTML = newPlainText;
-            } else {
-                node.textContent = text.substring(0, lineStart) + newPlainText + text.substring(actualLineEnd);
+                parent.appendChild(strikeElem);
             }
         }
+    }
 
-        // Restore cursor to end of line
-        if (lineElement && lineElement !== editor) {
-            const newRange = document.createRange();
-            newRange.selectNodeContents(lineElement);
-            newRange.collapse(false);
-            selection.removeAllRanges();
-            selection.addRange(newRange);
-        }
+    // Restore cursor to end of line content
+    const cursorTarget = lineElement || targetTextNode.parentNode;
+    if (cursorTarget) {
+        const newRange = document.createRange();
+        newRange.selectNodeContents(cursorTarget);
+        newRange.collapse(false); // Collapse to end
         selection.removeAllRanges();
         selection.addRange(newRange);
     }
@@ -2828,6 +2998,23 @@ document.addEventListener('click', async (e) => {
                 break;
             case 'select-all':
                 handleSelectAll(editor);
+                break;
+            case 'bold':
+                executeCommand('bold');
+                break;
+            case 'italic':
+                executeCommand('italic');
+                break;
+            case 'underline':
+                executeCommand('underline');
+                break;
+            case 'google-search':
+                const selectedText = window.getSelection().toString().trim();
+                if (selectedText) {
+                    window.electronAPI.openExternalLink(
+                        `https://www.google.com/search?q=${encodeURIComponent(selectedText)}`
+                    );
+                }
                 break;
         }
 
