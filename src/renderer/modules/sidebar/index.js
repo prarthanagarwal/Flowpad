@@ -200,42 +200,64 @@ function createNoteListItem(note, loadNoteCallback, deleteNoteCallback, showMove
     return div;
 }
 
-// Extract title and body from content
+// Extract title and body from content using DOM-based parsing
 function extractTitleAndBodyFromContent(content) {
     if (!content) {
         return { title: 'New Note', bodyPreview: '' };
     }
 
-    let textContent;
-    if (typeof content === 'string' && content.includes('<')) {
-        let processedContent = content
-            .replace(/<div>/gi, '\n')
-            .replace(/<\/div>/gi, '')
-            .replace(/<br\s*\/?>/gi, '\n')
-            .replace(/<p>/gi, '\n')
-            .replace(/<\/p>/gi, '');
-
-        textContent = new DOMParser().parseFromString(processedContent, 'text/html').body.textContent || '';
-    } else {
-        textContent = content;
-    }
-
-    const trimmedContent = textContent.trim();
-
-    if (!trimmedContent) {
-        return { title: 'New Note', bodyPreview: '' };
-    }
-
-    const allLines = trimmedContent.split('\n');
-    const nonEmptyLines = allLines.filter(line => line.trim());
-
-    const title = nonEmptyLines.length > 0 ? nonEmptyLines[0].trim() : 'New Note';
-
+    let title = '';
     let bodyPreview = '';
-    if (nonEmptyLines.length > 1) {
-        bodyPreview = nonEmptyLines[1].trim();
-        if (bodyPreview.length > 50) {
-            bodyPreview = bodyPreview.substring(0, 47) + '...';
+    
+    if (typeof content === 'string' && content.includes('<')) {
+        // Create a temporary container to parse the HTML
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = content;
+        
+        // Get all lines by looking at the structure
+        // In contenteditable: first line is text node or first div, subsequent lines are divs
+        const lines = [];
+        
+        for (const node of tempDiv.childNodes) {
+            if (node.nodeType === Node.TEXT_NODE) {
+                const text = node.textContent.trim();
+                if (text) {
+                    lines.push(text);
+                }
+            } else if (node.nodeType === Node.ELEMENT_NODE) {
+                const tag = node.tagName;
+                if (tag === 'BR') {
+                    // Empty line
+                    lines.push('');
+                } else {
+                    // DIV, P, or other element - get its text content
+                    const text = node.textContent.trim();
+                    lines.push(text);
+                }
+            }
+        }
+        
+        // Get non-empty lines for title and body
+        const nonEmptyLines = lines.filter(line => line.trim());
+        title = nonEmptyLines.length > 0 ? nonEmptyLines[0].trim() : 'New Note';
+        
+        if (nonEmptyLines.length > 1) {
+            bodyPreview = nonEmptyLines[1].trim();
+            if (bodyPreview.length > 50) {
+                bodyPreview = bodyPreview.substring(0, 47) + '...';
+            }
+        }
+    } else {
+        // Plain text - split by newline
+        const lines = content.split('\n');
+        const nonEmptyLines = lines.filter(line => line.trim());
+        title = nonEmptyLines.length > 0 ? nonEmptyLines[0].trim() : 'New Note';
+        
+        if (nonEmptyLines.length > 1) {
+            bodyPreview = nonEmptyLines[1].trim();
+            if (bodyPreview.length > 50) {
+                bodyPreview = bodyPreview.substring(0, 47) + '...';
+            }
         }
     }
 

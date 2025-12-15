@@ -599,16 +599,26 @@ body.light-mode .notes-list::-webkit-scrollbar-thumb:hover {
 
 /* Folder Context Menu */
 .folder-context-menu {
-    background: #2a2a2a;
-    border: 1px solid #444;
-    border-radius: 6px;
-    padding: 4px 0;
+    position: fixed;
+    display: none;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 6px 0;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     min-width: 120px;
+    z-index: 10000;
+}
+
+body.light-mode .folder-context-menu {
+    background-color: #fefae0;
+    border-color: #e0e0e0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .context-menu-item {
-    padding: 6px 12px;
+    padding: 6px 10px;
+    margin: 2px 6px;
     cursor: pointer;
     font-size: 12px;
     color: #ccc;
@@ -616,6 +626,7 @@ body.light-mode .notes-list::-webkit-scrollbar-thumb:hover {
     align-items: center;
     gap: 8px;
     transition: background-color 0.15s ease;
+    border-radius: 6px;
 }
 
 .context-menu-item:hover {
@@ -633,8 +644,8 @@ body.light-mode .notes-list::-webkit-scrollbar-thumb:hover {
 
 .context-menu-separator {
     height: 1px;
-    background-color: #444;
-    margin: 4px 0;
+    background-color: rgba(255, 255, 255, 0.1);
+    margin: 6px 12px;
 }
 
 /* Editor Context Menu */
@@ -642,12 +653,12 @@ body.light-mode .notes-list::-webkit-scrollbar-thumb:hover {
     position: fixed;
     background-color: #1a1a1a;
     border: 1px solid #333;
-    border-radius: 6px;
-    padding: 4px 0;
+    border-radius: 8px;
+    padding: 6px 0;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     z-index: 10000;
     display: none;
-    min-width: 140px;
+    min-width: 150px;
 }
 
 body.light-mode .editor-context-menu {
@@ -666,7 +677,132 @@ body.light-mode .editor-context-menu .context-menu-item:hover {
 }
 
 body.light-mode .editor-context-menu .context-menu-separator {
-    background-color: #d0d0d0;
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Context Menu Submenus */
+.context-submenu {
+    position: relative;
+}
+
+.context-menu-item.has-submenu {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.submenu-arrow {
+    margin-left: auto;
+    opacity: 0.6;
+}
+
+.context-submenu-content {
+    display: none;
+    position: absolute;
+    left: 100%;
+    top: -6px;
+    background-color: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 6px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-width: 140px;
+    z-index: 10001;
+}
+
+.context-submenu:hover .context-submenu-content {
+    display: block;
+}
+
+body.light-mode .context-submenu-content {
+    background-color: #fefae0;
+    border-color: #e0e0e0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Note Context Menu (sidebar) */
+.note-context-menu {
+    position: fixed;
+    background-color: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 6px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 10000;
+    display: none;
+    min-width: 120px;
+}
+
+.note-context-menu .context-menu-item {
+    padding: 6px 10px;
+    margin: 2px 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #e0e0e0;
+    font-size: 12px;
+    transition: background-color 0.15s;
+    border-radius: 6px;
+}
+
+.note-context-menu .context-menu-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.note-context-menu .context-menu-separator {
+    height: 1px;
+    background-color: rgba(255, 255, 255, 0.1);
+    margin: 6px 12px;
+}
+
+.note-context-menu .context-submenu {
+    position: relative;
+}
+
+.note-context-menu #folderSubmenu {
+    display: none;
+    position: absolute;
+    left: 100%;
+    top: 0;
+    background-color: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 6px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-width: 100px;
+}
+
+.note-context-menu .context-submenu:hover #folderSubmenu {
+    display: block;
+}
+
+body.light-mode .note-context-menu {
+    background-color: #fefae0;
+    border-color: #d0d0d0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+body.light-mode .note-context-menu .context-menu-item {
+    color: #2d2d2d;
+}
+
+body.light-mode .note-context-menu .context-menu-item:hover {
+    background-color: rgba(0, 122, 204, 0.1);
+    color: #007acc;
+}
+
+body.light-mode .note-context-menu .context-menu-separator {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+body.light-mode .note-context-menu #folderSubmenu {
+    background-color: #fefae0;
+    border-color: #d0d0d0;
+}
+
+body.light-mode .note-context-menu .context-submenu:hover #folderSubmenu {
+    display: block;
 }
 
 /* Notes List */
@@ -907,15 +1043,6 @@ body.light-mode .editor-context-menu .context-menu-separator {
 
 .editor-placeholder.hidden {
     opacity: 0;
-}
-
-/* First line title styling - Apple Notes style */
-/* Only applies when user hasn't explicitly set body style on first line */
-/* The .title-override class disables automatic title styling */
-
-.editor:not(.title-override)::first-line {
-    font-size: 32px;
-    font-weight: bold;
 }
 
 /* Custom scrollbar */
@@ -1349,6 +1476,7 @@ body.light-mode .editor-context-menu .context-menu-separator {
 }
 
 /* Text Style Classes for the editor */
+.editor h1,
 .editor .line-title,
 .editor .text-title {
     font-size: 30px;
@@ -1358,6 +1486,7 @@ body.light-mode .editor-context-menu .context-menu-separator {
     display: block;
 }
 
+.editor h2,
 .editor .line-heading,
 .editor .text-heading {
     font-size: 22px;
@@ -1450,6 +1579,7 @@ body.light-mode .editor-context-menu .context-menu-separator {
     
     /* Show icons at minimum width */
     #themeBtn i,
+    #surpriseBtn i,
     #fullscreenBtn i,
     #fontBtn i,
     #fontsizeBtn i {
@@ -1486,11 +1616,6 @@ body.light-mode .editor-context-menu .context-menu-separator {
     to {
         opacity: 1;
     }
-}
-
-.sidebar.open {
-    /* Removed conflicting animation - rely on transform transition only */
-    /* The transform: translateX(0) in .sidebar.open handles the animation */
 }
 
 .modal.show {

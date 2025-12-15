@@ -20,31 +20,68 @@ import { normalizeHtmlForComparison } from '../../utils/dom.js';
 import { closeSidebar, updateSidebarNoteTitle, renderNotesList } from '../sidebar/index.js';
 import { updatePlaceholder, updateWordCount } from '../editor/index.js';
 
-// Extract title from content
+// Extract title from content - gets ONLY the first line
 export function extractTitleFromContent(content) {
     if (!content) return 'New Note';
 
-    let textContent;
+    let firstLine = '';
+    
     if (typeof content === 'string' && content.includes('<')) {
-        let processedContent = content
-            .replace(/<div>/gi, '\n')
-            .replace(/<\/div>/gi, '')
-            .replace(/<br\s*\/?>/gi, '\n')
-            .replace(/<p>/gi, '\n')
-            .replace(/<\/p>/gi, '');
-
-        textContent = new DOMParser().parseFromString(processedContent, 'text/html').body.textContent || '';
+        // Parse HTML properly using DOM
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(content, 'text/html');
+        const body = doc.body;
+        
+        // Get first line by examining the structure
+        // In contenteditable, structure is either:
+        // 1. Text node followed by <div>s for each line
+        // 2. All lines in <div>s
+        // 3. Lines separated by <br>
+        
+        const firstChild = body.firstChild;
+        
+        if (!firstChild) {
+            return 'New Note';
+        }
+        
+        // Check if first child is a text node (first line without wrapper)
+        if (firstChild.nodeType === Node.TEXT_NODE) {
+            firstLine = firstChild.textContent.trim();
+        } 
+        // If first child is a div, get its text content
+        else if (firstChild.nodeType === Node.ELEMENT_NODE) {
+            // For div, p, or other block elements - get first one's text
+            if (firstChild.tagName === 'DIV' || firstChild.tagName === 'P') {
+                firstLine = firstChild.textContent.trim();
+            } else {
+                // For inline elements or others, get text until first block break
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = content;
+                
+                // Walk through and get text until first <div>, <p>, or <br>
+                let text = '';
+                const walker = document.createTreeWalker(tempDiv, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+                let node;
+                
+                while ((node = walker.nextNode())) {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        const tag = node.tagName;
+                        if (tag === 'DIV' || tag === 'P' || tag === 'BR') {
+                            break; // Stop at first line break
+                        }
+                    } else if (node.nodeType === Node.TEXT_NODE) {
+                        text += node.textContent;
+                    }
+                }
+                
+                firstLine = text.trim();
+            }
+        }
     } else {
-        textContent = content;
+        // Plain text - split by newline
+        const lines = content.split('\n');
+        firstLine = lines[0]?.trim() || '';
     }
-
-    const trimmedContent = textContent.trim();
-    if (!trimmedContent) {
-        return 'New Note';
-    }
-
-    const lines = trimmedContent.split('\n').filter(line => line.trim());
-    let firstLine = lines.length > 0 ? lines[0].trim() : 'New Note';
 
     return firstLine || 'New Note';
 }
@@ -132,8 +169,16 @@ export async function loadNote(note, editor, currentNoteTitle, saveCurrentNoteCa
         updateWordCount(editor, wordCountElement);
     }
 
-    // Update title
-    updateTitleFromContent(editor, currentNoteTitle);
+    // Update title bar - ALWAYS set it when loading a note
+    const noteTitle = extractTitleFromContent(noteContent);
+    currentNote.title = noteTitle;
+    
+    // Limit title bar display to 15 characters max
+    let displayTitle = noteTitle;
+    if (displayTitle.length > 15) {
+        displayTitle = displayTitle.substring(0, 12) + '...';
+    }
+    currentNoteTitle.textContent = displayTitle;
 
     // Apply font settings
     if (applyNoteFontSettingsCallback) {
