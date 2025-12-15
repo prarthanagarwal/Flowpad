@@ -3,11 +3,11 @@
 
 import { activeTextStyle, setActiveTextStyle } from '../../state.js';
 
-// Text style configurations
+// Text style configurations - using HTML tags for proper undo support
 const textStyleConfigs = {
-    title: { className: 'line-title', label: 'Title', activateBold: false },
-    heading: { className: 'line-heading', label: 'Heading', activateBold: false },
-    body: { className: 'line-body', label: 'Body', activateBold: false }
+    title: { tag: 'h1', label: 'Title' },
+    heading: { tag: 'h2', label: 'Heading' },
+    body: { tag: 'div', label: 'Body' }
 };
 
 // Execute formatting command with list marker protection
@@ -68,7 +68,7 @@ export function updateFormatButtonStates() {
     });
 }
 
-// Apply text style to current line
+// Apply text style to current line using execCommand for proper undo support
 export function applyTextStyle(style, size) {
     const selection = window.getSelection();
     if (selection.rangeCount === 0) return;
@@ -77,47 +77,8 @@ export function applyTextStyle(style, size) {
     const styleConfig = textStyleConfigs[targetStyle] || textStyleConfigs.body;
     const editor = document.getElementById('editor');
 
-    const range = selection.getRangeAt(0);
-    let node = range.startContainer;
-
-    while (node && node !== editor) {
-        if (node.nodeType === Node.ELEMENT_NODE && (node.tagName === 'DIV' || node.tagName === 'P')) {
-            break;
-        }
-        node = node.parentNode;
-    }
-
-    if (node === editor || !node) {
-        document.execCommand('formatBlock', false, 'div');
-        const newSelection = window.getSelection();
-        if (newSelection.rangeCount > 0) {
-            const newRange = newSelection.getRangeAt(0);
-            node = newRange.startContainer;
-            while (node && node !== editor) {
-                if (node.nodeType === Node.ELEMENT_NODE && (node.tagName === 'DIV' || node.tagName === 'P')) {
-                    break;
-                }
-                node = node.parentNode;
-            }
-        }
-    }
-
-    if (node && node !== editor && node.nodeType === Node.ELEMENT_NODE) {
-        node.classList.remove('line-title', 'line-heading', 'line-body');
-        node.classList.add(styleConfig.className);
-        node.style.fontSize = '';
-        node.style.fontWeight = '';
-
-        const spans = node.querySelectorAll('span[style*="font-size"]');
-        spans.forEach(span => {
-            span.style.fontSize = '';
-            if (span.getAttribute('style') === '') {
-                const parent = span.parentNode;
-                while (span.firstChild) parent.insertBefore(span.firstChild, span);
-                parent.removeChild(span);
-            }
-        });
-    }
+    // Use execCommand formatBlock - this integrates with browser's undo stack
+    document.execCommand('formatBlock', false, styleConfig.tag);
 
     setActiveTextStyle(targetStyle);
     updateTextStyleUI(targetStyle);
@@ -125,7 +86,7 @@ export function applyTextStyle(style, size) {
     editor.focus();
 }
 
-// Update text style UI
+// Update text style UI based on current selection
 export function updateTextStyleUI(style) {
     let currentStyle = style;
 
@@ -136,9 +97,10 @@ export function updateTextStyleUI(style) {
             let node = selection.getRangeAt(0).startContainer;
             while (node && node !== editor) {
                 if (node.nodeType === Node.ELEMENT_NODE) {
-                    if (node.classList.contains('line-title')) currentStyle = 'title';
-                    else if (node.classList.contains('line-heading')) currentStyle = 'heading';
-                    else if (node.classList.contains('line-body')) currentStyle = 'body';
+                    const tag = node.tagName;
+                    if (tag === 'H1') currentStyle = 'title';
+                    else if (tag === 'H2') currentStyle = 'heading';
+                    else if (tag === 'DIV' || tag === 'P') currentStyle = 'body';
 
                     if (currentStyle) break;
                 }
@@ -161,23 +123,9 @@ export function updateTextStyleUI(style) {
 
 // Reset to body style after Enter key
 export function resetBlockStyleAfterEnter() {
-    const selection = window.getSelection();
-    if (selection.rangeCount === 0) return;
-
-    const range = selection.getRangeAt(0);
-    let node = range.startContainer;
-    const editor = document.getElementById('editor');
-
-    while (node && node !== editor) {
-        if (node.nodeType === Node.ELEMENT_NODE && (node.tagName === 'DIV' || node.tagName === 'P')) {
-            node.classList.remove('line-title', 'line-heading');
-            node.classList.add('line-body');
-            node.style.fontSize = '';
-            node.style.fontWeight = '';
-            return;
-        }
-        node = node.parentNode;
-    }
+    // Use formatBlock to convert any new line to div (body style)
+    // This ensures new lines after h1/h2 become normal body text
+    document.execCommand('formatBlock', false, 'div');
 }
 
 // Reset text style to body

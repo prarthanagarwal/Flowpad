@@ -4,7 +4,7 @@
 import { 
     isDashListMode, 
     isNumberedListMode, 
-    isCircularChecklistMode,
+    isCircularChecklistMode, 
     isQuoteListMode,
     currentListNumber,
     setIsDashListMode,
@@ -266,7 +266,7 @@ export function toggleCircularCheckboxAtCursor() {
     const range = selection.getRangeAt(0);
     let node = range.startContainer;
     const editor = document.getElementById('editor');
-    
+
     // We need to find the SPECIFIC checkbox that was clicked
     // First, check if we clicked directly on a text node with a checkbox
     let targetTextNode = null;
