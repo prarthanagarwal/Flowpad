@@ -12,7 +12,7 @@ import { formatTime } from './utils/time.js';
 import { initTheme, applyTheme } from './modules/ui/theme.js';
 import { initDropdowns } from './modules/ui/dropdowns.js';
 import { initFullscreen, toggleFullscreen } from './modules/ui/fullscreen.js';
-import { initContextMenu } from './modules/ui/contextMenu.js';
+import { initContextMenu, setNoteContextCallbacks, showMoveNoteMenu, showFolderContextMenu } from './modules/ui/contextMenu.js';
 
 // Sidebar
 import { initSidebar, closeSidebar, toggleSidebar, renderNotesList, updateSidebarNoteTitle } from './modules/sidebar/index.js';
@@ -31,10 +31,14 @@ import {
 // Editor
 import { 
     initEditor, 
+    initFormatting,
     handleListEnter, 
     executeCommand,
     updateFormatButtonStates
 } from './modules/editor/index.js';
+
+// Folders
+import { initFolders, renderFolderTabs } from './modules/folders/index.js';
 
 // ===== CONSTANTS =====
 const placeholderTexts = [
@@ -85,9 +89,14 @@ async function initialize() {
     initSidebar();  
     initContextMenu(executeCommand);
     initEditor(editor, editorPlaceholder, wordCount, handleEditorInput);
+    initFormatting();
+    
+    // Set up context menu callbacks for note operations
+    setNoteContextCallbacks(handleDeleteNote, doRenderNotesList);
 
     // THEN load data and render
     await loadFolders();
+    initFolders(doRenderNotesList, showFolderContextMenu); // Initialize folder tabs with callbacks
     await loadNotesAndRender();
 
     // Setup event listeners
@@ -347,11 +356,6 @@ function handleSearch(e) {
     renderNotesList(filteredNotes, handleLoadNote, handleDeleteNote, showMoveNoteMenu);
 }
 
-// ===== MOVE NOTE MENU =====
-function showMoveNoteMenu(event, note) {
-    // TODO: Implement move note menu
-}
-
 // ===== FONT MANAGEMENT =====
 function updateFontFamily(family) {
     if (!state.currentNote) return;
@@ -370,15 +374,65 @@ function updateFontFamily(family) {
     handleSaveCurrentNote();
 }
 
-function surpriseFont() {
+// Popular Google Fonts list for surprise feature
+const googleFonts = [
+    'Inter', 'Roboto', 'Open Sans', 'Lato', 'Montserrat', 'Poppins', 'Raleway', 'Source Sans Pro',
+    'Playfair Display', 'Merriweather', 'Lora', 'Crimson Text', 'Libre Baskerville', 'PT Serif',
+    'Roboto Slab', 'Oswald', 'Bebas Neue', 'Anton', 'Fjalla One', 'Righteous', 'Bangers',
+    'Dancing Script', 'Pacifico', 'Satisfy', 'Great Vibes', 'Caveat', 'Kalam', 'Permanent Marker',
+    'Comfortaa', 'Quicksand', 'Nunito', 'Ubuntu', 'Rubik', 'Work Sans', 'Fira Sans',
+    'Cabin', 'Varela Round', 'Muli', 'Titillium Web', 'Josefin Sans', 'Dosis', 'Abel',
+    'Barlow', 'IBM Plex Sans', 'Space Grotesk', 'DM Sans', 'Plus Jakarta Sans', 'Manrope',
+    'Sora', 'Outfit', 'Epilogue', 'Figtree', 'Geist', 'Instrument Sans', 'Archivo',
+    'Cormorant Garamond', 'Cormorant', 'Cinzel', 'Abril Fatface', 'Bodoni Moda', 'Fraunces',
+    'Space Mono', 'JetBrains Mono', 'Fira Code', 'Source Code Pro', 'Inconsolata', 'Courier Prime'
+];
+
+// Cache for loaded fonts to avoid reloading
+const loadedFonts = new Set();
+
+// Load a Google Font dynamically
+async function loadGoogleFont(fontName) {
+    // Normalize font name for Google Fonts API (replace spaces with +)
+    const fontNameNormalized = fontName.replace(/\s+/g, '+');
+    
+    // Check if already loaded
+    if (loadedFonts.has(fontName)) {
+        return;
+    }
+    
+    // Create link element to load font
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `https://fonts.googleapis.com/css2?family=${fontNameNormalized}:wght@400;500;600;700&display=swap`;
+    
+    // Add to document head
+    document.head.appendChild(link);
+    
+    // Mark as loaded
+    loadedFonts.add(fontName);
+    
+    // Wait a bit for font to load
+    return new Promise((resolve) => {
+        setTimeout(resolve, 100);
+    });
+}
+
+async function surpriseFont() {
     if (!state.currentNote) return;
 
-    const availableFonts = ['Aeonik', 'Baskervville', 'Instrument Serif', 'Neue Regrade', 'Patrick Hand', 'Courier New'];
+    // Get current font and filter it out
     const currentFont = state.currentNote.fontFamily;
-    const otherFonts = availableFonts.filter(font => font !== currentFont);
+    const otherFonts = googleFonts.filter(font => font !== currentFont);
+    
+    // Pick random font
     const randomIndex = Math.floor(Math.random() * otherFonts.length);
     const randomFont = otherFonts[randomIndex];
-
+    
+    // Load the font from Google Fonts
+    await loadGoogleFont(randomFont);
+    
+    // Apply the font
     updateFontFamily(randomFont);
 }
 
