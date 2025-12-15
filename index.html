@@ -75,7 +75,7 @@
         <div class="bottom-toolbar">
             <div class="toolbar-left">
                 <button id="surpriseBtn" class="toolbar-btn" title="Surprise">
-                    <i class="ph ph-sparkle"></i>
+                    <i class="ph ph-ghost"></i>
                     <span>Surprise</span>
                 </button>
                 <div class="font-family-dropdown" id="fontDropdown">
@@ -188,22 +188,80 @@
             Select All
         </div>
         <div class="context-menu-separator"></div>
-        <div class="context-menu-item" data-action="bold">
-            <i class="ph ph-text-b" style="font-size: 12px;"></i>
-            Bold
-        </div>
-        <div class="context-menu-item" data-action="italic">
-            <i class="ph ph-text-italic" style="font-size: 12px;"></i>
-            Italic
-        </div>
-        <div class="context-menu-item" data-action="underline">
-            <i class="ph ph-text-underline" style="font-size: 12px;"></i>
-            Underline
+        <div class="context-submenu">
+            <div class="context-menu-item has-submenu">
+                <i class="ph ph-text-aa" style="font-size: 12px;"></i>
+                Format
+                <i class="ph ph-caret-right submenu-arrow" style="font-size: 10px;"></i>
+            </div>
+            <div class="context-submenu-content">
+                <div class="context-menu-item" data-action="title">
+                    <i class="ph ph-text-h-one" style="font-size: 12px;"></i>
+                    Title
+                </div>
+                <div class="context-menu-item" data-action="heading">
+                    <i class="ph ph-text-h-two" style="font-size: 12px;"></i>
+                    Heading
+                </div>
+                <div class="context-menu-item" data-action="body">
+                    <i class="ph ph-text-t" style="font-size: 12px;"></i>
+                    Body
+                </div>
+                <div class="context-menu-separator"></div>
+                <div class="context-menu-item" data-action="bold">
+                    <i class="ph ph-text-b" style="font-size: 12px;"></i>
+                    Bold
+                </div>
+                <div class="context-menu-item" data-action="italic">
+                    <i class="ph ph-text-italic" style="font-size: 12px;"></i>
+                    Italic
+                </div>
+                <div class="context-menu-item" data-action="underline">
+                    <i class="ph ph-text-underline" style="font-size: 12px;"></i>
+                    Underline
+                </div>
+                <div class="context-menu-item" data-action="strikethrough">
+                    <i class="ph ph-text-strikethrough" style="font-size: 12px;"></i>
+                    Strikethrough
+                </div>
+            </div>
         </div>
         <div class="context-menu-separator"></div>
         <div class="context-menu-item" data-action="google-search">
             <i class="ph ph-magnifying-glass" style="font-size: 12px;"></i>
             Search Google
+        </div>
+    </div>
+
+    <!-- Note Context Menu (for sidebar) -->
+    <div class="note-context-menu" id="noteContextMenu">
+        <div class="context-submenu">
+            <div class="context-menu-item has-submenu" data-action="move-to-folder">
+                <i class="ph ph-folder-simple" style="font-size: 12px;"></i>
+                Move to
+                <i class="ph ph-caret-right submenu-arrow" style="font-size: 10px;"></i>
+            </div>
+            <div class="context-submenu-content" id="folderSubmenu">
+                <!-- Folders will be populated dynamically -->
+            </div>
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" data-action="delete-note">
+            <i class="ph ph-trash" style="font-size: 12px;"></i>
+            Delete
+        </div>
+    </div>
+
+    <!-- Folder Context Menu -->
+    <div class="folder-context-menu" id="folderContextMenu">
+        <div class="context-menu-item" data-action="rename-folder">
+            <i class="ph ph-pencil-simple" style="font-size: 12px;"></i>
+            Rename
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" data-action="delete-folder">
+            <i class="ph ph-trash" style="font-size: 12px;"></i>
+            Delete
         </div>
     </div>
 
