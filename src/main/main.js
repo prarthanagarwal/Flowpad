@@ -143,7 +143,7 @@ let tray = null;
 if (app.isPackaged) {
   const { updateElectronApp } = require('update-electron-app');
   updateElectronApp({
-    repo: 'PrarthanAgarwal/flowpad',
+    repo: 'PrarthanAgarwal/Flowpad',
     updateInterval: '1 hour',
     logger: console
   });
