@@ -93,27 +93,6 @@ function setupSettingsHandlers() {
 
   // Save app settings
   ipcMain.handle('save-app-settings', async (event, settings) => {
-    // Handle auto-launch setting
-    if (settings.openOnStartup !== undefined) {
-      try {
-        const AutoLaunch = require('auto-launch');
-        const autoLauncher = new AutoLaunch({
-          name: 'flowpad',
-          path: process.execPath
-        });
-        
-        if (settings.openOnStartup) {
-          await autoLauncher.enable();
-          console.log('Auto-launch enabled');
-        } else {
-          await autoLauncher.disable();
-          console.log('Auto-launch disabled');
-        }
-      } catch (error) {
-        console.error('Error setting auto-launch:', error);
-      }
-    }
-    
     return storage.saveAppSettings(settings);
   });
 
