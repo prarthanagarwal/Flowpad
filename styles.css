@@ -726,16 +726,16 @@ body.light-mode .context-submenu-content {
     background-color: #1a1a1a;
     border: 1px solid #333;
     border-radius: 8px;
-    padding: 6px 0;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    padding: 4px 0;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
     z-index: 10000;
     display: none;
-    min-width: 120px;
+    min-width: 140px;
 }
 
 .note-context-menu .context-menu-item {
     padding: 6px 10px;
-    margin: 2px 6px;
+    margin: 2px 4px;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -744,6 +744,15 @@ body.light-mode .context-submenu-content {
     font-size: 12px;
     transition: background-color 0.15s;
     border-radius: 6px;
+    white-space: nowrap;
+}
+
+.note-context-menu .context-menu-item.has-submenu {
+    justify-content: space-between;
+}
+
+.note-context-menu .submenu-arrow {
+    margin-left: auto;
 }
 
 .note-context-menu .context-menu-item:hover {
@@ -753,7 +762,7 @@ body.light-mode .context-submenu-content {
 .note-context-menu .context-menu-separator {
     height: 1px;
     background-color: rgba(255, 255, 255, 0.1);
-    margin: 6px 12px;
+    margin: 4px 8px;
 }
 
 .note-context-menu .context-submenu {
@@ -763,24 +772,29 @@ body.light-mode .context-submenu-content {
 .note-context-menu #folderSubmenu {
     display: none;
     position: absolute;
-    left: 100%;
-    top: 0;
+    right: 100%;
+    left: auto;
+    top: -3px;
+    margin-right: 4px;
     background-color: #1a1a1a;
     border: 1px solid #333;
     border-radius: 8px;
-    padding: 6px 0;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    min-width: 100px;
+    padding: 4px 0;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    min-width: 140px;
+    width: max-content;
+    z-index: 10001;
 }
 
 .note-context-menu .context-submenu:hover #folderSubmenu {
     display: block;
 }
 
-body.light-mode .note-context-menu {
+body.light-mode .note-context-menu,
+body.light-mode .note-context-menu #folderSubmenu {
     background-color: #fefae0;
     border-color: #d0d0d0;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
 
 body.light-mode .note-context-menu .context-menu-item {
@@ -794,15 +808,6 @@ body.light-mode .note-context-menu .context-menu-item:hover {
 
 body.light-mode .note-context-menu .context-menu-separator {
     background-color: rgba(0, 0, 0, 0.1);
-}
-
-body.light-mode .note-context-menu #folderSubmenu {
-    background-color: #fefae0;
-    border-color: #d0d0d0;
-}
-
-body.light-mode .note-context-menu .context-submenu:hover #folderSubmenu {
-    display: block;
 }
 
 /* Notes List */
@@ -1722,4 +1727,86 @@ body.light-mode .window-control-btn:hover {
 body.light-mode .close-btn:hover {
     background-color: #e53e3e;
     color: #fff;
-} 
+}
+
+/* Ensure no-drag regions on interactive window controls & titles */
+.window-controls,
+.window-control-btn,
+.app-title,
+.current-note-title {
+    -webkit-app-region: no-drag;
+}
+
+/* Pinned Note Badge */
+.note-pin-badge {
+    color: #007acc;
+    margin-right: 4px;
+    font-size: 11px;
+}
+
+body.light-mode .note-pin-badge {
+    color: #0066cc;
+}
+
+/* Interactive Checklist Styling */
+.checklist-line {
+    margin: 4px 0;
+    display: flex;
+    align-items: center;
+}
+
+.checklist-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: text;
+}
+
+.checkbox-circle {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid #888;
+    border-radius: 50%;
+    margin-right: 6px;
+    flex-shrink: 0;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    vertical-align: middle;
+    cursor: pointer;
+}
+
+.checkbox-circle:hover {
+    border-color: #007acc;
+    transform: scale(1.1);
+}
+
+.checkbox-circle.checked {
+    background-color: #007acc;
+    border-color: #007acc;
+    box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
+}
+
+body.light-mode .checkbox-circle {
+    border-color: #777;
+}
+
+body.light-mode .checkbox-circle:hover {
+    border-color: #0066cc;
+}
+
+body.light-mode .checkbox-circle.checked {
+    background-color: #0066cc;
+    border-color: #0066cc;
+}
+
+s.completed {
+    color: #777;
+    text-decoration: line-through;
+    opacity: 0.75;
+}
+
+body.light-mode s.completed {
+    color: #888;
+}
+

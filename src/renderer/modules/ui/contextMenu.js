@@ -158,29 +158,43 @@ export async function handleContextMenuPaste(editor) {
         if (clipboardText) {
             const selection = window.getSelection();
 
+            let text = clipboardText
+                .replace(/\r\n/g, '\n')
+                .replace(/\r/g, '\n')
+                .replace(/[\u200B-\u200D\uFEFF]/g, '')
+                .replace(/\u00A0/g, ' ');
+
             if (selection.rangeCount > 0) {
                 const range = selection.getRangeAt(0);
                 range.deleteContents();
-                range.insertNode(document.createTextNode(clipboardText));
+
+                const lines = text.split('\n');
+                const fragment = document.createDocumentFragment();
+
+                lines.forEach((line, index) => {
+                    if (index > 0) {
+                        fragment.appendChild(document.createElement('br'));
+                    }
+                    fragment.appendChild(document.createTextNode(line));
+                });
+
+                range.insertNode(fragment);
                 selection.collapseToEnd();
             } else {
-                editor.innerHTML += clipboardText.replace(/\n/g, '<br>');
+                const lines = text.split('\n');
+                lines.forEach((line, index) => {
+                    if (index > 0) {
+                        editor.appendChild(document.createElement('br'));
+                    }
+                    editor.appendChild(document.createTextNode(line));
+                });
             }
 
             editor.dispatchEvent(new Event('input', { bubbles: true }));
             editor.focus();
-            console.log('Text pasted successfully');
         }
     } catch (err) {
-        console.error('Modern paste failed, trying fallback:', err);
-        try {
-            document.execCommand('paste');
-            editor.dispatchEvent(new Event('input', { bubbles: true }));
-            editor.focus();
-        } catch (execErr) {
-            console.error('ExecCommand paste also failed:', execErr);
-            alert('Paste functionality is not available. Please use Ctrl+V instead.');
-        }
+        console.error('Modern paste failed:', err);
     }
 }
 
@@ -197,43 +211,73 @@ export function handleSelectAll(editor) {
 let contextMenuNote = null;
 let noteDeleteCallback = null;
 let noteListRenderCallback = null;
+let notePinCallback = null;
 
-export function setNoteContextCallbacks(deleteCallback, renderCallback) {
+export function setNoteContextCallbacks(deleteCallback, renderCallback, pinCallback) {
     noteDeleteCallback = deleteCallback;
     noteListRenderCallback = renderCallback;
+    notePinCallback = pinCallback;
 }
 
-export function showNoteContextMenu(event, note) {
+function showNoteContextMenu(event, note, moveOnly = false) {
     event.preventDefault();
     contextMenuNote = note;
     
     const contextMenu = document.getElementById('noteContextMenu');
     const folderSubmenu = document.getElementById('folderSubmenu');
+    const moveToWrapper = document.getElementById('moveToSubmenuWrapper');
+    const directFolderList = document.getElementById('directFolderList');
+    const pinItem = document.getElementById('pinContextMenuItem');
+    const deleteItem = document.getElementById('deleteContextMenuItem');
+    const separator = document.getElementById('noteContextMenuSeparator');
+    const pinLabel = document.getElementById('pinContextMenuLabel');
+
+    if (folderSubmenu) folderSubmenu.innerHTML = '';
+    if (directFolderList) directFolderList.innerHTML = '';
+
+    const populateFolderItems = (container) => {
+        if (state.allFolders.length > 0) {
+            state.allFolders.forEach(folder => {
+                const folderItem = document.createElement('div');
+                folderItem.className = 'context-menu-item';
+                folderItem.dataset.folderId = folder.id;
+                folderItem.innerHTML = `<i class="ph ph-folder-simple" style="font-size: 12px;"></i> ${folder.name}`;
+                folderItem.addEventListener('click', () => handleMoveNote(note, folder.id));
+                container.appendChild(folderItem);
+            });
+        } else {
+            const noFoldersItem = document.createElement('div');
+            noFoldersItem.className = 'context-menu-item disabled';
+            noFoldersItem.innerHTML = '<i class="ph ph-folder-simple" style="font-size: 12px;"></i> No folders';
+            noFoldersItem.style.opacity = '0.5';
+            noFoldersItem.style.pointerEvents = 'none';
+            container.appendChild(noFoldersItem);
+        }
+    };
+
+    if (moveOnly) {
+        if (pinItem) pinItem.style.display = 'none';
+        if (deleteItem) deleteItem.style.display = 'none';
+        if (separator) separator.style.display = 'none';
+        if (moveToWrapper) moveToWrapper.style.display = 'none';
+        if (directFolderList) {
+            directFolderList.style.display = 'block';
+            populateFolderItems(directFolderList);
+        }
+    } else {
+        if (pinItem) pinItem.style.display = 'flex';
+        if (deleteItem) deleteItem.style.display = 'flex';
+        if (separator) separator.style.display = 'block';
+        if (moveToWrapper) moveToWrapper.style.display = 'block';
+        if (directFolderList) directFolderList.style.display = 'none';
+        if (pinLabel && note) {
+            pinLabel.textContent = note.isPinned ? 'Unpin Note' : 'Pin Note';
+        }
+        if (folderSubmenu) populateFolderItems(folderSubmenu);
+    }
     
     // Position menu within screen bounds
     positionMenuWithinBounds(contextMenu, event.clientX, event.clientY);
-    
-    // Populate folder submenu - only show existing folders
-    folderSubmenu.innerHTML = '';
-    
-    if (state.allFolders.length > 0) {
-        state.allFolders.forEach(folder => {
-            const folderItem = document.createElement('div');
-            folderItem.className = 'context-menu-item';
-            folderItem.dataset.folderId = folder.id;
-            folderItem.innerHTML = `<i class="ph ph-folder-simple" style="font-size: 12px;"></i> ${folder.name}`;
-            folderItem.addEventListener('click', () => handleMoveNote(note, folder.id));
-            folderSubmenu.appendChild(folderItem);
-        });
-    } else {
-        // Show "No folders" message if no folders exist
-        const noFoldersItem = document.createElement('div');
-        noFoldersItem.className = 'context-menu-item disabled';
-        noFoldersItem.innerHTML = '<i class="ph ph-folder-simple" style="font-size: 12px;"></i> No folders';
-        noFoldersItem.style.opacity = '0.5';
-        noFoldersItem.style.pointerEvents = 'none';
-        folderSubmenu.appendChild(noFoldersItem);
-    }
     
     // Close menu when clicking elsewhere
     const closeMenu = (e) => {
@@ -298,6 +342,20 @@ export function showFolderContextMenu(event, folderId) {
     setTimeout(() => {
         document.addEventListener('click', closeMenu);
     }, 10);
+}
+
+export function hideFolderContextMenu() {
+    const contextMenu = document.getElementById('folderContextMenu');
+    if (contextMenu) {
+        contextMenu.style.display = 'none';
+    }
+    contextMenuFolder = null;
+}
+
+export function hideAllContextMenus() {
+    hideContextMenu();
+    hideNoteContextMenu();
+    hideFolderContextMenu();
 }
 
 // Start inline rename for a folder tab
@@ -537,6 +595,10 @@ export function initContextMenu(executeCommand) {
     if (editor) {
         editor.addEventListener('contextmenu', showEditorContextMenu);
     }
+
+    // Dismiss floating context menus on window resize or scroll
+    window.addEventListener('resize', hideAllContextMenus);
+    window.addEventListener('scroll', hideAllContextMenus, true);
     
     // Handle all context menu actions via event delegation
     document.addEventListener('click', async (e) => {
@@ -603,9 +665,15 @@ export function initContextMenu(executeCommand) {
                 break;
             
             // Note context menu actions
+            case 'toggle-pin-note':
+                if (contextMenuNote && notePinCallback) {
+                    await notePinCallback(contextMenuNote);
+                    hideNoteContextMenu();
+                }
+                break;
             case 'delete-note':
                 if (contextMenuNote && noteDeleteCallback) {
-                    await noteDeleteCallback(contextMenuNote);
+                    await noteDeleteCallback(contextMenuNote.id);
                     hideNoteContextMenu();
                 }
                 break;
@@ -621,5 +689,5 @@ export function initContextMenu(executeCommand) {
     });
 }
 
-// Export for use in sidebar (right-click on notes)
-export { showNoteContextMenu as showMoveNoteMenu };
+// Export for use in sidebar and notes modules
+export { showNoteContextMenu as showMoveNoteMenu, showDeleteConfirmation };

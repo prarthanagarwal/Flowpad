@@ -235,18 +235,25 @@
 
     <!-- Note Context Menu (for sidebar) -->
     <div class="note-context-menu" id="noteContextMenu">
-        <div class="context-submenu">
+        <div class="context-menu-item" data-action="toggle-pin-note" id="pinContextMenuItem">
+            <i class="ph ph-push-pin" style="font-size: 12px;"></i>
+            <span id="pinContextMenuLabel">Pin Note</span>
+        </div>
+        <div class="context-submenu" id="moveToSubmenuWrapper">
             <div class="context-menu-item has-submenu" data-action="move-to-folder">
                 <i class="ph ph-folder-simple" style="font-size: 12px;"></i>
-                Move to
+                <span>Move to</span>
                 <i class="ph ph-caret-right submenu-arrow" style="font-size: 10px;"></i>
             </div>
             <div class="context-submenu-content" id="folderSubmenu">
                 <!-- Folders will be populated dynamically -->
             </div>
         </div>
-        <div class="context-menu-separator"></div>
-        <div class="context-menu-item" data-action="delete-note">
+        <div class="context-menu-direct-folders" id="directFolderList" style="display: none;">
+            <!-- Folders populated directly when folder icon clicked -->
+        </div>
+        <div class="context-menu-separator" id="noteContextMenuSeparator"></div>
+        <div class="context-menu-item" data-action="delete-note" id="deleteContextMenuItem">
             <i class="ph ph-trash" style="font-size: 12px;"></i>
             Delete
         </div>

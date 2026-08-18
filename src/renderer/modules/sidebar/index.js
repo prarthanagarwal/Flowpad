@@ -53,7 +53,7 @@ export function getFilteredNotes() {
 }
 
 // Render notes list in sidebar
-export function renderNotesList(notesToRender = null, loadNoteCallback, deleteNoteCallback, showMoveNoteMenuCallback) {
+export function renderNotesList(notesToRender = null, loadNoteCallback, deleteNoteCallback, showMoveNoteMenuCallback, togglePinNoteCallback) {
     if (!notesList) return;
     
     // If no specific notes provided, use filtered notes based on current folder
@@ -74,14 +74,14 @@ export function renderNotesList(notesToRender = null, loadNoteCallback, deleteNo
     // Render each category
     Object.entries(categories).forEach(([categoryName, notes]) => {
         if (notes.length > 0) {
-            const categorySection = createCategorySection(categoryName, notes, loadNoteCallback, deleteNoteCallback, showMoveNoteMenuCallback);
+            const categorySection = createCategorySection(categoryName, notes, loadNoteCallback, deleteNoteCallback, showMoveNoteMenuCallback, togglePinNoteCallback);
             notesList.appendChild(categorySection);
         }
     });
 }
 
 // Create category section
-function createCategorySection(categoryName, notes, loadNoteCallback, deleteNoteCallback, showMoveNoteMenuCallback) {
+function createCategorySection(categoryName, notes, loadNoteCallback, deleteNoteCallback, showMoveNoteMenuCallback, togglePinNoteCallback) {
     const section = document.createElement('div');
     section.className = 'category-section';
 
@@ -96,7 +96,7 @@ function createCategorySection(categoryName, notes, loadNoteCallback, deleteNote
     notesContainer.className = 'category-notes';
 
     notes.forEach(note => {
-        const noteElement = createNoteListItem(note, loadNoteCallback, deleteNoteCallback, showMoveNoteMenuCallback);
+        const noteElement = createNoteListItem(note, loadNoteCallback, deleteNoteCallback, showMoveNoteMenuCallback, togglePinNoteCallback);
         notesContainer.appendChild(noteElement);
     });
 
@@ -105,7 +105,7 @@ function createCategorySection(categoryName, notes, loadNoteCallback, deleteNote
 }
 
 // Create note list item
-function createNoteListItem(note, loadNoteCallback, deleteNoteCallback, showMoveNoteMenuCallback) {
+function createNoteListItem(note, loadNoteCallback, deleteNoteCallback, showMoveNoteMenuCallback, togglePinNoteCallback) {
     const div = document.createElement('div');
     div.className = 'note-item';
     div.dataset.noteId = note.id;
@@ -138,9 +138,11 @@ function createNoteListItem(note, loadNoteCallback, deleteNoteCallback, showMove
         bodyPreviewHtml = `<span class="note-item-preview">${escapeHtml(bodyPreview)}</span>`;
     }
 
+    let pinIconHtml = note.isPinned ? `<i class="ph-fill ph-push-pin note-pin-badge" title="Pinned Note"></i> ` : '';
+
     div.innerHTML = `
         <div class="note-item-content">
-            <div class="note-item-title">${escapeHtml(displayTitle)}</div>
+            <div class="note-item-title">${pinIconHtml}${escapeHtml(displayTitle)}</div>
             <div class="note-item-meta">
                 <span class="note-item-time">
                     <span class="time-text">${displayText}</span>${folderInfo}
@@ -149,6 +151,9 @@ function createNoteListItem(note, loadNoteCallback, deleteNoteCallback, showMove
             </div>
         </div>
         <div class="note-item-actions">
+            <button class="note-action-btn pin-note" data-note-id="${note.id}" title="${note.isPinned ? 'Unpin Note' : 'Pin Note'}">
+                <i class="ph ${note.isPinned ? 'ph-push-pin-slash' : 'ph-push-pin'}" style="font-size: 12px;"></i>
+            </button>
             <button class="note-action-btn move-note" data-note-id="${note.id}" title="Move to Folder">
                 <i class="ph ph-folder-simple" style="font-size: 12px;"></i>
             </button>
@@ -169,6 +174,14 @@ function createNoteListItem(note, loadNoteCallback, deleteNoteCallback, showMove
         }
     });
 
+    // Add pin event
+    div.querySelector('.pin-note').addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (togglePinNoteCallback) {
+            togglePinNoteCallback(note);
+        }
+    });
+
     // Add delete event
     div.querySelector('.delete-note').addEventListener('click', (e) => {
         e.stopPropagation();
@@ -178,7 +191,7 @@ function createNoteListItem(note, loadNoteCallback, deleteNoteCallback, showMove
     // Add move note event
     div.querySelector('.move-note').addEventListener('click', (e) => {
         e.stopPropagation();
-        showMoveNoteMenuCallback(e, note);
+        showMoveNoteMenuCallback(e, note, true);
     });
 
     // Add drag events
@@ -194,7 +207,7 @@ function createNoteListItem(note, loadNoteCallback, deleteNoteCallback, showMove
     // Add right-click context menu
     div.addEventListener('contextmenu', (e) => {
         e.preventDefault();
-        showMoveNoteMenuCallback(e, note);
+        showMoveNoteMenuCallback(e, note, false);
     });
 
     return div;
