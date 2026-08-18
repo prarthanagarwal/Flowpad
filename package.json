@@ -19,6 +19,7 @@
     "build:win": "electron-forge make --platform=win32 --arch=x64",
     "build:mac": "electron-forge make --platform=darwin --arch=arm64",
     "build:mac:intel": "electron-forge make --platform=darwin --arch=x64",
+    "build:mac:full": "bash scripts/build-and-notarize.sh",
     "lint": "cross-env NODE_OPTIONS=\"--import tsx\" oxlint",
     "test": "echo \"No tests configured yet\""
   },

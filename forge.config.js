@@ -156,7 +156,6 @@ module.exports = {
         if (result.platform === 'darwin') {
           const zipArtifact = result.artifacts.find((artifact) => artifact.endsWith('.zip'));
           if (!zipArtifact) {
-            console.warn('No macOS zip artifact found; skipping latest-mac.yml generation.');
             continue;
           }
 
@@ -165,7 +164,6 @@ module.exports = {
         } else if (result.platform === 'win32') {
           const exeArtifact = result.artifacts.find((artifact) => artifact.endsWith('.exe'));
           if (!exeArtifact) {
-            console.warn('No Windows .exe artifact found; skipping latest.yml generation.');
             continue;
           }
 
