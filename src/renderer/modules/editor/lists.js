@@ -2,29 +2,33 @@
 // Handles bullet lists, numbered lists, and checklists
 
 import { 
-    isDashListMode, 
-    isNumberedListMode, 
-    isCircularChecklistMode, 
-    isQuoteListMode,
-    currentListNumber,
-    setIsDashListMode,
-    setIsNumberedListMode,
-    setIsCircularChecklistMode,
+    setIsDashListMode, 
+    setIsNumberedListMode, 
+    setIsCircularChecklistMode, 
     setIsQuoteListMode,
-    setCurrentListNumber
+    setCurrentListNumber,
+    resetListModes
 } from '../../state.js';
-import { getCurrentLineText, replaceCurrentLineStart } from '../../utils/dom.js';
+import { getCurrentBlock, replaceCurrentLineStart, escapeHtml } from '../../utils/dom.js';
 
 // Check for list activation when space is typed
 export function checkForListActivation() {
     const selection = window.getSelection();
-    if (selection.rangeCount === 0) return;
+    if (!selection || selection.rangeCount === 0) return;
 
-    const lineText = getCurrentLineText();
+    const block = getCurrentBlock();
+    if (!block) return;
 
-    // Check for quote list activation (> followed by space) - keep as >
-    const normalizedLine = lineText.replace(/\u00A0/g, ' ');
-    if (normalizedLine === '> ') {
+    // Get text before cursor in current block
+    const range = selection.getRangeAt(0);
+    const preCaretRange = range.cloneRange();
+    preCaretRange.selectNodeContents(block);
+    preCaretRange.setEnd(range.startContainer, range.startOffset);
+    const textBeforeCaret = preCaretRange.toString().replace(/\u00A0/g, ' ');
+
+    // Check for quote list activation (> followed by space)
+    if (textBeforeCaret === '> ') {
+        replaceCurrentLineStart('> ', '>\u00A0');
         setIsQuoteListMode(true);
         setIsDashListMode(false);
         setIsNumberedListMode(false);
@@ -32,54 +36,72 @@ export function checkForListActivation() {
         return;
     }
 
-    // Check for dash list activation (-, * followed by space)
-    const normalizedDashLine = lineText.replace(/\u00A0/g, ' ');
-    if (normalizedDashLine === '- ' || normalizedDashLine === '* ' || normalizedDashLine === '• ') {
+    // Check for dash/bullet list activation (-, *, • followed by space)
+    if (textBeforeCaret === '- ' || textBeforeCaret === '* ' || textBeforeCaret === '• ') {
+        replaceCurrentLineStart(textBeforeCaret, '•\u00A0');
         setIsDashListMode(true);
         setIsNumberedListMode(false);
         setIsCircularChecklistMode(false);
         setIsQuoteListMode(false);
-
-        // Replace * with bullet point for consistency
-        if (normalizedDashLine === '* ') {
-            replaceCurrentLineStart('* ', '•\u00A0');
-        }
+        return;
     }
 
-    // Check for numbered list activation (1. followed by space)
-    const normalizedNumberedLine = lineText.replace(/\u00A0/g, ' ');
-    const numberedMatch = normalizedNumberedLine.match(/^(\d+)\.\s$/);
+    // Check for numbered list activation (e.g. 1. followed by space)
+    const numberedMatch = textBeforeCaret.match(/^(\d+)\.\s$/);
     if (numberedMatch) {
-        setCurrentListNumber(parseInt(numberedMatch[1]));
+        const num = parseInt(numberedMatch[1], 10);
+        replaceCurrentLineStart(numberedMatch[0], `${num}.\u00A0`);
+        setCurrentListNumber(num);
         setIsNumberedListMode(true);
         setIsDashListMode(false);
         setIsCircularChecklistMode(false);
         setIsQuoteListMode(false);
+        return;
     }
 
-    // Check for circular checklist activation (◯/⬤ followed by space)
-    const normalizedCheckLine = lineText.replace(/\u00A0/g, ' ');
-    if (normalizedCheckLine === '◯ ' || normalizedCheckLine === '⬤ ') {
+    // Check for circular/interactive checklist activation (◯, ⬤, or - [ ] followed by space)
+    if (textBeforeCaret === '◯ ' || textBeforeCaret === '⬤ ' || textBeforeCaret === '- [ ] ') {
+        const newBlock = document.createElement('div');
+        newBlock.className = 'checklist-line';
+        newBlock.innerHTML = '<span class="checklist-item" data-checked="false"><span class="checkbox-circle"></span><span>&nbsp;</span></span>';
+        
+        if (block.parentNode) {
+            block.parentNode.replaceChild(newBlock, block);
+        } else {
+            document.getElementById('editor')?.appendChild(newBlock);
+        }
+
+        const textSpan = newBlock.querySelector('.checklist-item span:not(.checkbox-circle)');
+        const newRange = document.createRange();
+        if (textSpan) {
+            newRange.selectNodeContents(textSpan);
+            newRange.collapse(false);
+        } else {
+            newRange.selectNodeContents(newBlock);
+            newRange.collapse(false);
+        }
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+
         setIsCircularChecklistMode(true);
         setIsDashListMode(false);
         setIsNumberedListMode(false);
         setIsQuoteListMode(false);
+        return;
     }
 }
 
 // Convert selected lines to list format
 function convertSelectionToList(prefix) {
     const selection = window.getSelection();
-    if (selection.rangeCount === 0) return false;
+    if (!selection || selection.rangeCount === 0) return false;
     
     const selectedText = selection.toString();
     if (!selectedText) return false;
     
-    // Check if selection spans multiple lines
     const lines = selectedText.split('\n');
     if (lines.length <= 1) return false;
     
-    // Convert each line to list item
     const convertedLines = lines.reduce((acc, line) => {
         const trimmedLine = line.trim();
         if (trimmedLine) {
@@ -91,11 +113,9 @@ function convertSelectionToList(prefix) {
         return acc;
     }, []);
     
-    // Replace selection with converted text
     const range = selection.getRangeAt(0);
     range.deleteContents();
     
-    // Insert as HTML with proper line breaks
     const fragment = document.createDocumentFragment();
     convertedLines.forEach((line, index) => {
         if (index > 0) {
@@ -105,8 +125,6 @@ function convertSelectionToList(prefix) {
     });
     
     range.insertNode(fragment);
-    
-    // Move cursor to end
     selection.collapseToEnd();
     
     return true;
@@ -114,27 +132,36 @@ function convertSelectionToList(prefix) {
 
 // Insert bullet list (supports multi-line selection)
 export function insertBulletList() {
-    // Try to convert selection first
     if (convertSelectionToList('• ')) {
         setIsDashListMode(true);
         return;
     }
     
-    // Single line/cursor - just insert bullet
-    document.execCommand('insertText', false, '•\u00A0');
+    const block = getCurrentBlock();
+    if (block) {
+        const text = block.textContent.replace(/\u00A0/g, ' ').replace(/^[-•*>\d+.◯⬤]\s*/, '');
+        block.textContent = '•\u00A0' + text;
+        const range = document.createRange();
+        range.selectNodeContents(block);
+        range.collapse(false);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    } else {
+        document.execCommand('insertText', false, '•\u00A0');
+    }
     setIsDashListMode(true);
-    document.getElementById('editor').focus();
+    document.getElementById('editor')?.focus();
 }
 
 // Insert numbered list (supports multi-line selection)
 export function insertNumberedList() {
     const selection = window.getSelection();
-    if (selection.rangeCount > 0) {
+    if (selection && selection.rangeCount > 0) {
         const selectedText = selection.toString();
         const lines = selectedText.split('\n');
         
         if (lines.length > 1) {
-            // Multi-line selection - number each line
             let lineNumber = 1;
             const convertedLines = lines.reduce((acc, line) => {
                 const trimmedLine = line.trim();
@@ -167,28 +194,66 @@ export function insertNumberedList() {
         }
     }
     
-    // Single line/cursor
+    const block = getCurrentBlock();
+    if (block) {
+        const text = block.textContent.replace(/\u00A0/g, ' ').replace(/^[-•*>\d+.◯⬤]\s*/, '');
+        block.textContent = '1.\u00A0' + text;
+        const range = document.createRange();
+        range.selectNodeContents(block);
+        range.collapse(false);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    } else {
+        document.execCommand('insertText', false, '1.\u00A0');
+    }
     setCurrentListNumber(1);
-    document.execCommand('insertText', false, '1.\u00A0');
     setIsNumberedListMode(true);
-    document.getElementById('editor').focus();
+    document.getElementById('editor')?.focus();
 }
 
 // Insert circular/interactive checklist (supports multi-line selection)
 export function insertCircularChecklist() {
     const selection = window.getSelection();
-    if (selection.rangeCount > 0 && !selection.isCollapsed) {
+    if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
         if (convertSelectionToList('- [ ] ')) {
             setIsCircularChecklistMode(true);
             return;
         }
     }
     
-    // Single line/cursor - insert interactive checklist element
-    const html = `<div class="checklist-line"><span class="checklist-item" data-checked="false"><span class="checkbox-circle"></span><span>&nbsp;</span></span></div>`;
-    document.execCommand('insertHTML', false, html);
+    const block = getCurrentBlock();
+    let initialText = '';
+    if (block) {
+        initialText = block.textContent.replace(/\u00A0/g, ' ').trim().replace(/^[-•*>\d+.◯⬤]\s*/, '').trim();
+    }
+    
+    const newBlock = document.createElement('div');
+    newBlock.className = 'checklist-line';
+    const textHtml = initialText ? escapeHtml(initialText) : '&nbsp;';
+    newBlock.innerHTML = `<span class="checklist-item" data-checked="false"><span class="checkbox-circle"></span><span>${textHtml}</span></span>`;
+    
+    if (block && block.parentNode) {
+        block.parentNode.replaceChild(newBlock, block);
+    } else {
+        document.getElementById('editor')?.appendChild(newBlock);
+    }
+    
+    const textSpan = newBlock.querySelector('.checklist-item span:not(.checkbox-circle)');
+    const range = document.createRange();
+    if (textSpan) {
+        range.selectNodeContents(textSpan);
+        range.collapse(false);
+    } else {
+        range.selectNodeContents(newBlock);
+        range.collapse(false);
+    }
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    
     setIsCircularChecklistMode(true);
-    document.getElementById('editor').focus();
+    document.getElementById('editor')?.focus();
 }
 
 // Toggle interactive checkbox on click
@@ -196,7 +261,7 @@ export function toggleCircularCheckboxAtCursor(clickedTarget = null) {
     const selection = window.getSelection();
     let targetElement = clickedTarget;
 
-    if (!targetElement && selection.rangeCount > 0) {
+    if (!targetElement && selection && selection.rangeCount > 0) {
         const node = selection.getRangeAt(0).startContainer;
         targetElement = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
     }
@@ -212,133 +277,193 @@ export function toggleCircularCheckboxAtCursor(clickedTarget = null) {
     if (isChecked) {
         item.setAttribute('data-checked', 'false');
         if (circle) circle.classList.remove('checked');
-
-        const strike = item.querySelector('s');
-        if (strike) {
-            const span = document.createElement('span');
-            span.innerHTML = strike.innerHTML;
-            strike.replaceWith(span);
-        }
     } else {
         item.setAttribute('data-checked', 'true');
         if (circle) circle.classList.add('checked');
-
-        // Find text content after circle and wrap in strikethrough
-        const textSpan = item.querySelector('span:not(.checkbox-circle)');
-        if (textSpan) {
-            const s = document.createElement('s');
-            s.className = 'completed';
-            s.innerHTML = textSpan.innerHTML;
-            textSpan.replaceWith(s);
-        }
     }
 
-    // Move cursor to end of item
+    // Only update range if clicked directly on the circle button
+    if (clickedTarget && (clickedTarget.classList.contains('checkbox-circle') || clickedTarget.closest('.checkbox-circle'))) {
+        const textContainer = item.querySelector('span:not(.checkbox-circle), s') || item;
+        const range = document.createRange();
+        range.selectNodeContents(textContainer);
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+    }
+}
+
+// Helper to replace an empty list line with a standard body block
+function replaceWithEmptyBodyBlock(block) {
+    const newBlock = document.createElement('div');
+    newBlock.innerHTML = '<br>';
+    if (block.parentNode) {
+        block.parentNode.replaceChild(newBlock, block);
+    } else {
+        document.getElementById('editor')?.appendChild(newBlock);
+    }
+
     const range = document.createRange();
-    range.selectNodeContents(item);
-    range.collapse(false);
-    selection.removeAllRanges();
-    selection.addRange(range);
+    range.setStart(newBlock, 0);
+    range.collapse(true);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+
+    resetListModes();
 }
 
 // Handle Enter key for list continuation
 export function handleListEnter(e) {
-    const lineText = getCurrentLineText();
-    const selection = window.getSelection();
+    const block = getCurrentBlock();
+    if (!block) return false;
 
-    // Check if inside interactive checklist
-    let inChecklist = false;
-    if (selection.rangeCount > 0) {
-        const anchor = selection.anchorNode;
-        const elem = anchor ? (anchor.nodeType === Node.ELEMENT_NODE ? anchor : anchor.parentElement) : null;
-        if (elem && elem.closest('.checklist-item')) {
-            inChecklist = true;
-        }
-    }
+    const fullText = block.textContent.replace(/\u00A0/g, ' ');
 
-    if (inChecklist || isCircularChecklistMode || lineText.includes('◯') || lineText.includes('⬤') || lineText.includes('[ ]') || lineText.includes('[x]')) {
+    // 1. CHECKLIST ITEM
+    const isChecklist = block.classList.contains('checklist-line') || 
+                       !!block.querySelector('.checklist-item') ||
+                       /^\s*[◯⬤]/.test(fullText) ||
+                       /^\s*-\s*\[[ xX]\]/.test(fullText);
+
+    if (isChecklist) {
         e.preventDefault();
 
-        const cleanText = lineText.replace(/[◯⬤[\]\sxX]/g, '').trim();
+        const textSpan = block.querySelector('.checklist-item span:not(.checkbox-circle), .checklist-item s');
+        const itemText = textSpan ? textSpan.textContent.replace(/\u00A0/g, ' ').trim() : fullText.replace(/[◯⬤[\]\sxX]/g, '').trim();
 
-        // Empty checklist item -> exit checklist mode
-        if (!cleanText || cleanText === '') {
-            setIsCircularChecklistMode(false);
-            const html = `<div><br></div>`;
-            document.execCommand('insertHTML', false, html);
+        if (!itemText) {
+            // Empty checklist item -> exit checklist mode
+            replaceWithEmptyBodyBlock(block);
         } else {
-            // New UNCHECKED checklist item
+            // Create new unchecked checklist item
+            const newBlock = document.createElement('div');
+            newBlock.className = 'checklist-line';
+            newBlock.innerHTML = '<span class="checklist-item" data-checked="false"><span class="checkbox-circle"></span><span>&nbsp;</span></span>';
+
+            if (block.nextSibling) {
+                block.parentNode.insertBefore(newBlock, block.nextSibling);
+            } else {
+                block.parentNode.appendChild(newBlock);
+            }
+
+            const targetSpan = newBlock.querySelector('.checklist-item span:not(.checkbox-circle)');
+            const range = document.createRange();
+            if (targetSpan) {
+                range.selectNodeContents(targetSpan);
+                range.collapse(false);
+            } else {
+                range.selectNodeContents(newBlock);
+                range.collapse(false);
+            }
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+
             setIsCircularChecklistMode(true);
-            const html = `<div class="checklist-line"><span class="checklist-item" data-checked="false"><span class="checkbox-circle"></span><span>&nbsp;</span></span></div>`;
-            document.execCommand('insertHTML', false, html);
         }
         return true;
     }
 
-    // Reactivate bullet mode if on a bullet line
-    if (!isDashListMode && (lineText.startsWith('•') || lineText.startsWith('-'))) {
-        setIsDashListMode(true);
+    // 2. BULLET / DASH LIST ITEM
+    const bulletMatch = fullText.match(/^\s*([•*-])(?:\s|$)/);
+    if (bulletMatch) {
+        e.preventDefault();
+
+        const contentAfterMarker = fullText.substring(bulletMatch[0].length).trim();
+        if (!contentAfterMarker) {
+            // Empty bullet line -> exit bullet mode
+            replaceWithEmptyBodyBlock(block);
+        } else {
+            const marker = bulletMatch[1] === '-' ? '-\u00A0' : '•\u00A0';
+            const newBlock = document.createElement('div');
+            newBlock.innerHTML = `${marker}`;
+
+            if (block.nextSibling) {
+                block.parentNode.insertBefore(newBlock, block.nextSibling);
+            } else {
+                block.parentNode.appendChild(newBlock);
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(newBlock);
+            range.collapse(false);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+
+            setIsDashListMode(true);
+        }
+        return true;
     }
 
-    // Reactivate quote mode if on a quote line
-    if (!isQuoteListMode && lineText.startsWith('>')) {
-        setIsQuoteListMode(true);
-    }
+    // 3. NUMBERED LIST ITEM
+    const numMatch = fullText.match(/^\s*(\d+)\.(?:\s|$)/);
+    if (numMatch) {
+        e.preventDefault();
 
-    // Reactivate numbered mode if on a numbered line
-    if (!isNumberedListMode) {
-        const numMatch = lineText.match(/^(\d+)\./);
-        if (numMatch) {
-            setCurrentListNumber(parseInt(numMatch[1]));
+        const currentNum = parseInt(numMatch[1], 10);
+        const contentAfterMarker = fullText.substring(numMatch[0].length).trim();
+
+        if (!contentAfterMarker) {
+            // Empty numbered list line -> exit numbered list mode
+            replaceWithEmptyBodyBlock(block);
+        } else {
+            const nextNum = currentNum + 1;
+            const newBlock = document.createElement('div');
+            newBlock.innerHTML = `${nextNum}.\u00A0`;
+
+            if (block.nextSibling) {
+                block.parentNode.insertBefore(newBlock, block.nextSibling);
+            } else {
+                block.parentNode.appendChild(newBlock);
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(newBlock);
+            range.collapse(false);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+
+            setCurrentListNumber(nextNum);
             setIsNumberedListMode(true);
         }
+        return true;
     }
 
-    // Handle quote list mode (>)
-    if (isQuoteListMode) {
+    // 4. QUOTE LIST ITEM
+    const quoteMatch = fullText.match(/^\s*>(?:\s|$)/);
+    if (quoteMatch) {
         e.preventDefault();
 
-        const normalizedQuoteLine = lineText.replace(/\u00A0/g, ' ').trim();
-        if (normalizedQuoteLine === '>' || normalizedQuoteLine === '') {
-            setIsQuoteListMode(false);
-            document.execCommand('insertHTML', false, '<div><br></div>');
+        const contentAfterMarker = fullText.substring(quoteMatch[0].length).trim();
+        if (!contentAfterMarker) {
+            // Empty quote line -> exit quote mode
+            replaceWithEmptyBodyBlock(block);
         } else {
-            document.execCommand('insertHTML', false, '<div>&gt;&nbsp;</div>');
+            const newBlock = document.createElement('div');
+            newBlock.innerHTML = '>\u00A0';
+
+            if (block.nextSibling) {
+                block.parentNode.insertBefore(newBlock, block.nextSibling);
+            } else {
+                block.parentNode.appendChild(newBlock);
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(newBlock);
+            range.collapse(false);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+
+            setIsQuoteListMode(true);
         }
         return true;
     }
 
-    // Handle numbered list mode
-    if (isNumberedListMode) {
-        e.preventDefault();
-
-        const normalizedNumberedLine = lineText.replace(/\u00A0/g, ' ');
-        const numberMatch = normalizedNumberedLine.match(/^\d+\.\s*/);
-        if (numberMatch && normalizedNumberedLine.trim() === numberMatch[0].trim()) {
-            setIsNumberedListMode(false);
-            setCurrentListNumber(1);
-            document.execCommand('insertHTML', false, '<div><br></div>');
-        } else {
-            setCurrentListNumber(currentListNumber + 1);
-            document.execCommand('insertHTML', false, `<div>${currentListNumber}.&nbsp;</div>`);
-        }
-        return true;
-    }
-
-    // Handle dash/bullet list mode
-    if (isDashListMode) {
-        e.preventDefault();
-
-        const normalizedDashLine = lineText.replace(/\u00A0/g, ' ').trim();
-        if (normalizedDashLine === '-' || normalizedDashLine === '•' || normalizedDashLine === '') {
-            setIsDashListMode(false);
-            document.execCommand('insertHTML', false, '<div><br></div>');
-        } else {
-            const marker = lineText.startsWith('•') ? '•&nbsp;' : '-&nbsp;';
-            document.execCommand('insertHTML', false, `<div>${marker}</div>`);
-        }
-        return true;
-    }
-
+    // Not a list item
+    resetListModes();
     return false;
 }

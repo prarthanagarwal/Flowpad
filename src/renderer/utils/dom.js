@@ -34,49 +34,47 @@ export function focusEditor(editor, positionAtEnd = true) {
     }
 }
 
+// Get the direct block element child of #editor containing current selection
+export function getCurrentBlock() {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return null;
+
+    const editor = document.getElementById('editor');
+    if (!editor) return null;
+
+    let node = selection.getRangeAt(0).startContainer;
+    while (node && node !== editor) {
+        if (node.parentNode === editor) {
+            return node;
+        }
+        node = node.parentNode;
+    }
+    return null;
+}
+
 // Get the current line text from cursor position
 export function getCurrentLineText() {
-    const selection = window.getSelection();
-    if (selection.rangeCount === 0) return '';
-
-    const range = selection.getRangeAt(0);
-    let currentNode = range.startContainer;
-
-    // If we're in a text node, get its content up to the cursor
-    if (currentNode.nodeType === Node.TEXT_NODE) {
-        const textContent = currentNode.textContent;
-        const cursorPosition = range.startOffset;
-
-        // Find the last newline before cursor, or start of text
-        const lastNewline = textContent.lastIndexOf('\n', cursorPosition - 1);
-        const lineStart = lastNewline === -1 ? 0 : lastNewline + 1;
-
-        return textContent.substring(lineStart, cursorPosition);
+    const block = getCurrentBlock();
+    if (block) {
+        return block.textContent.replace(/\u00A0/g, ' ');
     }
-
-    // For element nodes, try to get text content
-    return currentNode.textContent ? currentNode.textContent.trim() : '';
+    return '';
 }
 
 // Replace text at the start of current line
 export function replaceCurrentLineStart(oldStart, newStart) {
-    const selection = window.getSelection();
-    if (selection.rangeCount === 0) return;
+    const block = getCurrentBlock();
+    if (!block) return;
 
-    const range = selection.getRangeAt(0);
-    const textNode = range.startContainer;
-
-    if (textNode.nodeType === Node.TEXT_NODE) {
-        const content = textNode.textContent;
-        if (content.startsWith(oldStart)) {
-            textNode.textContent = newStart + content.substring(oldStart.length);
-
-            // Restore cursor position
-            const newRange = document.createRange();
-            newRange.setStart(textNode, newStart.length);
-            newRange.collapse(true);
-            selection.removeAllRanges();
-            selection.addRange(newRange);
-        }
+    const text = block.textContent.replace(/\u00A0/g, ' ');
+    if (text.startsWith(oldStart)) {
+        block.textContent = newStart + text.substring(oldStart.length);
+        const range = document.createRange();
+        range.selectNodeContents(block);
+        range.collapse(false);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
     }
 }
+

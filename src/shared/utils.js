@@ -34,9 +34,20 @@ async function convertHtmlToMarkdown(htmlContent) {
   let markdown = htmlContent;
 
   // Convert interactive checklist items first
-  markdown = markdown.replace(/<span class="checklist-item"[^>]*data-checked="true"[^>]*>[\s\S]*?<s>(.*?)<\/s>[\s\S]*?<\/span>/gi, '- [x] $1');
-  markdown = markdown.replace(/<span class="checklist-item"[^>]*data-checked="false"[^>]*>[\s\S]*?<span>(.*?)<\/span>[\s\S]*?<\/span>/gi, '- [ ] $1');
-  markdown = markdown.replace(/<span class="checklist-item"[^>]*>[\s\S]*?<\/span>/gi, '- [ ] ');
+  markdown = markdown.replace(/<span class="checklist-item"[^>]*data-checked="true"[^>]*>([\s\S]*?)<\/span>/gi, (_m, content) => {
+    const text = content
+      .replace(/<span class="checkbox-circle[^"]*"><\/span>/gi, '')
+      .replace(/<[^>]+>/g, '')
+      .trim();
+    return `- [x] ${text}`;
+  });
+  markdown = markdown.replace(/<span class="checklist-item"[^>]*data-checked="false"[^>]*>([\s\S]*?)<\/span>/gi, (_m, content) => {
+    const text = content
+      .replace(/<span class="checkbox-circle[^"]*"><\/span>/gi, '')
+      .replace(/<[^>]+>/g, '')
+      .trim();
+    return `- [ ] ${text}`;
+  });
 
   // Convert HTML elements
   markdown = markdown

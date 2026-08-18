@@ -322,6 +322,13 @@ function handleKeyDown(e) {
         return;
     }
 
+    // Strikethrough
+    if ((isMac ? e.metaKey : e.ctrlKey) && e.shiftKey && (e.key === 'x' || e.key === 'X')) {
+        e.preventDefault();
+        executeCommand('strikethrough');
+        return;
+    }
+
     // Toggle history
     if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'h') {
         e.preventDefault();

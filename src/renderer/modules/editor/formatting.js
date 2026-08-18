@@ -136,7 +136,7 @@ export function resetTextStyleToBody() {
 
 // Handle formatting reset on Enter
 export function handleFormattingReset(e) {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && !e.defaultPrevented) {
         setTimeout(() => {
             document.execCommand('removeFormat', false, null);
 
