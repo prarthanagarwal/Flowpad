@@ -4,7 +4,7 @@
 
 **a minimal notepad for your thoughts to flow**
 
-download the latest version [here](https://flowpad.live/)
+download the latest version [here](https://don-flowpad.vercel.app/)
 
 
 https://github.com/user-attachments/assets/e3c46fd5-0869-49be-adf0-e7f481757f30
