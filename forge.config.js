@@ -155,34 +155,27 @@ module.exports = {
 
   hooks: {
     postMake: async (_forgeConfig, makeResults) => {
-      // Generate macOS auto-update manifest
-      makeResults
-        .filter((result) => result.platform === 'darwin')
-        .forEach((result) => {
+      for (const result of makeResults) {
+        if (result.platform === 'darwin') {
           const zipArtifact = result.artifacts.find((artifact) => artifact.endsWith('.zip'));
           if (!zipArtifact) {
             console.warn('No macOS zip artifact found; skipping latest-mac.yml generation.');
-            return;
+            continue;
           }
 
           const manifestPath = createLatestMacManifest(zipArtifact);
           console.log(`Generated macOS auto-update manifest at ${manifestPath}`);
-        });
-
-      // Generate Windows auto-update manifest
-      makeResults
-        .filter((result) => result.platform === 'win32')
-        .forEach((result) => {
-          // Squirrel maker creates .exe installer
+        } else if (result.platform === 'win32') {
           const exeArtifact = result.artifacts.find((artifact) => artifact.endsWith('.exe'));
           if (!exeArtifact) {
             console.warn('No Windows .exe artifact found; skipping latest.yml generation.');
-            return;
+            continue;
           }
 
           const manifestPath = createLatestWindowsManifest(exeArtifact);
           console.log(`Generated Windows auto-update manifest at ${manifestPath}`);
-        });
+        }
+      }
     },
   },
 };

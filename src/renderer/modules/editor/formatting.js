@@ -129,7 +129,7 @@ export function resetBlockStyleAfterEnter() {
 }
 
 // Reset text style to body
-export function resetTextStyleToBody() {
+function resetTextStyleToBody() {
     setActiveTextStyle('body');
     updateTextStyleUI('body');
 }
