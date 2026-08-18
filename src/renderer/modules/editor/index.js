@@ -46,90 +46,52 @@ export function updateWordCount(editor, wordCountElement) {
 
 // Prevent cursor placement in list marker space
 export function preventCursorInListSpace() {
-    const selection = window.getSelection();
-    if (selection.rangeCount === 0) return;
-
-    const range = selection.getRangeAt(0);
-    if (!range.collapsed) return;
-
-    const node = range.startContainer;
-    if (node.nodeType !== Node.TEXT_NODE) return;
-
-    const text = node.textContent;
-    const offset = range.startOffset;
-
-    let markerLength = 0;
-
-    if (text.match(/^[-•]\s/)) {
-        markerLength = 2;
-    } else if (text.match(/^[◯⬤]\s/)) {
-        markerLength = 2;
-    } else {
-        const numMatch = text.match(/^(\d+)\.\s/);
-        if (numMatch) {
-            markerLength = numMatch[0].length;
-        }
-    }
-
-    if (markerLength === 0) return;
-
-    if (offset < markerLength) {
-        const newRange = document.createRange();
-        newRange.setStart(node, markerLength);
-        newRange.collapse(true);
-        selection.removeAllRanges();
-        selection.addRange(newRange);
-    }
+    // Disabled aggressive cursor forcing so Backspace can delete list markers cleanly
+    return;
 }
 
-// Check if click is directly on a checkbox character (◯ or ⬤)
-function isClickOnCheckbox(e) {
-    // Get the click position
-    let range;
-    if (document.caretRangeFromPoint) {
-        range = document.caretRangeFromPoint(e.clientX, e.clientY);
-    } else if (document.caretPositionFromPoint) {
-        const pos = document.caretPositionFromPoint(e.clientX, e.clientY);
-        if (pos) {
-            range = document.createRange();
-            range.setStart(pos.offsetNode, pos.offset);
-            range.collapse(true);
-        }
-    }
-    
-    if (!range) return false;
-    
-    const node = range.startContainer;
-    if (node.nodeType !== Node.TEXT_NODE) return false;
-    
-    const text = node.textContent;
-    const offset = range.startOffset;
-    
-    // Check if click is at or near a checkbox character
-    // Check the character at offset and one before (in case of nbsp after checkbox)
-    const checkboxChars = ['◯', '⬤'];
-    
-    // Check character at current offset
-    if (offset > 0 && checkboxChars.includes(text[offset - 1])) {
-        return true;
-    }
-    // Check character at offset
-    if (checkboxChars.includes(text[offset])) {
-        return true;
-    }
-    // Check if we're in the space right after the checkbox
-    if (offset > 1 && checkboxChars.includes(text[offset - 2]) && (text[offset - 1] === ' ' || text[offset - 1] === '\u00A0')) {
-        return true;
-    }
-    
-    return false;
-}
-
-// Handle paste events
+// Clean plain-text paste handler using Range & Selection API
 export function handlePaste(e) {
     e.preventDefault();
-    const text = (e.clipboardData || window.clipboardData).getData('text');
-    document.execCommand('insertText', false, text);
+    const clipboardData = e.clipboardData || window.clipboardData;
+    if (!clipboardData) return;
+
+    let text = clipboardData.getData('text/plain') || '';
+    if (!text) return;
+
+    // Normalize newlines and strip unwanted zero-width characters & auto-injected non-breaking spaces
+    text = text
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n')
+        .replace(/[\u200B-\u200D\uFEFF]/g, '')
+        .replace(/\u00A0/g, ' ');
+
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return;
+
+    const range = selection.getRangeAt(0);
+    range.deleteContents();
+
+    const lines = text.split('\n');
+    const fragment = document.createDocumentFragment();
+
+    lines.forEach((line, index) => {
+        if (index > 0) {
+            fragment.appendChild(document.createElement('br'));
+        }
+        fragment.appendChild(document.createTextNode(line));
+    });
+
+    range.insertNode(fragment);
+
+    // Collapse selection to end of inserted fragment
+    selection.collapseToEnd();
+
+    // Trigger single input event for word count & placeholder update
+    const editor = document.getElementById('editor');
+    if (editor) {
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    }
 }
 
 // Initialize editor module
@@ -156,20 +118,17 @@ export function initEditor(editor, editorPlaceholder, wordCountElement, handleIn
 
     editor.addEventListener('mouseup', () => {
         updateFormatButtonStates();
-        setTimeout(() => {
-            preventCursorInListSpace();
-        }, 0);
     });
 
     editor.addEventListener('focus', updateFormatButtonStates);
 
     editor.addEventListener('click', (e) => {
-        // Only toggle checkbox if clicking directly on the checkbox character
-        const clickedOnCheckbox = isClickOnCheckbox(e);
-        if (clickedOnCheckbox) {
-            toggleCircularCheckboxAtCursor();
+        // Toggle interactive checkbox if clicking on a checkbox circle or checklist item
+        const checkboxCircle = e.target.closest('.checkbox-circle');
+        const checklistItem = e.target.closest('.checklist-item');
+        if (checkboxCircle || (checklistItem && e.target === checklistItem)) {
+            toggleCircularCheckboxAtCursor(e.target);
         }
-        preventCursorInListSpace();
     });
 
     // Formatting reset on Enter

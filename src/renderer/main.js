@@ -23,6 +23,7 @@ import {
     createNewNote, 
     saveCurrentNote, 
     deleteNote as deleteNoteHandler,
+    togglePinNote,
     loadNotes,
     extractTitleFromContent,
     updateTitleFromContent
@@ -92,7 +93,7 @@ async function initialize() {
     initFormatting();
     
     // Set up context menu callbacks for note operations
-    setNoteContextCallbacks(handleDeleteNote, doRenderNotesList);
+    setNoteContextCallbacks(handleDeleteNote, doRenderNotesList, handleTogglePinNote);
 
     // THEN load data and render
     await loadFolders();
@@ -219,7 +220,11 @@ async function loadNotesAndRender() {
 }
 
 function doRenderNotesList() {
-    renderNotesList(null, handleLoadNote, handleDeleteNote, showMoveNoteMenu);
+    renderNotesList(null, handleLoadNote, handleDeleteNote, showMoveNoteMenu, handleTogglePinNote);
+}
+
+async function handleTogglePinNote(note) {
+    await togglePinNote(note, doRenderNotesList);
 }
 
 async function handleLoadNote(note) {
@@ -332,28 +337,35 @@ function handleKeyDown(e) {
         return;
     }
 
-    // Close app
+    // Dismiss open sidebar or menus on Escape instead of quitting app
     if (e.key === 'Escape') {
-        e.preventDefault();
-        window.electronAPI.closeApp();
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar && sidebar.classList.contains('open')) {
+            closeSidebar();
+            return;
+        }
+        document.querySelectorAll('.font-family-dropdown-content, .formatting-dropdown-content, .editor-context-menu, .note-context-menu, .folder-context-menu').forEach(menu => {
+            menu.style.display = 'none';
+        });
         return;
     }
 }
 
 // ===== SEARCH =====
 function handleSearch(e) {
-    const query = e.target.value.toLowerCase();
+    const query = e.target.value.toLowerCase().trim();
     if (!query) {
         doRenderNotesList();
         return;
     }
 
     const filteredNotes = state.allNotes.filter(note => {
-        const contentText = new DOMParser().parseFromString(note.content, 'text/html').body.textContent.toLowerCase();
-        return contentText.includes(query);
+        const titleMatch = (note.title || '').toLowerCase().includes(query);
+        const plainText = (note.content || '').replace(/<[^>]*>/g, '').toLowerCase();
+        return titleMatch || plainText.includes(query);
     });
 
-    renderNotesList(filteredNotes, handleLoadNote, handleDeleteNote, showMoveNoteMenu);
+    renderNotesList(filteredNotes, handleLoadNote, handleDeleteNote, showMoveNoteMenu, handleTogglePinNote);
 }
 
 // ===== FONT MANAGEMENT =====

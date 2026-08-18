@@ -110,9 +110,14 @@ export function updateNoteInCache(noteId, updates, reSort = false) {
     return false;
 }
 
-// Sort notes by updatedAt (newest first)
+// Sort notes: pinned notes first, then by updatedAt (newest first)
 export function sortNotesByUpdatedAt() {
-    allNotes.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+    allNotes.sort((a, b) => {
+        if (a.isPinned !== b.isPinned) {
+            return a.isPinned ? -1 : 1;
+        }
+        return new Date(b.updatedAt) - new Date(a.updatedAt);
+    });
 }
 
 // Add a note to the beginning of allNotes

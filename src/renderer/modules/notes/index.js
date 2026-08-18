@@ -19,6 +19,7 @@ import {
 import { normalizeHtmlForComparison } from '../../utils/dom.js';
 import { closeSidebar, updateSidebarNoteTitle, renderNotesList } from '../sidebar/index.js';
 import { updatePlaceholder, updateWordCount } from '../editor/index.js';
+import { showDeleteConfirmation } from '../ui/contextMenu.js';
 
 // Extract title from content - gets ONLY the first line
 export function extractTitleFromContent(content) {
@@ -54,13 +55,9 @@ export function extractTitleFromContent(content) {
             if (firstChild.tagName === 'DIV' || firstChild.tagName === 'P') {
                 firstLine = firstChild.textContent.trim();
             } else {
-                // For inline elements or others, get text until first block break
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = content;
-                
-                // Walk through and get text until first <div>, <p>, or <br>
+                // Walk through body and get text until first <div>, <p>, or <br>
                 let text = '';
-                const walker = document.createTreeWalker(tempDiv, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+                const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
                 let node;
                 
                 while ((node = walker.nextNode())) {
@@ -326,29 +323,59 @@ export async function saveCurrentNote(editor, currentNoteTitle, sidebarCallbacks
     }
 }
 
-// Delete note - optimized to update cache directly without reloading all notes
-export async function deleteNote(noteId, createNewNoteCallback, renderListCallback) {
-    if (confirm('Are you sure you want to delete this note?')) {
-        try {
-            const result = await window.electronAPI.deleteNote(noteId);
-            if (result.success) {
-                // Remove from cache directly
-                removeNoteFromCache(noteId);
-                
-                // If we deleted the current note, create a new one
-                if (currentNote && currentNote.id === noteId) {
-                    await createNewNoteCallback();
-                }
-                
-                // Re-render sidebar with updated cache
-                if (renderListCallback) {
-                    renderListCallback();
-                }
+// Toggle pin state for a note
+export async function togglePinNote(note, renderListCallback) {
+    if (!note) return;
+
+    try {
+        const isPinned = !note.isPinned;
+        const updatedData = { ...note, isPinned };
+
+        // Save to storage
+        const result = await window.electronAPI.saveNote(updatedData);
+        if (result.success) {
+            updateNoteInCache(note.id, { isPinned }, true);
+
+            if (currentNote && currentNote.id === note.id) {
+                currentNote.isPinned = isPinned;
             }
-        } catch (error) {
-            console.error('Error deleting note:', error);
+
+            if (renderListCallback) {
+                renderListCallback();
+            }
         }
+    } catch (error) {
+        console.error('Error toggling pin note:', error);
     }
+}
+
+// Delete note - using custom confirmation modal
+export async function deleteNote(noteId, createNewNoteCallback, renderListCallback) {
+    const targetNote = allNotes.find(n => n.id === noteId);
+    const noteTitle = targetNote ? targetNote.title : 'this note';
+
+    showDeleteConfirmation(
+        `Delete "${noteTitle.length > 20 ? noteTitle.substring(0, 18) + '...' : noteTitle}"?`,
+        'This action cannot be undone.',
+        async () => {
+            try {
+                const result = await window.electronAPI.deleteNote(noteId);
+                if (result.success) {
+                    removeNoteFromCache(noteId);
+                    
+                    if (currentNote && currentNote.id === noteId) {
+                        await createNewNoteCallback();
+                    }
+                    
+                    if (renderListCallback) {
+                        renderListCallback();
+                    }
+                }
+            } catch (error) {
+                console.error('Error deleting note:', error);
+            }
+        }
+    );
 }
 
 // Load all notes from storage

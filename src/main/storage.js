@@ -36,6 +36,29 @@ async function ensureNotesDirectory() {
 }
 
 // ===== NOTE FILE OPERATIONS =====
+async function findFileByNoteId(noteId) {
+  const files = await fs.readdir(NOTES_DIR);
+  const mdFiles = files.filter(file => file.endsWith('.md'));
+
+  const directMatch = mdFiles.find(file => file.includes(`note_${noteId}_`));
+  if (directMatch) return directMatch;
+
+  const results = await Promise.all(
+    mdFiles.map(async file => {
+      try {
+        const content = await fs.readFile(path.join(NOTES_DIR, file), 'utf8');
+        const { metadata } = parseFrontmatter(content);
+        if (metadata.id === noteId) return file;
+      } catch (error) {
+        // Skip unreadable files
+      }
+      return null;
+    })
+  );
+
+  return results.find(Boolean) || null;
+}
+
 async function saveNote(noteData) {
   try {
     await ensureNotesDirectory();
@@ -46,11 +69,12 @@ async function saveNote(noteData) {
     const note = {
       id: noteId,
       title: noteData.title || 'New Note',
-      content: noteData.content,
+      content: noteData.content || '',
       createdAt: noteData.createdAt || timestamp,
-      updatedAt: noteData.updatedAt || timestamp, // Preserve provided timestamp if given
+      updatedAt: noteData.updatedAt || timestamp,
+      isPinned: noteData.isPinned || false,
       tags: noteData.tags || [],
-      fontSize: noteData.fontSize || 16,
+      fontSize: noteData.fontSize || 18,
       fontFamily: noteData.fontFamily || 'Aeonik',
       folder: noteData.folder || null,
       folderName: noteData.folderName || null
@@ -62,37 +86,24 @@ async function saveNote(noteData) {
     // Create file content with frontmatter
     const fileContent = createFrontmatter(note) + markdownContent;
     
-    // Generate filename
-    const filename = generateNoteFilename(note);
-    const filepath = path.join(NOTES_DIR, filename);
+    // Target filepath
+    const newFilename = generateNoteFilename(note);
+    const newFilepath = path.join(NOTES_DIR, newFilename);
     
-    // Check if this is an update to existing note (async version)
-    const files = await fs.readdir(NOTES_DIR);
-    let existingFile = null;
+    // Find existing file for this note
+    const existingFile = await findFileByNoteId(noteId);
     
-    for (const file of files) {
-      if (file.endsWith('.md')) {
-        try {
-          const content = await fs.readFile(path.join(NOTES_DIR, file), 'utf8');
-          const { metadata } = parseFrontmatter(content);
-          if (metadata.id === noteId) {
-            existingFile = file;
-            break;
-          }
-        } catch (error) {
-          // Continue to next file
-        }
+    if (existingFile && existingFile !== newFilename) {
+      const oldFilePath = path.join(NOTES_DIR, existingFile);
+      try {
+        await fs.unlink(oldFilePath);
+      } catch (e) {
+        // Ignore unlink error
       }
     }
     
-    // If updating existing note, remove old file
-    if (existingFile) {
-      const oldFilePath = path.join(NOTES_DIR, existingFile);
-      await fs.unlink(oldFilePath);
-    }
-    
-    // Write the new/updated note
-    await fs.writeFile(filepath, fileContent, 'utf8');
+    // Write new note file
+    await fs.writeFile(newFilepath, fileContent, 'utf8');
     
     return { success: true, note };
   } catch (error) {
@@ -106,10 +117,10 @@ async function loadNotes() {
     await ensureNotesDirectory();
     
     const files = await fs.readdir(NOTES_DIR);
-    const notes = [];
+    const mdFiles = files.filter(file => file.endsWith('.md'));
     
-    for (const file of files) {
-      if (file.endsWith('.md')) {
+    const notesResults = await Promise.all(
+      mdFiles.map(async file => {
         try {
           const filepath = path.join(NOTES_DIR, file);
           const content = await fs.readFile(filepath, 'utf8');
@@ -118,33 +129,35 @@ async function loadNotes() {
           // Convert Markdown back to HTML for the editor
           const htmlContent = await convertMarkdownToHtml(markdownContent);
           
-          const note = {
+          return {
             id: metadata.id || Date.now().toString(),
             title: metadata.title || 'New Note',
             content: htmlContent,
             createdAt: metadata.createdAt || new Date().toISOString(),
             updatedAt: metadata.updatedAt || new Date().toISOString(),
+            isPinned: metadata.isPinned || false,
             tags: metadata.tags || [],
-            fontSize: metadata.fontSize || 16,
+            fontSize: metadata.fontSize || 18,
             fontFamily: metadata.fontFamily || 'Aeonik',
             folder: metadata.folder || null,
             folderName: metadata.folderName || null
           };
-          
-          // Debug logging removed for performance - uncomment if needed:
-          // if (process.env.DEBUG_FONTS) {
-          //   console.log(`Storage: Loading note - fontSize: ${metadata.fontSize}, fontFamily: "${metadata.fontFamily}" for note: "${note.title}"`);
-          // }
-          
-          notes.push(note);
         } catch (fileError) {
           console.error(`Storage: Error reading note file ${file}:`, fileError);
+          return null;
         }
-      }
-    }
+      })
+    );
     
-    // Sort notes by updatedAt (newest first)
-    notes.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+    const notes = notesResults.filter(Boolean);
+
+    // Sort notes: pinned notes first, then by updatedAt (newest first)
+    notes.sort((a, b) => {
+      if (a.isPinned !== b.isPinned) {
+        return a.isPinned ? -1 : 1;
+      }
+      return new Date(b.updatedAt) - new Date(a.updatedAt);
+    });
     
     return { success: true, notes };
   } catch (error) {
@@ -156,27 +169,10 @@ async function loadNotes() {
 async function deleteNote(noteId) {
   try {
     await ensureNotesDirectory();
+    const existingFile = await findFileByNoteId(noteId);
     
-    const files = await fs.readdir(NOTES_DIR);
-    let targetFile = null;
-    
-    for (const file of files) {
-      if (file.endsWith('.md')) {
-        try {
-          const content = await fs.readFile(path.join(NOTES_DIR, file), 'utf8');
-          const { metadata } = parseFrontmatter(content);
-          if (metadata.id === noteId) {
-            targetFile = file;
-            break;
-          }
-        } catch (error) {
-          // Continue to next file
-        }
-      }
-    }
-    
-    if (targetFile) {
-      const filepath = path.join(NOTES_DIR, targetFile);
+    if (existingFile) {
+      const filepath = path.join(NOTES_DIR, existingFile);
       await fs.unlink(filepath);
     }
     
