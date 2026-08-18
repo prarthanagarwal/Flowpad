@@ -19,7 +19,6 @@ export function closeFontDropdown() {
 }
 
 // Font size dropdown (legacy - now sizes are in formatting dropdown)
-function toggleFontSizeDropdown() { }
 export function closeFontSizeDropdown() { }
 
 // Toggle formatting dropdown
@@ -40,7 +39,7 @@ export function closeFormattingDropdown() {
 }
 
 // Close all dropdowns
-function closeAllDropdowns() {
+export function closeAllDropdowns() {
     closeFontDropdown();
     closeFontSizeDropdown();
     closeFormattingDropdown();

@@ -1,7 +1,7 @@
 // ===== TEXT FORMATTING =====
 // Handles text formatting commands and styles
 
-import { activeTextStyle, setActiveTextStyle } from '../../state.js';
+import { setActiveTextStyle } from '../../state.js';
 
 // Text style configurations - using HTML tags for proper undo support
 const textStyleConfigs = {
@@ -25,7 +25,7 @@ export function executeCommand(command) {
             if (startOffset === 0) {
                 let markerLength = 0;
                 
-                if (text.match(/^[•◯⬤\-]\s/)) {
+                if (text.match(/^[•◯⬤-]\s/)) {
                     markerLength = 2;
                 } else {
                     const numMatch = text.match(/^(\d+)\.\s/);
@@ -69,7 +69,7 @@ export function updateFormatButtonStates() {
 }
 
 // Apply text style to current line using execCommand for proper undo support
-export function applyTextStyle(style, size) {
+export function applyTextStyle(style) {
     const selection = window.getSelection();
     if (selection.rangeCount === 0) return;
 
@@ -129,7 +129,7 @@ export function resetBlockStyleAfterEnter() {
 }
 
 // Reset text style to body
-function resetTextStyleToBody() {
+export function resetTextStyleToBody() {
     setActiveTextStyle('body');
     updateTextStyleUI('body');
 }

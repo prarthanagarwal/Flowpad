@@ -17,7 +17,7 @@ import {
     removeNoteFromCache
 } from '../../state.js';
 import { normalizeHtmlForComparison } from '../../utils/dom.js';
-import { closeSidebar, updateSidebarNoteTitle, renderNotesList } from '../sidebar/index.js';
+import { closeSidebar, updateSidebarNoteTitle } from '../sidebar/index.js';
 import { updatePlaceholder, updateWordCount } from '../editor/index.js';
 import { showDeleteConfirmation } from '../ui/contextMenu.js';
 
@@ -27,7 +27,7 @@ export function extractTitleFromContent(content) {
 
     let firstLine = '';
     
-    if (typeof content === 'string' && content.includes('<')) {
+    if (String(content) === content && content.includes('<')) {
         // Parse HTML properly using DOM
         const parser = new DOMParser();
         const doc = parser.parseFromString(content, 'text/html');
@@ -91,7 +91,6 @@ export function updateTitleFromContent(editor, currentNoteTitle) {
     const newTitle = extractTitleFromContent(editorContent);
 
     if (currentNote.title !== newTitle) {
-        const oldTitle = currentNote.title;
         currentNote.title = newTitle;
 
         // Limit title bar display to 15 characters max

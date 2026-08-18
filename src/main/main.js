@@ -1,7 +1,7 @@
 // ===== MAIN PROCESS - APP LIFECYCLE & WINDOW MANAGEMENT =====
 // Handles Electron app lifecycle, window creation, and menu setup
 
-const { app, BrowserWindow, Menu, shell, Tray, nativeImage } = require('electron');
+const { app, BrowserWindow, Menu, shell, Tray } = require('electron');
 const path = require('path');
 const storage = require('./storage');
 const { initializeIpcHandlers } = require('./ipc-handlers');
@@ -70,7 +70,7 @@ Shortcut.Save
         setTimeout(() => {
           try {
             fs.unlinkSync(vbsFile);
-          } catch (e) {
+          } catch {
             // Ignore cleanup errors
           }
         }, 2000);
@@ -243,7 +243,7 @@ function createWindow() {
   });
 
   // Save window state immediately before closing (no debounce)
-  mainWindow.on('close', (event) => {
+  mainWindow.on('close', () => {
     if (saveWindowStateTimeout) {
       clearTimeout(saveWindowStateTimeout);
     }

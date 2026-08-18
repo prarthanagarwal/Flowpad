@@ -30,7 +30,7 @@ const store = new Store({
 async function ensureNotesDirectory() {
   try {
     await fs.access(NOTES_DIR);
-  } catch (error) {
+  } catch {
     await fs.mkdir(NOTES_DIR, { recursive: true });
   }
 }
@@ -49,7 +49,7 @@ async function findFileByNoteId(noteId) {
         const content = await fs.readFile(path.join(NOTES_DIR, file), 'utf8');
         const { metadata } = parseFrontmatter(content);
         if (metadata.id === noteId) return file;
-      } catch (error) {
+      } catch {
         // Skip unreadable files
       }
       return null;
@@ -97,7 +97,7 @@ async function saveNote(noteData) {
       const oldFilePath = path.join(NOTES_DIR, existingFile);
       try {
         await fs.unlink(oldFilePath);
-      } catch (e) {
+      } catch {
         // Ignore unlink error
       }
     }

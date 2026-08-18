@@ -5,7 +5,7 @@
 import * as state from './state.js';
 
 // Utilities
-import { escapeHtml, normalizeHtmlForComparison, focusEditor } from './utils/dom.js';
+import { normalizeHtmlForComparison, focusEditor } from './utils/dom.js';
 import { formatTime } from './utils/time.js';
 
 // UI Modules
@@ -15,7 +15,7 @@ import { initFullscreen, toggleFullscreen } from './modules/ui/fullscreen.js';
 import { initContextMenu, setNoteContextCallbacks, showMoveNoteMenu, showFolderContextMenu } from './modules/ui/contextMenu.js';
 
 // Sidebar
-import { initSidebar, closeSidebar, toggleSidebar, renderNotesList, updateSidebarNoteTitle } from './modules/sidebar/index.js';
+import { initSidebar, closeSidebar, toggleSidebar, renderNotesList } from './modules/sidebar/index.js';
 
 // Notes
 import { 
@@ -25,7 +25,6 @@ import {
     deleteNote as deleteNoteHandler,
     togglePinNote,
     loadNotes,
-    extractTitleFromContent,
     updateTitleFromContent
 } from './modules/notes/index.js';
 
@@ -34,12 +33,11 @@ import {
     initEditor, 
     initFormatting,
     handleListEnter, 
-    executeCommand,
-    updateFormatButtonStates
+    executeCommand
 } from './modules/editor/index.js';
 
 // Folders
-import { initFolders, renderFolderTabs } from './modules/folders/index.js';
+import { initFolders } from './modules/folders/index.js';
 
 // ===== CONSTANTS =====
 const placeholderTexts = [
@@ -193,13 +191,7 @@ function applyNoteFontSettings() {
     });
 }
 
-async function saveSettings() {
-    try {
-        await window.electronAPI.saveAppSettings(state.settings);
-    } catch (error) {
-        console.error('Error saving settings:', error);
-    }
-}
+
 
 // ===== FOLDERS =====
 async function loadFolders() {
@@ -272,7 +264,7 @@ async function autoSave() {
 }
 
 // ===== EDITOR INPUT HANDLER =====
-function handleEditorInput(e) {
+function handleEditorInput(_e) {
     if (state.currentNote) {
         state.currentNote.content = editor.innerHTML;
         updateTitleFromContent(editor, currentNoteTitle);

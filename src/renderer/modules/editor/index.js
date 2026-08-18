@@ -18,8 +18,6 @@ import {
     handleFormattingReset,
     updateTextStyleUI
 } from './formatting.js';
-import { isNoteDirty, setIsNoteDirty, currentNote } from '../../state.js';
-import { normalizeHtmlForComparison } from '../../utils/dom.js';
 import { closeFormattingDropdown } from '../ui/dropdowns.js';
 
 // Update placeholder visibility
@@ -110,7 +108,7 @@ export function initEditor(editor, editorPlaceholder, wordCountElement, handleIn
         }
     });
 
-    editor.addEventListener('keyup', (e) => {
+    editor.addEventListener('keyup', () => {
         updateFormatButtonStates();
     });
 

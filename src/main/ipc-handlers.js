@@ -2,7 +2,6 @@
 // Handles all communication between main and renderer processes
 
 const { ipcMain, dialog, shell } = require('electron');
-const path = require('path');
 const fs = require('fs').promises;
 const storage = require('./storage');
 const { sanitizeFilename, convertHtmlToMarkdown, createFrontmatter } = require('../shared/utils');
@@ -108,7 +107,7 @@ function setupSettingsHandlers() {
   });
 
   // Update title bar theme
-  ipcMain.handle('update-title-bar-theme', async (event, theme) => {
+  ipcMain.handle('update-title-bar-theme', async (_event, _theme) => {
     try {
       // This would be used if we had title bar overlay support
       // For now, just return success

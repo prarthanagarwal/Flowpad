@@ -3,12 +3,14 @@
 
 // ===== FILENAME UTILITIES =====
 function sanitizeFilename(title) {
-  return title
-    .replace(/[<>:"/\\|?*\x00-\x1f]/g, '')
+  const invalidChars = new Set(['<', '>', ':', '"', '/', '\\', '|', '?', '*']);
+  const sanitized = Array.from(title || '')
+    .filter(char => char.charCodeAt(0) >= 32 && !invalidChars.has(char))
+    .join('')
     .replace(/\s+/g, ' ')
     .trim()
-    .substring(0, 30)
-    || 'New Note';
+    .substring(0, 30);
+  return sanitized || 'New Note';
 }
 
 function generateNoteFilename(note) {
@@ -156,7 +158,7 @@ function parseFrontmatter(content) {
   
   if (!metadata.fontSize) metadata.fontSize = 18;
   if (!metadata.fontFamily) metadata.fontFamily = 'Aeonik';
-  if (typeof metadata.isPinned !== 'boolean') metadata.isPinned = false;
+  metadata.isPinned = metadata.isPinned === true;
   
   return {
     metadata,
@@ -166,35 +168,32 @@ function parseFrontmatter(content) {
 
 // ===== PLATFORM DETECTION =====
 function getPlatformModKey() {
-  if (typeof navigator !== 'undefined') {
-    return navigator.platform.toUpperCase().indexOf('MAC') >= 0 ? 'Cmd' : 'Ctrl';
+  if (globalThis.navigator) {
+    return globalThis.navigator.platform.toUpperCase().indexOf('MAC') >= 0 ? 'Cmd' : 'Ctrl';
   }
   return process.platform === 'darwin' ? 'Cmd' : 'Ctrl';
 }
 
 // ===== EXPORTS =====
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    sanitizeFilename,
-    generateNoteFilename,
-    formatDateTime,
-    convertHtmlToMarkdown,
-    convertMarkdownToHtml,
-    createFrontmatter,
-    parseFrontmatter,
-    getPlatformModKey
-  };
+const exportsMap = {
+  sanitizeFilename,
+  generateNoteFilename,
+  formatDateTime,
+  convertHtmlToMarkdown,
+  convertMarkdownToHtml,
+  createFrontmatter,
+  parseFrontmatter,
+  getPlatformModKey
+};
+
+try {
+  module.exports = exportsMap;
+} catch {
+  // Ignore in browser environments where module is undeclared
 }
 
-if (typeof window !== 'undefined') {
-  window.FlowpadUtils = {
-    sanitizeFilename,
-    generateNoteFilename,
-    formatDateTime,
-    convertHtmlToMarkdown,
-    convertMarkdownToHtml,
-    createFrontmatter,
-    parseFrontmatter,
-    getPlatformModKey
-  };
+try {
+  window.FlowpadUtils = exportsMap;
+} catch {
+  // Ignore in Node environments where window is undeclared
 }

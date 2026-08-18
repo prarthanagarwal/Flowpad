@@ -45,53 +45,50 @@ const createLatestWindowsManifest = (artifactPath) => {
   return manifestPath;
 };
 
-module.exports = {
-  packagerConfig: {
-    asar: true,
-    // App metadata
-    name: 'flowpad',
-    productName: 'flowpad',
-    executableName: 'flowpad',
-    appBundleId: 'com.flowpad.app',
-    appCategoryType: 'public.app-category.productivity',
-    appCopyright: 'Copyright © 2025 Prarthan Agarwal and contributors',
-    
-    // Icons
-    icon: 'assets/icon',
-    
-    // Windows metadata
-    win32metadata: {
-      CompanyName: 'Prarthan Agarwal',
-      FileDescription: 'a minimal notepad for your thoughts to flow',
-      OriginalFilename: 'flowpad.exe',
-      ProductName: 'flowpad',
-      InternalName: 'flowpad',
-      RequestedExecutionLevel: 'asInvoker',
-    },
-    
-    // macOS signing and notarization
-    ...(process.platform === 'darwin' || process.env.BUILD_MAC === 'true' ? {
-      darwinDarkModeSupport: true,
-      osxSign: {
-        identity: process.env.CSC_NAME || `Developer ID Application: Prarthan Agarwal (${process.env.APPLE_TEAM_ID || 'NYTQ72PV9X'})`,
-        hardenedRuntime: true,
-        entitlements: path.resolve(__dirname, 'entitlements.plist'),
-        'entitlements-inherit': path.resolve(__dirname, 'entitlements.inherit.plist'),
-        optionsForFile: (filePath) => {
-          return {
-            entitlements: path.resolve(__dirname, 'entitlements.plist'),
-            'entitlements-inherit': path.resolve(__dirname, 'entitlements.inherit.plist')
-          };
-        }
-      }
-    } : {}),
-    
-    // Optimizations
-    derefSymlinks: true,
-    junk: true,
-    
-
+const packagerConfig = {
+  asar: true,
+  // App metadata
+  name: 'flowpad',
+  productName: 'flowpad',
+  executableName: 'flowpad',
+  appBundleId: 'com.flowpad.app',
+  appCategoryType: 'public.app-category.productivity',
+  appCopyright: 'Copyright © 2025 Prarthan Agarwal and contributors',
+  
+  // Icons
+  icon: 'assets/icon',
+  
+  // Windows metadata
+  win32metadata: {
+    CompanyName: 'Prarthan Agarwal',
+    FileDescription: 'a minimal notepad for your thoughts to flow',
+    OriginalFilename: 'flowpad.exe',
+    ProductName: 'flowpad',
+    InternalName: 'flowpad',
+    RequestedExecutionLevel: 'asInvoker',
   },
+  
+  // Optimizations
+  derefSymlinks: true,
+  junk: true,
+};
+
+if (process.platform === 'darwin' || process.env.BUILD_MAC === 'true') {
+  packagerConfig.darwinDarkModeSupport = true;
+  packagerConfig.osxSign = {
+    identity: process.env.CSC_NAME || `Developer ID Application: Prarthan Agarwal (${process.env.APPLE_TEAM_ID || 'NYTQ72PV9X'})`,
+    hardenedRuntime: true,
+    entitlements: path.resolve(__dirname, 'entitlements.plist'),
+    'entitlements-inherit': path.resolve(__dirname, 'entitlements.inherit.plist'),
+    optionsForFile: () => ({
+      entitlements: path.resolve(__dirname, 'entitlements.plist'),
+      'entitlements-inherit': path.resolve(__dirname, 'entitlements.inherit.plist')
+    })
+  };
+}
+
+module.exports = {
+  packagerConfig,
   
   rebuildConfig: {
     force: true,

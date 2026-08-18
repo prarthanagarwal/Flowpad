@@ -1,7 +1,7 @@
 // ===== SIDEBAR MODULE =====
 // Handles sidebar open/close and note list rendering
 
-import { currentNote, allNotes, allFolders, currentFolder, setCurrentFolder } from '../../state.js';
+import { currentNote, allNotes, allFolders, currentFolder } from '../../state.js';
 import { escapeHtml } from '../../utils/dom.js';
 import { getDisplayTextForNote, categorizeNotesByTime } from '../../utils/time.js';
 
@@ -222,7 +222,7 @@ function extractTitleAndBodyFromContent(content) {
     let title = '';
     let bodyPreview = '';
     
-    if (typeof content === 'string' && content.includes('<')) {
+    if (String(content) === content && content.includes('<')) {
         // Create a temporary container to parse the HTML
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = content;

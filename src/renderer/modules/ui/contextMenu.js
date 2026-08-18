@@ -107,7 +107,7 @@ export function hideContextMenu() {
 }
 
 // Clipboard operations
-export async function handleCopy(editor) {
+export async function handleCopy(_editor) {
     try {
         const selection = window.getSelection();
         if (selection.rangeCount > 0) {

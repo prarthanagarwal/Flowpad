@@ -67,17 +67,6 @@ export function checkForListActivation() {
     }
 }
 
-// Get selected lines as array
-function getSelectedLines() {
-    const selection = window.getSelection();
-    if (selection.rangeCount === 0) return null;
-    
-    const selectedText = selection.toString();
-    if (!selectedText || !selectedText.includes('\n')) return null;
-    
-    return selectedText.split('\n').filter(line => line.trim() !== '');
-}
-
 // Convert selected lines to list format
 function convertSelectionToList(prefix) {
     const selection = window.getSelection();
@@ -94,7 +83,7 @@ function convertSelectionToList(prefix) {
     const convertedLines = lines.reduce((acc, line) => {
         const trimmedLine = line.trim();
         if (trimmedLine) {
-            const cleanLine = trimmedLine.replace(/^[•\-\*>\d+\.◯⬤]\s*/, '').trim();
+            const cleanLine = trimmedLine.replace(/^[-•*>\d+.◯⬤]\s*/, '').trim();
             if (cleanLine) {
                 acc.push(`${prefix}${cleanLine}`);
             }
@@ -150,7 +139,7 @@ export function insertNumberedList() {
             const convertedLines = lines.reduce((acc, line) => {
                 const trimmedLine = line.trim();
                 if (trimmedLine) {
-                    const cleanLine = trimmedLine.replace(/^[•\-\*>\d+\.◯⬤]\s*/, '').trim();
+                    const cleanLine = trimmedLine.replace(/^[-•*>\d+.◯⬤]\s*/, '').trim();
                     if (cleanLine) {
                         acc.push(`${lineNumber++}. ${cleanLine}`);
                     }
@@ -270,7 +259,7 @@ export function handleListEnter(e) {
     if (inChecklist || isCircularChecklistMode || lineText.includes('◯') || lineText.includes('⬤') || lineText.includes('[ ]') || lineText.includes('[x]')) {
         e.preventDefault();
 
-        const cleanText = lineText.replace(/[◯⬤\[\]\sxX]/g, '').trim();
+        const cleanText = lineText.replace(/[◯⬤[\]\sxX]/g, '').trim();
 
         // Empty checklist item -> exit checklist mode
         if (!cleanText || cleanText === '') {
