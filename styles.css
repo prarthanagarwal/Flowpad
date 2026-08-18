@@ -840,6 +840,12 @@ body.light-mode .note-context-menu .context-menu-separator {
     margin-bottom: 4px;
 }
 
+.category-header-pinned {
+    color: #f59e0b;
+    display: flex;
+    align-items: center;
+}
+
 /* .category-notes is a semantic container for notes in each category */
 
 .note-item {
@@ -860,10 +866,32 @@ body.light-mode .note-context-menu .context-menu-separator {
     background-color: rgba(255, 255, 255, 0.05);
 }
 
+.note-item.is-pinned {
+    background-color: rgba(245, 158, 11, 0.05);
+    border-left: 3px solid rgba(245, 158, 11, 0.65);
+    padding-left: 17px;
+}
+
+.note-item.is-pinned:hover {
+    background-color: rgba(245, 158, 11, 0.1);
+}
+
 .note-item.active {
     background-color: rgba(0, 102, 204, 0.15);
     border-left: 3px solid #0066cc;
     padding-left: 17px;
+}
+
+.note-item.is-pinned.active {
+    background-color: rgba(0, 102, 204, 0.2);
+    border-left: 3px solid #0066cc;
+}
+
+.note-pin-badge {
+    color: #f59e0b;
+    font-size: 11px;
+    margin-right: 4px;
+    vertical-align: middle;
 }
 
 .note-item.dragging {
@@ -1751,14 +1779,11 @@ body.light-mode .note-pin-badge {
 /* Interactive Checklist Styling */
 .checklist-line {
     margin: 4px 0;
-    display: flex;
-    align-items: center;
+    line-height: 1.5;
 }
 
 .checklist-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
+    display: inline-block;
     cursor: pointer;
     user-select: text;
 }
@@ -1769,10 +1794,10 @@ body.light-mode .note-pin-badge {
     height: 14px;
     border: 2px solid #888;
     border-radius: 50%;
-    margin-right: 6px;
+    margin-right: 8px;
+    vertical-align: -2px;
     flex-shrink: 0;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    vertical-align: middle;
     cursor: pointer;
 }
 
@@ -1800,13 +1825,25 @@ body.light-mode .checkbox-circle.checked {
     border-color: #0066cc;
 }
 
-s.completed {
+s.completed,
+.checklist-item[data-checked="true"],
+.checklist-item[data-checked="true"] *,
+.checklist-item[data-checked="true"] s,
+.checklist-item[data-checked="true"] span {
     color: #777;
-    text-decoration: line-through;
+    text-decoration: line-through !important;
     opacity: 0.75;
 }
 
-body.light-mode s.completed {
+.checklist-item[data-checked="true"] .checkbox-circle {
+    text-decoration: none !important;
+}
+
+body.light-mode s.completed,
+body.light-mode .checklist-item[data-checked="true"],
+body.light-mode .checklist-item[data-checked="true"] *,
+body.light-mode .checklist-item[data-checked="true"] s,
+body.light-mode .checklist-item[data-checked="true"] span {
     color: #888;
 }
 

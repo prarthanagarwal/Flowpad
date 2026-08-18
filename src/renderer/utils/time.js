@@ -33,7 +33,7 @@ export function getDisplayTextForNote(note) {
     return noteDate.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-// Categorize notes by time periods
+// Categorize notes by time periods with Pinned at top
 export function categorizeNotesByTime(notes) {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -45,6 +45,7 @@ export function categorizeNotesByTime(notes) {
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     const categories = {
+        'Pinned': [],
         'Today': [],
         'Yesterday': [],
         'Last 7 days': [],
@@ -53,6 +54,11 @@ export function categorizeNotesByTime(notes) {
     };
 
     notes.forEach(note => {
+        if (note.isPinned) {
+            categories['Pinned'].push(note);
+            return;
+        }
+
         const noteDate = new Date(note.updatedAt);
         const noteDateOnly = new Date(noteDate.getFullYear(), noteDate.getMonth(), noteDate.getDate());
 

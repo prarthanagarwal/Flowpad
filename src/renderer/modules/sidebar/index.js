@@ -84,11 +84,19 @@ export function renderNotesList(notesToRender = null, loadNoteCallback, deleteNo
 function createCategorySection(categoryName, notes, loadNoteCallback, deleteNoteCallback, showMoveNoteMenuCallback, togglePinNoteCallback) {
     const section = document.createElement('div');
     section.className = 'category-section';
+    if (categoryName === 'Pinned') {
+        section.classList.add('pinned-section');
+    }
 
     // Create category header
     const header = document.createElement('div');
     header.className = 'category-header';
-    header.textContent = categoryName;
+    if (categoryName === 'Pinned') {
+        header.classList.add('category-header-pinned');
+        header.innerHTML = '<i class="ph-fill ph-push-pin" style="font-size: 11px; margin-right: 5px; color: #f59e0b;"></i> Pinned';
+    } else {
+        header.textContent = categoryName;
+    }
     section.appendChild(header);
 
     // Create notes container
@@ -108,6 +116,9 @@ function createCategorySection(categoryName, notes, loadNoteCallback, deleteNote
 function createNoteListItem(note, loadNoteCallback, deleteNoteCallback, showMoveNoteMenuCallback, togglePinNoteCallback) {
     const div = document.createElement('div');
     div.className = 'note-item';
+    if (note.isPinned) {
+        div.classList.add('is-pinned');
+    }
     div.dataset.noteId = note.id;
 
     if (currentNote && currentNote.id === note.id) {
@@ -128,7 +139,7 @@ function createNoteListItem(note, loadNoteCallback, deleteNoteCallback, showMove
     if (note.folder && currentFolder === 'all') {
         const folder = allFolders.find(f => f.id === note.folder);
         if (folder) {
-            folderInfo = `<span class="folder-separator">·</span><i class="ph ph-folder-simple note-folder-icon"></i><span class="folder-name">${folder.name}</span>`;
+            folderInfo = `<span class="folder-separator">·</span><i class="ph ph-folder-simple note-folder-icon"></i><span class="folder-name">${escapeHtml(folder.name)}</span>`;
         }
     }
 
@@ -151,8 +162,8 @@ function createNoteListItem(note, loadNoteCallback, deleteNoteCallback, showMove
             </div>
         </div>
         <div class="note-item-actions">
-            <button class="note-action-btn pin-note" data-note-id="${note.id}" title="${note.isPinned ? 'Unpin Note' : 'Pin Note'}">
-                <i class="ph ${note.isPinned ? 'ph-push-pin-slash' : 'ph-push-pin'}" style="font-size: 12px;"></i>
+            <button class="note-action-btn pin-note ${note.isPinned ? 'pinned' : ''}" data-note-id="${note.id}" title="${note.isPinned ? 'Unpin Note' : 'Pin Note'}">
+                <i class="ph ${note.isPinned ? 'ph-fill ph-push-pin' : 'ph-push-pin'}" style="font-size: 12px; ${note.isPinned ? 'color: #f59e0b;' : ''}"></i>
             </button>
             <button class="note-action-btn move-note" data-note-id="${note.id}" title="Move to Folder">
                 <i class="ph ph-folder-simple" style="font-size: 12px;"></i>
@@ -227,8 +238,6 @@ function extractTitleAndBodyFromContent(content) {
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = content;
         
-        // Get all lines by looking at the structure
-        // In contenteditable: first line is text node or first div, subsequent lines are divs
         const lines = [];
         
         for (const node of tempDiv.childNodes) {
@@ -240,17 +249,14 @@ function extractTitleAndBodyFromContent(content) {
             } else if (node.nodeType === Node.ELEMENT_NODE) {
                 const tag = node.tagName;
                 if (tag === 'BR') {
-                    // Empty line
                     lines.push('');
                 } else {
-                    // DIV, P, or other element - get its text content
                     const text = node.textContent.trim();
                     lines.push(text);
                 }
             }
         }
         
-        // Get non-empty lines for title and body
         const nonEmptyLines = lines.filter(line => line.trim());
         title = nonEmptyLines.length > 0 ? nonEmptyLines[0].trim() : 'New Note';
         
@@ -261,7 +267,6 @@ function extractTitleAndBodyFromContent(content) {
             }
         }
     } else {
-        // Plain text - split by newline
         const lines = content.split('\n');
         const nonEmptyLines = lines.filter(line => line.trim());
         title = nonEmptyLines.length > 0 ? nonEmptyLines[0].trim() : 'New Note';
@@ -274,7 +279,11 @@ function extractTitleAndBodyFromContent(content) {
         }
     }
 
-    return { title, bodyPreview };
+    // Strip HTML markup from extracted title and bodyPreview
+    title = title.replace(/<[^>]*>/g, '').trim();
+    bodyPreview = bodyPreview.replace(/<[^>]*>/g, '').trim();
+
+    return { title: title || 'New Note', bodyPreview };
 }
 
 // Update a specific note's title in the sidebar
@@ -293,7 +302,8 @@ export function updateSidebarNoteTitle(note) {
             if (displayTitle.length > 25) {
                 displayTitle = displayTitle.substring(0, 22) + '...';
             }
-            titleElement.textContent = displayTitle;
+            const pinIconHtml = note.isPinned ? `<i class="ph-fill ph-push-pin note-pin-badge" title="Pinned Note"></i> ` : '';
+            titleElement.innerHTML = `${pinIconHtml}${escapeHtml(displayTitle)}`;
         }
 
         if (metaElement) {
