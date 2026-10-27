@@ -223,4 +223,14 @@ api-docs/
 *.sonar
 
 # Performance monitoring
-.clinic/ 
+.clinic/
+# Keep regression tests and their configuration in version control.
+!tests/
+!tests/**
+!docs/
+docs/*
+!docs/TEST_REPORT.md
+playwright-report/
+test-results/
+
+dist-electron/
