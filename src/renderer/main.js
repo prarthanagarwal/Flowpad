@@ -5,12 +5,12 @@
 import * as state from './state.js';
 
 // Utilities
-import { normalizeHtmlForComparison, focusEditor } from './utils/dom.js';
+import { normalizeHtmlForComparison, focusEditor, getPlainText } from './utils/dom.js';
 import { formatTime } from './utils/time.js';
 
 // UI Modules
 import { initTheme, applyTheme } from './modules/ui/theme.js';
-import { initDropdowns } from './modules/ui/dropdowns.js';
+import { initDropdowns, closeAllDropdowns } from './modules/ui/dropdowns.js';
 import { initFullscreen, toggleFullscreen } from './modules/ui/fullscreen.js';
 import { initContextMenu, setNoteContextCallbacks, showMoveNoteMenu, showFolderContextMenu } from './modules/ui/contextMenu.js';
 
@@ -18,10 +18,10 @@ import { initContextMenu, setNoteContextCallbacks, showMoveNoteMenu, showFolderC
 import { initSidebar, closeSidebar, toggleSidebar, renderNotesList } from './modules/sidebar/index.js';
 
 // Notes
-import { 
-    loadNote, 
-    createNewNote, 
-    saveCurrentNote, 
+import {
+    loadNote,
+    createNewNote,
+    saveCurrentNote,
     deleteNote as deleteNoteHandler,
     togglePinNote,
     loadNotes,
@@ -29,10 +29,10 @@ import {
 } from './modules/notes/index.js';
 
 // Editor
-import { 
-    initEditor, 
+import {
+    initEditor,
     initFormatting,
-    handleListEnter, 
+    handleListEnter,
     executeCommand
 } from './modules/editor/index.js';
 
@@ -73,6 +73,14 @@ async function initialize() {
     searchNotes = document.getElementById('searchNotes');
     newNoteBtn = document.getElementById('newNoteBtn');
 
+    window.electronAPI.onBeforeClose(async () => {
+        clearTimeout(autoSaveTimeout);
+        editor.contentEditable = 'false';
+        const saved = !state.currentNote || (!state.isNoteDirty && state.currentNote.originalContent === editor.innerHTML) || await handleSaveCurrentNote();
+        if (!saved) editor.contentEditable = 'true';
+        window.electronAPI.finishClose(saved);
+    });
+
     // Set random placeholder text and ensure it's visible initially
     const randomIndex = Math.floor(Math.random() * placeholderTexts.length);
     editorPlaceholder.textContent = placeholderTexts[randomIndex];
@@ -85,11 +93,11 @@ async function initialize() {
     initTheme();
     initDropdowns();
     initFullscreen();
-    initSidebar();  
+    initSidebar();
     initContextMenu(executeCommand);
     initEditor(editor, editorPlaceholder, wordCount, handleEditorInput);
     initFormatting();
-    
+
     // Set up context menu callbacks for note operations
     setNoteContextCallbacks(handleDeleteNote, doRenderNotesList, handleTogglePinNote);
 
@@ -118,9 +126,11 @@ async function initialize() {
         applyNoteFontSettings();
     }
 
+    document.body.dataset.ready = 'true';
+
     // Auto-save timer (backup - runs every 30s)
     setInterval(() => {
-        if (state.currentNote && editor.innerHTML.trim() && state.currentNote.originalContent !== editor.innerHTML) {
+        if (state.currentNote && state.currentNote.originalContent !== editor.innerHTML) {
             autoSave();
         }
     }, 30000);
@@ -172,6 +182,7 @@ function applyNoteFontSettings() {
 
     editor.style.fontSize = '18px';
     editor.style.fontFamily = state.currentNote.fontFamily;
+    if (googleFonts.includes(state.currentNote.fontFamily)) loadGoogleFont(state.currentNote.fontFamily);
     editorPlaceholder.style.fontFamily = state.currentNote.fontFamily;
     editorPlaceholder.style.fontSize = '18px';
     state.setActiveTextStyle('body');
@@ -212,24 +223,31 @@ async function loadNotesAndRender() {
 }
 
 function doRenderNotesList() {
-    renderNotesList(null, handleLoadNote, handleDeleteNote, showMoveNoteMenu, handleTogglePinNote);
+    const query = searchNotes?.value.toLowerCase().trim();
+    const notes = query ? state.allNotes.filter(note =>
+        (state.currentFolder === 'all' || note.folder === state.currentFolder) &&
+        ((note.title || '').toLowerCase().includes(query) || getPlainText(note.content).toLowerCase().includes(query))) : null;
+    renderNotesList(notes, handleLoadNote, handleDeleteNote, showMoveNoteMenu, handleTogglePinNote);
 }
 
 async function handleTogglePinNote(note) {
     await togglePinNote(note, doRenderNotesList);
 }
 
-async function handleLoadNote(note) {
-    await loadNote(note, editor, currentNoteTitle, handleSaveCurrentNote, applyNoteFontSettings, editorPlaceholder, wordCount);
+let pendingTransition = Promise.resolve();
+function handleLoadNote(note) {
+    pendingTransition = pendingTransition.then(() => loadNote(note, editor, currentNoteTitle, handleSaveCurrentNote, applyNoteFontSettings, editorPlaceholder, wordCount));
+    return pendingTransition;
 }
 
-async function handleCreateNewNote() {
-    await createNewNote(editor, currentNoteTitle, handleSaveCurrentNote, applyNoteFontSettings, placeholderTexts, editorPlaceholder);
+function handleCreateNewNote() {
+    pendingTransition = pendingTransition.then(() => createNewNote(editor, currentNoteTitle, handleSaveCurrentNote, applyNoteFontSettings, placeholderTexts, editorPlaceholder));
+    return pendingTransition;
 }
 
 async function handleSaveCurrentNote() {
     // Pass callbacks for sidebar updates - no full reload needed
-    await saveCurrentNote(editor, currentNoteTitle, { renderList: doRenderNotesList });
+    return await saveCurrentNote(editor, currentNoteTitle, { renderList: doRenderNotesList });
 }
 
 async function handleDeleteNote(noteId) {
@@ -241,8 +259,8 @@ let autoSaveTimeout;
 function debouncedAutoSave() {
     clearTimeout(autoSaveTimeout);
     autoSaveTimeout = setTimeout(() => {
-        if (state.currentNote && editor.innerHTML.trim()) {
-            const hasContentChanged = state.isNoteDirty || 
+        if (state.currentNote) {
+            const hasContentChanged = state.isNoteDirty ||
                 normalizeHtmlForComparison(state.currentNote.originalContent) !== normalizeHtmlForComparison(editor.innerHTML);
 
             if (hasContentChanged) {
@@ -253,8 +271,8 @@ function debouncedAutoSave() {
 }
 
 async function autoSave() {
-    if (state.currentNote && editor.innerHTML.trim()) {
-        const hasContentChanged = state.isNoteDirty || 
+    if (state.currentNote) {
+        const hasContentChanged = state.isNoteDirty ||
             normalizeHtmlForComparison(state.currentNote.originalContent) !== normalizeHtmlForComparison(editor.innerHTML);
 
         if (hasContentChanged) {
@@ -269,7 +287,7 @@ function handleEditorInput(_e) {
         state.currentNote.content = editor.innerHTML;
         updateTitleFromContent(editor, currentNoteTitle);
 
-        const hasChanged = normalizeHtmlForComparison(state.currentNote.originalContent) !== 
+        const hasChanged = normalizeHtmlForComparison(state.currentNote.originalContent) !==
                           normalizeHtmlForComparison(editor.innerHTML);
         if (hasChanged) {
             state.setIsNoteDirty(true);
@@ -281,7 +299,7 @@ function handleEditorInput(_e) {
 // ===== KEYBOARD HANDLING =====
 function handleKeyDown(e) {
     // Handle Enter for lists
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' || e.key === 'Tab') {
         if (handleListEnter(e)) {
             return;
         }
@@ -338,6 +356,7 @@ function handleKeyDown(e) {
 
     // Dismiss open sidebar or menus on Escape instead of quitting app
     if (e.key === 'Escape') {
+        closeAllDropdowns();
         const sidebar = document.getElementById('sidebar');
         if (sidebar && sidebar.classList.contains('open')) {
             closeSidebar();
@@ -351,20 +370,8 @@ function handleKeyDown(e) {
 }
 
 // ===== SEARCH =====
-function handleSearch(e) {
-    const query = e.target.value.toLowerCase().trim();
-    if (!query) {
-        doRenderNotesList();
-        return;
-    }
-
-    const filteredNotes = state.allNotes.filter(note => {
-        const titleMatch = (note.title || '').toLowerCase().includes(query);
-        const plainText = (note.content || '').replace(/<[^>]*>/g, '').toLowerCase();
-        return titleMatch || plainText.includes(query);
-    });
-
-    renderNotesList(filteredNotes, handleLoadNote, handleDeleteNote, showMoveNoteMenu, handleTogglePinNote);
+function handleSearch() {
+    doRenderNotesList();
 }
 
 // ===== FONT MANAGEMENT =====
@@ -405,24 +412,24 @@ const loadedFonts = new Set();
 // Load a Google Font dynamically
 async function loadGoogleFont(fontName) {
     // Normalize font name for Google Fonts API (replace spaces with +)
-    const fontNameNormalized = fontName.replace(/\s+/g, '+');
-    
+    const fontNameNormalized = encodeURIComponent(fontName).replace(/%20/g, '+');
+
     // Check if already loaded
     if (loadedFonts.has(fontName)) {
         return;
     }
-    
+
     // Create link element to load font
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = `https://fonts.googleapis.com/css2?family=${fontNameNormalized}:wght@400;500;600;700&display=swap`;
-    
+
     // Add to document head
     document.head.appendChild(link);
-    
+
     // Mark as loaded
     loadedFonts.add(fontName);
-    
+
     // Wait a bit for font to load
     return new Promise((resolve) => {
         setTimeout(resolve, 100);
@@ -435,14 +442,14 @@ async function surpriseFont() {
     // Get current font and filter it out
     const currentFont = state.currentNote.fontFamily;
     const otherFonts = googleFonts.filter(font => font !== currentFont);
-    
+
     // Pick random font
     const randomIndex = Math.floor(Math.random() * otherFonts.length);
     const randomFont = otherFonts[randomIndex];
-    
+
     // Load the font from Google Fonts
     await loadGoogleFont(randomFont);
-    
+
     // Apply the font
     updateFontFamily(randomFont);
 }
@@ -487,7 +494,9 @@ function setupEventListeners() {
     });
 
     // Keyboard shortcuts
-    editor?.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', e => {
+        if (e.target === editor || e.key === 'Escape' || ((e.metaKey || e.ctrlKey) && ['s', 'n', 'h'].includes(e.key.toLowerCase()))) handleKeyDown(e);
+    });
 
     // Search
     searchNotes?.addEventListener('input', handleSearch);
@@ -508,29 +517,33 @@ function setupEventListeners() {
 }
 
 // ===== START APPLICATION =====
-document.addEventListener('DOMContentLoaded', initialize);
+document.addEventListener('DOMContentLoaded', () => initialize().catch(error => {
+    console.error('Unable to open notes:', error);
+    editor.contentEditable = 'false';
+    document.getElementById('saveStatus').textContent = 'Could not load notes — check folder access and reload';
+}));
 
 // Focus management
 window.addEventListener('load', () => {
     focusEditor(editor, false);
 });
 
-window.addEventListener('focus', () => {
-    setTimeout(() => {
-        const sidebar = document.getElementById('sidebar');
-        if (!sidebar.classList.contains('open')) {
-            focusEditor(editor);
-        }
-    }, 100);
-});
-
-document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) {
-        const sidebar = document.getElementById('sidebar');
-        if (!sidebar.classList.contains('open')) {
-            setTimeout(() => {
-                focusEditor(editor);
-            }, 100);
-        }
-    }
+// Native Reload must not discard the edit waiting for the autosave debounce.
+let savingBeforeReload = false;
+window.addEventListener('beforeunload', event => {
+    if (!state.currentNote || (!state.isNoteDirty && state.currentNote.originalContent === editor.innerHTML)) return;
+    event.preventDefault();
+    event.returnValue = false;
+    if (savingBeforeReload) return;
+    savingBeforeReload = true;
+    (async () => {
+        do {
+            if (!await handleSaveCurrentNote()) {
+                savingBeforeReload = false;
+                return;
+            }
+        } while (state.currentNote.originalContent !== editor.innerHTML);
+        savingBeforeReload = false;
+        window.location.reload();
+    })();
 });

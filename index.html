@@ -65,7 +65,7 @@
             <div class="editor-container">
                 <!-- Main Editor -->
                 <div class="editor-wrapper">
-                    <div id="editor" class="editor" contenteditable="true" spellcheck="false"></div>
+                    <div id="editor" role="textbox" aria-label="Note content" aria-multiline="true" class="editor" contenteditable="true" spellcheck="false"></div>
                     <div class="editor-placeholder" id="editorPlaceholder">Start writing your note...</div>
                 </div>
             </div>
@@ -136,13 +136,12 @@
                         </div>
                     </div>
                 </div>
-                <button id="checklistBtn" class="toolbar-btn" title="Checklist">
-                    <i class="ph ph-list-checks" style="font-size: 16px;"></i>
-                </button>
+
             </div>
             
             <div class="toolbar-center">
                 <div class="current-time" id="currentTime"></div>
+                <div id="saveStatus" role="status" aria-live="polite"></div>
                 <div class="word-count" id="wordCount">0 words</div>
                 
 

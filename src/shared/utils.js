@@ -27,154 +27,109 @@ function formatDateTime(isoString) {
   return `${dateStr} ${timeStr}`;
 }
 
-// ===== MARKDOWN CONVERSION =====
+// Keep the editor's HTML as the note body. Markdown export is deliberately separate:
+// Markdown cannot represent every blank line, underline, or literal formatting marker.
+function sanitizeNoteHtml(html) {
+  const { parseHTML } = require('linkedom');
+  const { document } = parseHTML('<html><body></body></html>');
+  document.body.innerHTML = html || '';
+  document.querySelectorAll('script,style,iframe,object,embed,svg,math,form,input,button,link,meta,img').forEach(node => node.remove());
+  // Legacy interactive tasks become ordinary text; retain their words and formatting.
+  document.querySelectorAll('.checkbox-circle,.circular-checkbox,.todo-checkbox').forEach(node => node.remove());
+  const allowed = new Set(['DIV', 'P', 'BR', 'H1', 'H2', 'H3', 'STRONG', 'B', 'EM', 'I', 'U', 'S', 'STRIKE', 'UL', 'OL', 'LI', 'BLOCKQUOTE', 'PRE', 'CODE', 'SPAN', 'A']);
+  document.body.querySelectorAll('*').forEach(node => {
+    if (!allowed.has(node.tagName)) {
+      node.replaceWith(...node.childNodes);
+      return;
+    }
+    for (const attribute of Array.from(node.attributes)) {
+      if (['UL', 'LI'].includes(node.tagName) && attribute.name === 'data-marker' && ['dash', 'bullet'].includes(attribute.value)) continue;
+      if (attribute.name === 'style' && /^(?:(?:font-weight: (?:normal|bold|[1-9]00)|font-style: (?:normal|italic)|text-decoration(?:-line)?: (?:underline|line-through|none))(?:;\s*|$))+$/.test(attribute.value)) continue;
+      if (!(node.tagName === 'OL' && attribute.name === 'start' && /^\d+$/.test(attribute.value))) {
+        node.removeAttribute(attribute.name);
+      }
+    }
+  });
+  return document.body.innerHTML;
+}
+
 async function convertHtmlToMarkdown(htmlContent) {
-  if (!htmlContent) return '';
-
-  let markdown = htmlContent;
-
-  // Convert interactive checklist items first
-  markdown = markdown.replace(/<span class="checklist-item"[^>]*data-checked="true"[^>]*>([\s\S]*?)<\/span>/gi, (_m, content) => {
-    const text = content
-      .replace(/<span class="checkbox-circle[^"]*"><\/span>/gi, '')
-      .replace(/<[^>]+>/g, '')
-      .trim();
-    return `- [x] ${text}`;
-  });
-  markdown = markdown.replace(/<span class="checklist-item"[^>]*data-checked="false"[^>]*>([\s\S]*?)<\/span>/gi, (_m, content) => {
-    const text = content
-      .replace(/<span class="checkbox-circle[^"]*"><\/span>/gi, '')
-      .replace(/<[^>]+>/g, '')
-      .trim();
-    return `- [ ] ${text}`;
-  });
-
-  // Convert HTML elements
-  markdown = markdown
-    .replace(/<div class="checklist-line">(.*?)<\/div>/gi, '$1\n')
-    .replace(/<strong>(.*?)<\/strong>/gi, '**$1**')
-    .replace(/<b>(.*?)<\/b>/gi, '**$1**')
-    .replace(/<em>(.*?)<\/em>/gi, '*$1*')
-    .replace(/<i>(.*?)<\/i>/gi, '*$1*')
-    .replace(/<u>(.*?)<\/u>/gi, '__$1__')
-    .replace(/<s>(.*?)<\/s>/gi, '~~$1~~')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<div>/gi, '\n')
-    .replace(/<\/div>/gi, '')
-    .replace(/<p>/gi, '\n')
-    .replace(/<\/p>/gi, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>');
-
-  // Clean double blank lines
-  return markdown.replace(/\n{3,}/g, '\n\n').trim();
+  const TurndownService = require('turndown');
+  const service = new TurndownService({ headingStyle: 'atx', bulletListMarker: '-' });
+  const listItem = service.options.rules.listItem;
+  service.addRule('listMarker', { filter: 'li', replacement(content, node, options) {
+    const bulletListMarker = node.closest('[data-marker]')?.getAttribute('data-marker') === 'bullet' ? '*' : '-';
+    return listItem.replacement(content, node, { ...options, bulletListMarker });
+  } });
+  service.addRule('underline', { filter: 'u', replacement: content => `<u>${content}</u>` });
+  service.addRule('strike', { filter: ['s', 'strike'], replacement: content => `~~${content}~~` });
+  return service.turndown(sanitizeNoteHtml(htmlContent));
 }
 
-async function convertMarkdownToHtml(markdownContent) {
-  if (!markdownContent) return '<div><br></div>';
-
-  const lines = markdownContent.split('\n');
-  const htmlLines = lines.map(line => {
-    let processed = line
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-
-    // Checked list item: - [x] text or - [X] text
-    if (/^-\s*\[[xX]\]\s*/.test(processed)) {
-      const text = processed.replace(/^-\s*\[[xX]\]\s*/, '');
-      return `<div class="checklist-line"><span class="checklist-item" data-checked="true"><span class="checkbox-circle checked"></span><s class="completed">${text}</s></span></div>`;
-    }
-
-    // Unchecked list item: - [ ] text
-    if (/^-\s*\[\s*\]\s*/.test(processed)) {
-      const text = processed.replace(/^-\s*\[\s*\]\s*/, '');
-      return `<div class="checklist-line"><span class="checklist-item" data-checked="false"><span class="checkbox-circle"></span><span>${text}</span></span></div>`;
-    }
-
-    // Inline formatting
-    processed = processed
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/__(.*?)__/g, '<u>$1</u>')
-      .replace(/~~(.*?)~~/g, '<s>$1</s>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>');
-
-    return processed ? `<div>${processed}</div>` : '<div><br></div>';
-  });
-
-  return htmlLines.join('');
+function convertHtmlToText(htmlContent) {
+  const { parseHTML } = require('linkedom');
+  const { document } = parseHTML('<html><body></body></html>');
+  document.body.innerHTML = sanitizeNoteHtml(htmlContent);
+  return document.body.innerText;
 }
 
-// ===== FRONTMATTER UTILITIES =====
+async function convertMarkdownToHtml(markdownContent, legacyUnderline = false) {
+  const { Marked, Renderer } = await import('marked');
+  // Retire legacy task syntax without dropping task text.
+  const text = (markdownContent || '').replace(/^([ \t]*)- \[[ xX]\] /gm, '$1- ');
+  const parser = new Marked({ breaks: true });
+  const listRenderer = new Renderer();
+  parser.use({ renderer: {
+    list(token) {
+      listRenderer.parser = this.parser;
+      const html = listRenderer.list(token);
+      if (token.ordered) return html;
+      const marker = /^\s*-/.test(token.raw) ? 'dash' : 'bullet';
+      return html.replace('<ul>', `<ul data-marker="${marker}">`);
+    }
+  } });
+  if (legacyUnderline) parser.use({ renderer: {
+    strong(token) {
+      const tag = token.raw.startsWith('__') ? 'u' : 'strong';
+      return `<${tag}>${this.parser.parseInline(token.tokens)}</${tag}>`;
+    }
+  } });
+  return sanitizeNoteHtml(parser.parse(text)) || '<div><br></div>';
+}
+
+// JSON scalar values are YAML-compatible and safely preserve quotes and newlines.
 function createFrontmatter(note) {
-  const fullTitle = note.title || 'New Note';
-  
-  return `---
-id: ${note.id}
-title: "${fullTitle.replace(/"/g, '\\"')}"
-createdAt: ${formatDateTime(note.createdAt)}
-updatedAt: ${formatDateTime(note.updatedAt)}
-isPinned: ${note.isPinned ? 'true' : 'false'}
-tags: [${(note.tags || []).map(tag => `"${tag}"`).join(', ')}]
-fontSize: ${note.fontSize || 18}
-fontFamily: "${note.fontFamily || 'Aeonik'}"
-folder: ${note.folder ? `"${note.folder}"` : 'null'}
-folderName: ${note.folderName ? `"${note.folderName.replace(/"/g, '\\"')}"` : 'null'}
----
-
-`;
+  const metadata = {
+    id: note.id,
+    title: note.title || 'New Note',
+    createdAt: new Date(note.createdAt).toISOString(),
+    updatedAt: new Date(note.updatedAt).toISOString(),
+    isPinned: !!note.isPinned,
+    tags: note.tags || [],
+    fontSize: note.fontSize || 18,
+    fontFamily: note.fontFamily || 'Aeonik',
+    folder: note.folder || null,
+    folderName: note.folderName || null,
+    contentFormat: note.contentFormat || 'markdown'
+  };
+  return '---\n' + Object.entries(metadata).map(([key, value]) => `${key}: ${JSON.stringify(value)}`).join('\n') + '\n---\n\n';
 }
 
 function parseFrontmatter(content) {
-  const frontmatterRegex = /^---\n([\s\S]*?)\n---\n\n([\s\S]*)$/;
-  const match = content.match(frontmatterRegex);
-  
-  if (!match) {
-    return {
-      metadata: {},
-      content: content
-    };
-  }
-  
-  const frontmatterLines = match[1].split('\n');
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n(?:\r?\n)?([\s\S]*)$/);
+  if (!match) return { metadata: {}, content };
   const metadata = {};
-  
-  frontmatterLines.forEach(line => {
-    const colonIndex = line.indexOf(':');
-    if (colonIndex > -1) {
-      const key = line.substring(0, colonIndex).trim();
-      let value = line.substring(colonIndex + 1).trim();
-      
-      if (key === 'tags') {
-        value = value.replace(/^\[|\]$/g, '').split(',').map(tag => tag.trim().replace(/^"|"$/g, ''));
-      } else if (key === 'fontSize') {
-        value = parseInt(value) || 18;
-      } else if (key === 'isPinned') {
-        value = value === 'true';
-      } else if (key === 'fontFamily') {
-        if (value.startsWith('"') && value.endsWith('"')) {
-          value = value.slice(1, -1).replace(/\\"/g, '"');
-        }
-      } else if ((key === 'folder' || key === 'folderName') && value === 'null') {
-        value = null;
-      } else if (value.startsWith('"') && value.endsWith('"')) {
-        value = value.slice(1, -1).replace(/\\"/g, '"');
-      }
-      
-      metadata[key] = value;
-    }
-  });
-  
-  if (!metadata.fontSize) metadata.fontSize = 18;
-  if (!metadata.fontFamily) metadata.fontFamily = 'Aeonik';
+  for (const line of match[1].split(/\r?\n/)) {
+    const colon = line.indexOf(':');
+    if (colon < 0) continue;
+    const key = line.slice(0, colon).trim();
+    const value = line.slice(colon + 1).trim();
+    try { metadata[key] = JSON.parse(value); }
+    catch { metadata[key] = value; }
+  }
+  metadata.id = metadata.id == null ? undefined : String(metadata.id);
   metadata.isPinned = metadata.isPinned === true;
-  
-  return {
-    metadata,
-    content: match[2]
-  };
+  return { metadata, content: match[2] };
 }
 
 // ===== PLATFORM DETECTION =====
@@ -187,10 +142,12 @@ function getPlatformModKey() {
 
 // ===== EXPORTS =====
 const exportsMap = {
+  sanitizeNoteHtml,
   sanitizeFilename,
   generateNoteFilename,
   formatDateTime,
   convertHtmlToMarkdown,
+  convertHtmlToText,
   convertMarkdownToHtml,
   createFrontmatter,
   parseFrontmatter,

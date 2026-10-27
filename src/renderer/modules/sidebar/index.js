@@ -2,7 +2,7 @@
 // Handles sidebar open/close and note list rendering
 
 import { currentNote, allNotes, allFolders, currentFolder } from '../../state.js';
-import { escapeHtml } from '../../utils/dom.js';
+import { escapeHtml, getPlainText } from '../../utils/dom.js';
 import { getDisplayTextForNote, categorizeNotesByTime } from '../../utils/time.js';
 
 // DOM References
@@ -226,64 +226,8 @@ function createNoteListItem(note, loadNoteCallback, deleteNoteCallback, showMove
 
 // Extract title and body from content using DOM-based parsing
 function extractTitleAndBodyFromContent(content) {
-    if (!content) {
-        return { title: 'New Note', bodyPreview: '' };
-    }
-
-    let title = '';
-    let bodyPreview = '';
-    
-    if (String(content) === content && content.includes('<')) {
-        // Create a temporary container to parse the HTML
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = content;
-        
-        const lines = [];
-        
-        for (const node of tempDiv.childNodes) {
-            if (node.nodeType === Node.TEXT_NODE) {
-                const text = node.textContent.trim();
-                if (text) {
-                    lines.push(text);
-                }
-            } else if (node.nodeType === Node.ELEMENT_NODE) {
-                const tag = node.tagName;
-                if (tag === 'BR') {
-                    lines.push('');
-                } else {
-                    const text = node.textContent.trim();
-                    lines.push(text);
-                }
-            }
-        }
-        
-        const nonEmptyLines = lines.filter(line => line.trim());
-        title = nonEmptyLines.length > 0 ? nonEmptyLines[0].trim() : 'New Note';
-        
-        if (nonEmptyLines.length > 1) {
-            bodyPreview = nonEmptyLines[1].trim();
-            if (bodyPreview.length > 50) {
-                bodyPreview = bodyPreview.substring(0, 47) + '...';
-            }
-        }
-    } else {
-        const lines = content.split('\n');
-        const nonEmptyLines = lines.filter(line => line.trim());
-        title = nonEmptyLines.length > 0 ? nonEmptyLines[0].trim() : 'New Note';
-        
-        if (nonEmptyLines.length > 1) {
-            bodyPreview = nonEmptyLines[1].trim();
-            if (bodyPreview.length > 50) {
-                bodyPreview = bodyPreview.substring(0, 47) + '...';
-            }
-        }
-    }
-
-    // Strip HTML markup from extracted title and bodyPreview
-    title = title.replace(/<[^>]*>/g, '').trim();
-    bodyPreview = bodyPreview.replace(/<[^>]*>/g, '').trim();
-
-    return { title: title || 'New Note', bodyPreview };
+    const lines = getPlainText(content).split('\n').map(line => line.trim()).filter(Boolean);
+    return { title: lines[0] || 'New Note', bodyPreview: (lines[1] || '').slice(0, 50) };
 }
 
 // Update a specific note's title in the sidebar

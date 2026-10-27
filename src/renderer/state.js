@@ -16,13 +16,6 @@ export let currentFolder = 'all';
 // Explicit dirty flag for change tracking
 export let isNoteDirty = false;
 
-// List mode flags
-export let isDashListMode = false;
-export let isNumberedListMode = false;
-export let isCircularChecklistMode = false;
-export let isQuoteListMode = false;
-export let currentListNumber = 1;
-
 // Current active text style mode (title, heading, body)
 export let activeTextStyle = 'body';
 
@@ -58,41 +51,12 @@ export function setIsNoteDirty(dirty) {
     isNoteDirty = dirty;
 }
 
-export function setIsDashListMode(mode) {
-    isDashListMode = mode;
-}
-
-export function setIsNumberedListMode(mode) {
-    isNumberedListMode = mode;
-}
-
-export function setIsCircularChecklistMode(mode) {
-    isCircularChecklistMode = mode;
-}
-
-export function setIsQuoteListMode(mode) {
-    isQuoteListMode = mode;
-}
-
-export function setCurrentListNumber(num) {
-    currentListNumber = num;
-}
-
 export function setActiveTextStyle(style) {
     activeTextStyle = style;
 }
 
 export function setSettings(newSettings) {
     settings = { ...settings, ...newSettings };
-}
-
-// Reset all list modes
-export function resetListModes() {
-    isDashListMode = false;
-    isNumberedListMode = false;
-    isCircularChecklistMode = false;
-    isQuoteListMode = false;
-    currentListNumber = 1;
 }
 
 // Update a specific note in the allNotes array and optionally re-sort
@@ -123,6 +87,7 @@ export function sortNotesByUpdatedAt() {
 // Add a note to the beginning of allNotes
 export function addNoteToCache(note) {
     allNotes.unshift(note);
+    sortNotesByUpdatedAt();
 }
 
 // Remove a note from allNotes

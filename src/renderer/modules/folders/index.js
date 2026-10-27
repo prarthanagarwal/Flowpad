@@ -9,13 +9,14 @@ export async function createFolder(name) {
     if (!name || !name.trim()) return null;
     
     const folder = {
-        id: Date.now().toString(),
+        id: crypto.randomUUID(),
         name: name.trim(),
         createdAt: new Date().toISOString()
     };
     
     try {
-        await window.electronAPI.saveFolder(folder);
+        const result = await window.electronAPI.saveFolder(folder);
+        if (!result.success) throw new Error(result.error);
         state.allFolders.push(folder);
         return folder;
     } catch (error) {
@@ -30,10 +31,16 @@ export async function renameFolder(folderId, newName) {
     const folder = state.allFolders.find(f => f.id === folderId);
     if (!folder) return null;
     
-    folder.name = newName.trim();
+    const updated = { ...folder, name: newName.trim() };
     
     try {
-        await window.electronAPI.saveFolder(folder);
+        const result = await window.electronAPI.saveFolder(updated);
+        if (!result.success) throw new Error(result.error);
+        folder.name = updated.name;
+        for (const note of state.allNotes) {
+            if (note.folder === folderId) note.folderName = folder.name;
+        }
+        if (state.currentNote?.folder === folderId) state.currentNote.folderName = folder.name;
         return folder;
     } catch (error) {
         console.error('Error renaming folder:', error);
@@ -46,7 +53,12 @@ export async function deleteFolder(folderId) {
     if (!folder) return false;
     
     try {
-        await window.electronAPI.deleteFolder(folderId);
+        const result = await window.electronAPI.deleteFolder(folderId);
+        if (!result.success) throw new Error(result.error);
+        if (state.currentNote?.folder === folderId) {
+            state.currentNote.folder = null;
+            state.currentNote.folderName = null;
+        }
         
         // Remove from state
         const index = state.allFolders.findIndex(f => f.id === folderId);
@@ -75,21 +87,15 @@ export async function deleteFolder(folderId) {
 }
 
 export async function moveNoteToFolder(note, folderId) {
-    note.folder = folderId;
-    
-    // Find folder name if moving to a folder
-    if (folderId) {
-        const folder = state.allFolders.find(f => f.id === folderId);
-        note.folderName = folder ? folder.name : null;
-    } else {
-        note.folderName = null;
+    const source = state.currentNote?.id === note.id ? state.currentNote : note;
+    const folderName = state.allFolders.find(folder => folder.id === folderId)?.name || null;
+    const result = await window.electronAPI.saveNote({ ...source, folder: folderId, folderName });
+    if (!result.success) throw new Error(result.error);
+    state.updateNoteInCache(note.id, { folder: folderId, folderName });
+    if (state.currentNote?.id === note.id) {
+        state.currentNote.folder = folderId;
+        state.currentNote.folderName = folderName;
     }
-    
-    // Save the note with new folder
-    await window.electronAPI.saveNote(note);
-    
-    // Update cache - pass note ID and the updates
-    state.updateNoteInCache(note.id, { folder: note.folder, folderName: note.folderName });
 }
 
 // ===== FOLDER TABS UI =====
@@ -148,6 +154,23 @@ function setupFolderTabListeners() {
             }
         });
         
+        tab.addEventListener('dragover', e => {
+            if (!e.dataTransfer.types.includes('text/plain')) return;
+            e.preventDefault();
+            tab.classList.add('drag-over');
+        });
+        tab.addEventListener('dragleave', () => tab.classList.remove('drag-over'));
+        tab.addEventListener('drop', async e => {
+            e.preventDefault();
+            tab.classList.remove('drag-over');
+            const note = state.allNotes.find(item => item.id === e.dataTransfer.getData('text/plain'));
+            if (!note) return;
+            try {
+                await moveNoteToFolder(note, tab.dataset.folder === 'all' ? null : tab.dataset.folder);
+                onFolderChange?.();
+            } catch (error) { console.error('Could not move note:', error); }
+        });
+
         // Right click for context menu (except "All" tab)
         tab.addEventListener('contextmenu', (e) => {
             if (onFolderContextMenu) {

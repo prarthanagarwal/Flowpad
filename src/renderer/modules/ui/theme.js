@@ -8,7 +8,7 @@ export function toggleTheme() {
     const newTheme = settings.theme === 'dark' ? 'light' : 'dark';
     setSettings({ theme: newTheme });
     
-    document.body.className = newTheme === 'light' ? 'light-mode' : '';
+    document.body.classList.toggle('light-mode', newTheme === 'light');
     updateThemeButton();
     
     // Update title bar colors
@@ -39,7 +39,7 @@ export function updateThemeButton() {
 
 // Apply theme from settings
 export function applyTheme() {
-    document.body.className = settings.theme === 'light' ? 'light-mode' : '';
+    document.body.classList.toggle('light-mode', settings.theme === 'light');
     updateThemeButton();
     
     // Update title bar theme on startup

@@ -12,39 +12,9 @@ const textStyleConfigs = {
 
 // Execute formatting command with list marker protection
 export function executeCommand(command) {
-    const selection = window.getSelection();
-    if (selection.rangeCount > 0 && !selection.isCollapsed) {
-        const range = selection.getRangeAt(0);
-        const startNode = range.startContainer;
-        
-        // Check if selection starts with a list marker
-        if (startNode.nodeType === Node.TEXT_NODE) {
-            const text = startNode.textContent;
-            const startOffset = range.startOffset;
-            
-            if (startOffset === 0) {
-                let markerLength = 0;
-                
-                if (text.match(/^[•◯⬤-]\s/)) {
-                    markerLength = 2;
-                } else {
-                    const numMatch = text.match(/^(\d+)\.\s/);
-                    if (numMatch) {
-                        markerLength = numMatch[0].length;
-                    }
-                }
-                
-                if (markerLength > 0 && markerLength < text.length) {
-                    range.setStart(startNode, markerLength);
-                    selection.removeAllRanges();
-                    selection.addRange(range);
-                }
-            }
-        }
-    }
-    
     document.execCommand(command, false, null);
     document.getElementById('editor').focus();
+    document.getElementById('editor').dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 // Update format button active states
@@ -84,6 +54,7 @@ export function applyTextStyle(style) {
     updateTextStyleUI(targetStyle);
 
     editor.focus();
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 // Update text style UI based on current selection
@@ -136,23 +107,21 @@ export function resetTextStyleToBody() {
 
 // Handle formatting reset on Enter
 export function handleFormattingReset(e) {
-    if (e.key === 'Enter' && !e.defaultPrevented) {
-        setTimeout(() => {
-            document.execCommand('removeFormat', false, null);
-
-            const commands = ['bold', 'italic', 'underline', 'strikethrough'];
-            commands.forEach(command => {
-                if (document.queryCommandState(command)) {
-                    document.execCommand(command, false, null);
-                }
-            });
-
-            resetBlockStyleAfterEnter();
-            setActiveTextStyle('body');
-            updateTextStyleUI('body');
-            updateFormatButtonStates();
-        }, 10);
-    }
+    if (e.key !== 'Enter' || e.shiftKey || e.isComposing || e.defaultPrevented) return;
+    const selection = window.getSelection();
+    const node = selection.anchorNode;
+    const element = node?.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+    const heading = element?.closest('h1,h2');
+    if (!heading) return;
+    const tail = selection.getRangeAt(0).cloneRange();
+    tail.selectNodeContents(heading);
+    tail.setStart(selection.anchorNode, selection.anchorOffset);
+    if (tail.toString()) return;
+    e.preventDefault();
+    document.execCommand('insertParagraph');
+    document.execCommand('formatBlock', false, 'div');
+    updateTextStyleUI('body');
+    document.getElementById('editor').dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 // Initialize formatting event listeners

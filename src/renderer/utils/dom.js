@@ -11,12 +11,7 @@ export function escapeHtml(text) {
 // Normalize HTML for comparison (handles browser rendering differences)
 export function normalizeHtmlForComparison(html) {
     if (!html) return '';
-    return html
-        .replace(/\s+/g, ' ')           // Normalize whitespace
-        .replace(/>\s+</g, '><')        // Remove whitespace between tags
-        .replace(/\s*\/>/g, '/>')       // Normalize self-closing tags
-        .replace(/&nbsp;/g, '\u00A0')   // Normalize non-breaking spaces
-        .trim();
+    return html.replace(/&nbsp;/g, '\u00A0');
 }
 
 // Focus editor and optionally position cursor at end
@@ -78,3 +73,12 @@ export function replaceCurrentLineStart(oldStart, newStart) {
     }
 }
 
+
+// Block boundaries must become text boundaries in titles, previews, and search.
+export function getPlainText(html) {
+    const container = document.createElement('div');
+    container.innerHTML = html || '';
+    container.querySelectorAll('br').forEach(node => node.replaceWith('\n'));
+    container.querySelectorAll('div,p,h1,h2,h3,li,blockquote').forEach(node => node.append('\n'));
+    return container.textContent;
+}

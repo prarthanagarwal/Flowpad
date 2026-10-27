@@ -1,7 +1,9 @@
 // ===== CONTEXT MENU MANAGEMENT =====
 // Handles all context menus: editor, note, and folder
 
+import { insertPlainText } from '../editor/index.js';
 import { applyTextStyle } from '../editor/formatting.js';
+import { escapeHtml } from '../../utils/dom.js';
 import * as state from '../../state.js';
 import { moveNoteToFolder, renameFolder, deleteFolder, renderFolderTabs } from '../folders/index.js';
 
@@ -135,7 +137,7 @@ export async function handleCut(editor) {
             const selectedText = selection.toString();
             if (selectedText) {
                 await navigator.clipboard.writeText(selectedText);
-                selection.deleteFromDocument();
+                document.execCommand('delete');
                 editor.dispatchEvent(new Event('input', { bubbles: true }));
                 console.log('Text cut successfully');
             }
@@ -152,50 +154,9 @@ export async function handleCut(editor) {
     }
 }
 
-export async function handleContextMenuPaste(editor) {
-    try {
-        const clipboardText = await navigator.clipboard.readText();
-        if (clipboardText) {
-            const selection = window.getSelection();
-
-            let text = clipboardText
-                .replace(/\r\n/g, '\n')
-                .replace(/\r/g, '\n')
-                .replace(/[\u200B-\u200D\uFEFF]/g, '')
-                .replace(/\u00A0/g, ' ');
-
-            if (selection.rangeCount > 0) {
-                const range = selection.getRangeAt(0);
-                range.deleteContents();
-
-                const lines = text.split('\n');
-                const fragment = document.createDocumentFragment();
-
-                lines.forEach((line, index) => {
-                    if (index > 0) {
-                        fragment.appendChild(document.createElement('br'));
-                    }
-                    fragment.appendChild(document.createTextNode(line));
-                });
-
-                range.insertNode(fragment);
-                selection.collapseToEnd();
-            } else {
-                const lines = text.split('\n');
-                lines.forEach((line, index) => {
-                    if (index > 0) {
-                        editor.appendChild(document.createElement('br'));
-                    }
-                    editor.appendChild(document.createTextNode(line));
-                });
-            }
-
-            editor.dispatchEvent(new Event('input', { bubbles: true }));
-            editor.focus();
-        }
-    } catch (err) {
-        console.error('Modern paste failed:', err);
-    }
+export async function handleContextMenuPaste() {
+    try { insertPlainText(await navigator.clipboard.readText()); }
+    catch (error) { console.error('Paste failed:', error); }
 }
 
 export function handleSelectAll(editor) {
@@ -501,9 +462,13 @@ async function handleDeleteFolder() {
 function showDeleteConfirmation(title, message, onConfirm) {
     const isLightMode = document.body.classList.contains('light-mode');
     
+    const previousFocus = document.activeElement;
     // Create overlay
     const overlay = document.createElement('div');
     overlay.className = 'delete-confirm-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', title);
     overlay.style.cssText = `
         position: fixed;
         top: 0;
@@ -531,8 +496,8 @@ function showDeleteConfirmation(title, message, onConfirm) {
     `;
     
     modal.innerHTML = `
-        <div style="font-size: 14px; font-weight: 500; color: ${isLightMode ? '#2d2d2d' : '#fff'}; margin-bottom: 8px;">${title}</div>
-        <div style="font-size: 12px; color: ${isLightMode ? '#666' : '#888'}; margin-bottom: 20px;">${message}</div>
+        <div style="font-size: 14px; font-weight: 500; color: ${isLightMode ? '#2d2d2d' : '#fff'}; margin-bottom: 8px;">${escapeHtml(title)}</div>
+        <div style="font-size: 12px; color: ${isLightMode ? '#666' : '#888'}; margin-bottom: 20px;">${escapeHtml(message)}</div>
         <div style="display: flex; gap: 10px; justify-content: center;">
             <button class="confirm-cancel-btn" style="
                 padding: 8px 16px;
@@ -564,6 +529,7 @@ function showDeleteConfirmation(title, message, onConfirm) {
     // Handle cancel
     const closeModal = () => {
         overlay.remove();
+        previousFocus?.focus();
     };
     
     modal.querySelector('.confirm-cancel-btn').addEventListener('click', closeModal);
@@ -579,8 +545,13 @@ function showDeleteConfirmation(title, message, onConfirm) {
     
     // Handle keyboard
     overlay.addEventListener('keydown', (e) => {
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            const buttons = [...modal.querySelectorAll('button')];
+            buttons[document.activeElement === buttons[0] ? 1 : 0].focus();
+        }
         if (e.key === 'Escape') closeModal();
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' && e.target === overlay) {
             closeModal();
             onConfirm();
         }

@@ -278,35 +278,6 @@ body.light-mode .format-section-divider {
     background-color: #d0d0d0;
 }
 
-body.light-mode .todo-checkbox {
-    border-color: #999;
-}
-
-body.light-mode .todo-checkbox:hover {
-    border-color: #007acc;
-}
-
-body.light-mode .todo-checkbox.checked {
-    background-color: #007acc;
-    border-color: #007acc;
-}
-
-body.light-mode .todo-text.completed {
-    color: #666;
-}
-
-body.light-mode .circular-checkbox.unchecked::before {
-    color: #999;
-}
-
-body.light-mode .circular-checkbox.checked::before {
-    color: #007acc;
-}
-
-body.light-mode .checklist-text.completed {
-    color: #999;
-}
-
 body.light-mode .editor .list-marker {
     color: #666;
 }
@@ -1058,10 +1029,6 @@ body.light-mode .note-context-menu .context-menu-separator {
     word-wrap: break-word;
 }
 
-.editor.hovering-checkbox {
-    cursor: pointer;
-}
-
 .editor-placeholder {
     position: absolute;
     top: 50%;
@@ -1400,106 +1367,6 @@ body.light-mode .note-context-menu .context-menu-separator {
     color: #fff;
 }
 
-/* Todo styles */
-.todo-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin: 0 2px;
-}
-
-.todo-checkbox {
-    width: 14px;
-    height: 14px;
-    border: 1px solid #666;
-    border-radius: 2px;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background-color: transparent;
-    transition: all 0.2s;
-    flex-shrink: 0;
-}
-
-.todo-checkbox:hover {
-    border-color: #0066cc;
-}
-
-.todo-checkbox.checked {
-    background-color: #0066cc;
-    border-color: #0066cc;
-}
-
-.todo-checkbox.checked::after {
-    content: '✓';
-    color: white;
-    font-size: 10px;
-    font-weight: bold;
-}
-
-.todo-text {
-    outline: none;
-    border: none;
-    background: transparent;
-    color: inherit;
-    padding: 0;
-    margin: 0;
-}
-
-.todo-text.completed {
-    text-decoration: line-through;
-    color: #888;
-}
-
-/* Circular Checklist Styles */
-.checklist-icon {
-    font-size: 16px;
-    font-weight: 400;
-    line-height: 1;
-}
-
-.circular-checklist-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    margin: 4px 0;
-    line-height: 1.6;
-}
-
-.circular-checkbox {
-    cursor: pointer;
-    font-size: 16px;
-    user-select: none;
-    flex-shrink: 0;
-    line-height: 1.6;
-    transition: transform 0.15s ease;
-}
-
-.circular-checkbox:hover {
-    transform: scale(1.1);
-}
-
-.circular-checkbox.unchecked::before {
-    content: '○';
-    color: #888;
-}
-
-.circular-checkbox.checked::before {
-    content: '●';
-    color: #0066cc;
-}
-
-.checklist-text {
-    flex: 1;
-    outline: none;
-}
-
-.checklist-text.completed {
-    text-decoration: line-through;
-    color: #666;
-}
-
 /* First Line Title Styles */
 .editor .title-line {
     font-size: 26px;
@@ -1776,74 +1643,19 @@ body.light-mode .note-pin-badge {
     color: #0066cc;
 }
 
-/* Interactive Checklist Styling */
-.checklist-line {
-    margin: 4px 0;
-    line-height: 1.5;
+
+#saveStatus { font-size: 11px; color: #888; }
+.editor ul, .editor ol { margin: 0; }
+.editor li { margin: 0; }
+
+/* Preserve the marker the writer typed, including through nested list levels. */
+.editor [data-marker="dash"] {
+    --list-marker: "-  ";
+}
+.editor [data-marker="bullet"] {
+    --list-marker: "•  ";
 }
 
-.checklist-item {
-    display: inline-block;
-    cursor: pointer;
-    user-select: text;
+.editor ul > li::marker {
+    content: var(--list-marker, normal);
 }
-
-.checkbox-circle {
-    display: inline-block;
-    width: 14px;
-    height: 14px;
-    border: 2px solid #888;
-    border-radius: 50%;
-    margin-right: 8px;
-    vertical-align: -2px;
-    flex-shrink: 0;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    cursor: pointer;
-}
-
-.checkbox-circle:hover {
-    border-color: #007acc;
-    transform: scale(1.1);
-}
-
-.checkbox-circle.checked {
-    background-color: #007acc;
-    border-color: #007acc;
-    box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.2);
-}
-
-body.light-mode .checkbox-circle {
-    border-color: #777;
-}
-
-body.light-mode .checkbox-circle:hover {
-    border-color: #0066cc;
-}
-
-body.light-mode .checkbox-circle.checked {
-    background-color: #0066cc;
-    border-color: #0066cc;
-}
-
-s.completed,
-.checklist-item[data-checked="true"],
-.checklist-item[data-checked="true"] *,
-.checklist-item[data-checked="true"] s,
-.checklist-item[data-checked="true"] span {
-    color: #777;
-    text-decoration: line-through !important;
-    opacity: 0.75;
-}
-
-.checklist-item[data-checked="true"] .checkbox-circle {
-    text-decoration: none !important;
-}
-
-body.light-mode s.completed,
-body.light-mode .checklist-item[data-checked="true"],
-body.light-mode .checklist-item[data-checked="true"] *,
-body.light-mode .checklist-item[data-checked="true"] s,
-body.light-mode .checklist-item[data-checked="true"] span {
-    color: #888;
-}
-
