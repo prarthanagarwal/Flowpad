@@ -47,7 +47,15 @@ const createLatestWindowsManifest = (artifactPath) => {
 
 const packagerConfig = {
   asar: true,
-  ignore: [/^\/tests(?:\/|$)/, /^\/test-results(?:\/|$)/, /^\/playwright-report(?:\/|$)/, /^\/docs(?:\/|$)/],
+  ignore: [
+    /^\/tests(?:\/|$)/,
+    /^\/test-results(?:\/|$)/,
+    /^\/playwright-report(?:\/|$)/,
+    /^\/docs(?:\/|$)/,
+    /^\/\.env(?:\.|$)/,
+    /^\/certificates(?:\/|$)/,
+    /^\/scripts(?:\/|$)/,
+  ],
   // App metadata
   name: 'flowpad',
   productName: 'flowpad',
@@ -112,6 +120,9 @@ module.exports = {
     },
     {
       name: '@electron-forge/maker-dmg',
+      config: {
+        title: `flowpad ${pkg.version}`,
+      },
       platforms: ['darwin'],
     },
     {

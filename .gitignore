@@ -7,7 +7,8 @@ yarn-error.log*
 #Markdown files
 *.md
 docs/
-scripts/
+scripts/*
+!scripts/build-and-notarize.sh
 
 
 # Runtime data
