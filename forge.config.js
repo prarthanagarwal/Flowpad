@@ -47,6 +47,7 @@ const createLatestWindowsManifest = (artifactPath) => {
 
 const packagerConfig = {
   asar: true,
+  ignore: [/^\/tests(?:\/|$)/, /^\/test-results(?:\/|$)/, /^\/playwright-report(?:\/|$)/, /^\/docs(?:\/|$)/],
   // App metadata
   name: 'flowpad',
   productName: 'flowpad',
@@ -73,7 +74,9 @@ const packagerConfig = {
   junk: true,
 };
 
-if (process.platform === 'darwin' || process.env.BUILD_MAC === 'true') {
+if (process.env.FLOWPAD_ELECTRON_ZIP_DIR) packagerConfig.electronZipDir = process.env.FLOWPAD_ELECTRON_ZIP_DIR;
+
+if (!process.env.FLOWPAD_SKIP_SIGNING && (process.platform === 'darwin' || process.env.BUILD_MAC === 'true')) {
   packagerConfig.darwinDarkModeSupport = true;
   packagerConfig.osxSign = {
     identity: process.env.CSC_NAME || `Developer ID Application: Prarthan Agarwal (${process.env.APPLE_TEAM_ID || 'NYTQ72PV9X'})`,

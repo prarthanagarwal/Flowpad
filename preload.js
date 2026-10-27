@@ -31,15 +31,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   minimizeWindow: () => ipcRenderer.invoke('minimize-window'),
   
   // Menu event listeners
-  onNewNote: (callback) => ipcRenderer.on('new-note', callback),
-  onSaveNote: (callback) => ipcRenderer.on('save-note', callback),
-  onToggleHistory: (callback) => ipcRenderer.on('toggle-history', callback),
-  onToggleFullscreen: (callback) => ipcRenderer.on('toggle-fullscreen', callback),
+  onNewNote: (callback) => ipcRenderer.on('new-note', () => callback()),
+  onSaveNote: (callback) => ipcRenderer.on('save-note', () => callback()),
+  onToggleHistory: (callback) => ipcRenderer.on('toggle-history', () => callback()),
+  onToggleFullscreen: (callback) => ipcRenderer.on('toggle-fullscreen', () => callback()),
   
   // File operations
   openNotesFolder: () => ipcRenderer.invoke('open-notes-folder'),
   openExternalLink: (url) => ipcRenderer.invoke('open-external-link', url),
   
-  // Remove listeners
-  removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel)
+  onBeforeClose: callback => ipcRenderer.on('before-close', () => callback()),
+  finishClose: saved => ipcRenderer.send('finish-close', saved)
 }); 

@@ -3,6 +3,8 @@
 
 const { app, BrowserWindow, Menu, shell, Tray } = require('electron');
 const path = require('path');
+const { pathToFileURL } = require('url');
+if (process.env.FLOWPAD_DATA_DIR) app.setPath('userData', path.join(process.env.FLOWPAD_DATA_DIR, 'profile'));
 const storage = require('./storage');
 const { initializeIpcHandlers } = require('./ipc-handlers');
 
@@ -131,12 +133,13 @@ Shortcut.Save
 // Handle Squirrel events on Windows
 if (process.platform === 'win32' && handleSquirrelEvent()) {
   // Squirrel event handled, exit early
-  return;
 }
 
 // ===== GLOBAL VARIABLES =====
 let mainWindow;
 let tray = null;
+let closeApproved = false;
+let quitting = false;
 
 // ===== AUTO-UPDATER CONFIGURATION =====
 // Using update-electron-app for simple, automatic updates
@@ -150,8 +153,15 @@ if (app.isPackaged) {
 }
 
 // ===== MULTIPLE INSTANCE SUPPORT =====
-// Removed single instance lock to allow multiple windows for snap layouts
-// Each instance will share the same storage but operate independently
+// One writer per profile prevents separate processes from overwriting each other's notes.
+if (!app.requestSingleInstanceLock()) app.quit();
+app.on('second-instance', () => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+  }
+});
 
 // ===== WINDOW CREATION =====
 function createWindow() {
@@ -169,6 +179,8 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: true,
+      webSecurity: true,
       preload: path.join(__dirname, '../../preload.js')
     },
     frame: false,
@@ -182,6 +194,20 @@ function createWindow() {
   if (windowBounds.isMaximized) {
     mainWindow.maximize();
   }
+
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (url !== pathToFileURL(path.join(__dirname, '../../index.html')).href) event.preventDefault();
+  });
+  mainWindow.webContents.session.setPermissionRequestHandler((contents, permission, callback) => {
+    const trusted = contents === mainWindow?.webContents && contents.getURL() === pathToFileURL(path.join(__dirname, '../../index.html')).href;
+    callback(trusted && ['clipboard-read', 'clipboard-sanitized-write', 'fullscreen'].includes(permission));
+  });
+  mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    callback({ responseHeaders: { ...details.responseHeaders,
+      'Content-Security-Policy': ["default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; object-src 'none'; base-uri 'none'"]
+    } });
+  });
 
   // Load the app
   mainWindow.loadFile(path.join(__dirname, '../../index.html'));
@@ -218,7 +244,7 @@ function createWindow() {
     
     // Debounce window state saving to avoid excessive writes
     saveWindowStateTimeout = setTimeout(() => {
-      const bounds = mainWindow.getBounds();
+      const bounds = mainWindow.getNormalBounds();
       const isMaximized = mainWindow.isMaximized();
       
       storage.saveWindowBounds({
@@ -243,14 +269,19 @@ function createWindow() {
   });
 
   // Save window state immediately before closing (no debounce)
-  mainWindow.on('close', () => {
+  mainWindow.on('close', event => {
+    if (!closeApproved) {
+      event.preventDefault();
+      mainWindow.webContents.send('before-close');
+      return;
+    }
     if (saveWindowStateTimeout) {
       clearTimeout(saveWindowStateTimeout);
     }
     
     // Save immediately on close
     if (!mainWindow.isDestroyed()) {
-      const bounds = mainWindow.getBounds();
+      const bounds = mainWindow.getNormalBounds();
       const isMaximized = mainWindow.isMaximized();
       
       storage.saveWindowBounds({
@@ -262,7 +293,6 @@ function createWindow() {
       });
     }
     
-    mainWindow = null;
   });
 }
 
@@ -448,6 +478,13 @@ app.whenReady().then(async () => {
 
   // Initialize IPC handlers
   initializeIpcHandlers(mainWindow);
+  require('electron').ipcMain.on('finish-close', async (event, saved) => {
+    if (event.sender !== mainWindow?.webContents || event.senderFrame !== event.sender.mainFrame || saved !== true) return;
+    await storage.flush();
+    closeApproved = true;
+    if (quitting) app.quit();
+    else mainWindow.close();
+  });
 
   // Create application menu
   createMenu();
@@ -469,9 +506,10 @@ app.on('window-all-closed', () => {
   app.quit();
 });
 
-app.on('before-quit', () => {
-  // Clean up any remaining processes
-  if (mainWindow) {
-    mainWindow.removeAllListeners('close');
+app.on('before-quit', event => {
+  if (mainWindow && !closeApproved) {
+    event.preventDefault();
+    quitting = true;
+    mainWindow.close();
   }
-}); 
+});

@@ -4,40 +4,52 @@
 const { ipcMain, dialog, shell } = require('electron');
 const fs = require('fs').promises;
 const storage = require('./storage');
-const { sanitizeFilename, convertHtmlToMarkdown, createFrontmatter } = require('../shared/utils');
+const { pathToFileURL } = require('url');
+const path = require('path');
+const appUrl = pathToFileURL(path.join(__dirname, '../../index.html')).href;
+
+function handle(channel, callback) {
+  ipcMain.handle(channel, (event, ...args) => {
+    if (event.senderFrame !== event.sender.mainFrame || event.senderFrame.url !== appUrl) {
+      throw new Error('Untrusted IPC sender');
+    }
+    return callback(event, ...args);
+  });
+}
+const { sanitizeFilename, convertHtmlToMarkdown, convertHtmlToText, createFrontmatter } = require('../shared/utils');
 
 // ===== NOTE OPERATIONS =====
 function setupNoteHandlers() {
   // Save note
-  ipcMain.handle('save-note', async (event, noteData) => {
+  handle('save-note', async (event, noteData) => {
     return await storage.saveNote(noteData);
   });
 
   // Load all notes
-  ipcMain.handle('load-notes', async () => {
+  handle('load-notes', async () => {
     return await storage.loadNotes();
   });
 
   // Delete note
-  ipcMain.handle('delete-note', async (event, noteId) => {
+  handle('delete-note', async (event, noteId) => {
     return await storage.deleteNote(noteId);
   });
 
   // Folder operations
-  ipcMain.handle('get-folders', async () => {
+  handle('get-folders', async () => {
     return await storage.getFolders();
   });
 
-  ipcMain.handle('save-folder', async (event, folderData) => {
+  handle('save-folder', async (event, folderData) => {
     return await storage.saveFolder(folderData);
   });
 
-  ipcMain.handle('delete-folder', async (event, folderId) => {
+  handle('delete-folder', async (event, folderId) => {
     return await storage.deleteFolder(folderId);
   });
 
   // Manual migration trigger
-  ipcMain.handle('trigger-migration', async () => {
+  handle('trigger-migration', async () => {
     try {
       await storage.migrateNotesToFiles();
       return { success: true, message: 'Migration completed' };
@@ -48,7 +60,7 @@ function setupNoteHandlers() {
   });
 
   // Export note
-  ipcMain.handle('export-note', async (event, note) => {
+  handle('export-note', async (event, note) => {
     try {
       const { filePath } = await dialog.showSaveDialog(null, {
         title: 'Export Note',
@@ -63,13 +75,13 @@ function setupNoteHandlers() {
       if (filePath) {
         let exportContent;
         
-        if (filePath.endsWith('.md')) {
+        if (filePath.toLowerCase().endsWith('.md')) {
           // Export as markdown with frontmatter
           const markdownContent = await convertHtmlToMarkdown(note.content);
-          exportContent = createFrontmatter(note) + markdownContent;
+          exportContent = createFrontmatter({ ...note, contentFormat: 'markdown' }) + markdownContent;
         } else {
           // Export as plain text
-          exportContent = await convertHtmlToMarkdown(note.content);
+          exportContent = convertHtmlToText(note.content);
         }
         
         await fs.writeFile(filePath, exportContent, 'utf8');
@@ -86,28 +98,28 @@ function setupNoteHandlers() {
 // ===== SETTINGS HANDLERS =====
 function setupSettingsHandlers() {
   // Get app settings
-  ipcMain.handle('get-app-settings', async () => {
+  handle('get-app-settings', async () => {
     return storage.getAppSettings();
   });
 
   // Save app settings
-  ipcMain.handle('save-app-settings', async (event, settings) => {
+  handle('save-app-settings', async (event, settings) => {
     return storage.saveAppSettings(settings);
   });
 
 
   // Get window bounds
-  ipcMain.handle('get-window-bounds', async () => {
+  handle('get-window-bounds', async () => {
     return storage.getWindowBounds();
   });
 
   // Save window bounds
-  ipcMain.handle('save-window-bounds', async (event, bounds) => {
+  handle('save-window-bounds', async (event, bounds) => {
     return storage.saveWindowBounds(bounds);
   });
 
   // Update title bar theme
-  ipcMain.handle('update-title-bar-theme', async (_event, _theme) => {
+  handle('update-title-bar-theme', async (_event, _theme) => {
     try {
       // This would be used if we had title bar overlay support
       // For now, just return success
@@ -121,7 +133,7 @@ function setupSettingsHandlers() {
 // ===== WINDOW CONTROL HANDLERS =====
 function setupWindowHandlers(mainWindow) {
   // Close app
-  ipcMain.handle('close-app', async () => {
+  handle('close-app', async () => {
     try {
       const { app } = require('electron');
       app.quit();
@@ -132,7 +144,7 @@ function setupWindowHandlers(mainWindow) {
   });
 
   // Minimize window
-  ipcMain.handle('minimize-window', async () => {
+  handle('minimize-window', async () => {
     try {
       if (mainWindow) {
         mainWindow.minimize();
@@ -150,10 +162,11 @@ function setupWindowHandlers(mainWindow) {
 // ===== FILE SYSTEM HANDLERS =====
 function setupFileSystemHandlers() {
   // Open notes folder
-  ipcMain.handle('open-notes-folder', async () => {
+  handle('open-notes-folder', async () => {
     try {
       await storage.ensureNotesDirectory();
-      await shell.openPath(storage.getNotesDirectory());
+      const error = await shell.openPath(storage.getNotesDirectory());
+      if (error) throw new Error(error);
       return { success: true };
     } catch (error) {
       console.error('Error opening notes folder:', error);
@@ -162,9 +175,11 @@ function setupFileSystemHandlers() {
   });
 
   // Open external link in system browser
-  ipcMain.handle('open-external-link', async (event, url) => {
+  handle('open-external-link', async (event, url) => {
     try {
-      await shell.openExternal(url);
+      const parsed = new URL(url);
+      if (!['https:', 'http:'].includes(parsed.protocol)) throw new Error('Unsupported link protocol');
+      await shell.openExternal(parsed.href);
       return { success: true };
     } catch (error) {
       console.error('Error opening external link:', error);

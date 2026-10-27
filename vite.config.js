@@ -12,8 +12,9 @@ export default defineConfig({
         vite: {
           build: {
             outDir: 'dist-electron/main',
+            commonjsOptions: { include: [/src\/main/, /src\/shared/, /node_modules/] },
             rollupOptions: {
-              external: ['electron', 'electron-store', 'update-electron-app', 'electron-squirrel-startup']
+              external: ['electron', 'electron-store', 'update-electron-app', 'electron-squirrel-startup', 'linkedom', 'marked', 'turndown']
             }
           }
         }
@@ -27,6 +28,7 @@ export default defineConfig({
         vite: {
           build: {
             outDir: 'dist-electron/preload',
+            commonjsOptions: { include: [/preload\.js/] },
             rollupOptions: {
               external: ['electron']
             }
