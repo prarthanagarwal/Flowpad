@@ -55,6 +55,41 @@ if [ ! -f "$CSC_LINK" ]; then
   exit 1
 fi
 
+SIGNING_IDENTITY="Developer ID Application: Prarthan Agarwal (${APPLE_TEAM_ID})"
+KEYCHAIN_DIR=$(mktemp -d "$HOME/Library/Keychains/flowpad-release.XXXXXX")
+KEYCHAIN_PATH="$KEYCHAIN_DIR/release.keychain-db"
+KEYCHAIN_PASSWORD=$(openssl rand -hex 32)
+MOUNT_DIR=""
+MOUNTED=false
+
+cleanup() {
+  STATUS=$?
+  if [ "$MOUNTED" = true ]; then
+    echo -e "${BLUE}Unmounting DMG volume...${NC}"
+    hdiutil detach "$MOUNT_DIR" -quiet || true
+  fi
+  security delete-keychain "$KEYCHAIN_PATH" >/dev/null 2>&1 || true
+  rm -rf "$KEYCHAIN_DIR"
+  return "$STATUS"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+security set-keychain-settings -lut 3600 "$KEYCHAIN_PATH"
+security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+security import "$CSC_LINK" -k "$KEYCHAIN_PATH" -P "$CSC_KEY_PASSWORD" \
+  -T /usr/bin/codesign -T /usr/bin/security
+security set-key-partition-list -S apple-tool:,apple:,codesign: -s \
+  -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" >/dev/null
+if ! security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep -F "$APPLE_TEAM_ID" >/dev/null; then
+  echo -e "${RED}Error: no valid Developer ID certificate was found in the signing keychain.${NC}"
+  exit 1
+fi
+export CSC_NAME="$SIGNING_IDENTITY"
+export FLOWPAD_SIGNING_KEYCHAIN="$KEYCHAIN_PATH"
+
 # Electron's release host can be very slow on some connections. @electron/get
 # supports ELECTRON_MIRROR for downloading the same versioned release archive.
 export ELECTRON_MIRROR="${ELECTRON_MIRROR:-https://npmmirror.com/mirrors/electron/}"
@@ -62,7 +97,6 @@ export ELECTRON_MIRROR="${ELECTRON_MIRROR:-https://npmmirror.com/mirrors/electro
 # 2. Extract version dynamically from package.json
 VERSION=$(node -p "require('./package.json').version")
 DMG_PATH="out/make/dmg/arm64/flowpad-${VERSION}-arm64.dmg"
-SIGNING_IDENTITY="${CSC_NAME:-Developer ID Application: Prarthan Agarwal (${APPLE_TEAM_ID})}"
 
 echo -e "Target Version : ${GREEN}${VERSION}${NC}"
 echo -e "Target DMG     : ${GREEN}${DMG_PATH}${NC}"
@@ -71,6 +105,7 @@ echo -e "Signing ID     : ${GREEN}${SIGNING_IDENTITY}${NC}\n"
 # 3. Build macOS package
 echo -e "${BLUE}Step 1: Building macOS app via Electron Forge...${NC}"
 npm run build:mac
+codesign --verify --deep --strict "out/flowpad-darwin-arm64/flowpad.app"
 
 if [ ! -f "$DMG_PATH" ]; then
   echo -e "${RED}Error: DMG file not found at ${DMG_PATH}${NC}"
@@ -81,6 +116,7 @@ echo -e "${GREEN}✓ Build completed successfully.${NC}\n"
 # 4. Sign DMG file
 echo -e "${BLUE}Step 2: Signing DMG file...${NC}"
 codesign --sign "$SIGNING_IDENTITY" \
+  --keychain "$KEYCHAIN_PATH" \
   --options runtime \
   --timestamp \
   "$DMG_PATH"
@@ -105,15 +141,6 @@ echo -e "${BLUE}Step 5: Verifying notarized DMG & App bundle...${NC}"
 
 # Mount this artifact at a private temporary path, independent of volume names.
 MOUNT_DIR=$(mktemp -d "${TMPDIR:-/tmp}/flowpad-verify.XXXXXX")
-MOUNTED=false
-cleanup() {
-  if [ "$MOUNTED" = true ]; then
-    echo -e "${BLUE}Unmounting DMG volume...${NC}"
-    hdiutil detach "$MOUNT_DIR" -quiet || return
-  fi
-  rmdir "$MOUNT_DIR" 2>/dev/null || true
-}
-trap cleanup EXIT
 
 hdiutil attach "$DMG_PATH" -readonly -nobrowse -noautoopen -mountpoint "$MOUNT_DIR" -quiet
 MOUNTED=true

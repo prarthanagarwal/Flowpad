@@ -88,6 +88,7 @@ if (!process.env.FLOWPAD_SKIP_SIGNING && (process.platform === 'darwin' || proce
   packagerConfig.darwinDarkModeSupport = true;
   packagerConfig.osxSign = {
     identity: process.env.CSC_NAME || `Developer ID Application: Prarthan Agarwal (${process.env.APPLE_TEAM_ID || 'NYTQ72PV9X'})`,
+    keychain: process.env.FLOWPAD_SIGNING_KEYCHAIN,
     hardenedRuntime: true,
     entitlements: path.resolve(__dirname, 'entitlements.plist'),
     'entitlements-inherit': path.resolve(__dirname, 'entitlements.inherit.plist'),
